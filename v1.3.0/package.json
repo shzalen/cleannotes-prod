@@ -37,6 +37,7 @@
     "@tiptap/suggestion": "^3.26.1",
     "@tiptap/vue-3": "^3.26.1",
     "dompurify": "^3.4.9",
+    "html2canvas-pro": "^2.2.1",
     "lunar-javascript": "^1.7.7",
     "marked": "^18.0.5",
     "markmap-common": "^0.18.9",

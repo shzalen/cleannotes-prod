@@ -28,6 +28,7 @@
 - **默认修改主项目**：所有改动一律针对 `D:\CleanNotepad\v1.3.0\`，无其他目标目录。
 - hex 颜色不允许出现在 `.vue` 文件的 `<style>` 区域，必须用 CSS 变量
 - 脚本中 `:style` 绑定的颜色需用 computed + isDark 响应式
+- **html2canvas-pro CSS 变量问题**：html2canvas 内部解析器无法处理 `var(--color-*)` 和 `color-mix()`，导出时需在 `onclone` 回调中用 `getComputedStyle` 预收集实际值并内联到克隆 DOM，同时注入 `:root` 解析后的 CSS 变量值
 - 存储层：hybridAdapter（离线优先 + Supabase 云端同步）
 - Supabase 表名前缀：`cleannote_`
 - 用户隔离：localStorage 键含 userId，Supabase 查询含 user_id 过滤

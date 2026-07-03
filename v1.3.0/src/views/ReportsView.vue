@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useWeeklyReportStore, getMonday, getSunday, getWeekLabel, getWeekNumber, getCurrentWeekMonday } from '@/stores/weeklyReport'
 import { toLocalDate } from '@/utils/time'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import ReportPoster from '@/components/ReportPoster.vue'
 
 const store = useWeeklyReportStore()
 
@@ -10,6 +11,7 @@ const selectedWeekStart = ref<string | null>(null)
 const deleteConfirmVisible = ref(false)
 const deleteTargetId = ref<string | null>(null)
 const deleteTargetLabel = ref('')
+const posterVisible = ref(false)
 
 // 周选择相关
 const pickerWeekStart = ref(getCurrentWeekMonday())
@@ -32,7 +34,7 @@ const hasReportForPickerWeek = computed(() => {
 })
 
 // 圆环进度计算
-const RING_RADIUS = 38
+const RING_RADIUS = 32
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
 const ringRate = computed(() => selectedReport.value?.summary.completionRate ?? 0)
@@ -115,210 +117,196 @@ function rateClass(rate: number): string {
   if (rate >= 50) return 'mid'
   return 'low'
 }
+
+// 报告列表项的日期范围
+function reportDateRange(weekStart: string): string {
+  const ws = weekStart
+  const we = getSunday(weekStart)
+  const [, sm, sd] = ws.split('-').map(Number)
+  const [, em, ed] = we.split('-').map(Number)
+  return `${sm}/${sd} - ${em}/${ed}`
+}
 </script>
 
 <template>
   <div class="reports-view">
-    <!-- Left Panel: Report List -->
+    <!-- Grid Pattern Overlay -->
+    <div class="grid-overlay"></div>
+
+    <!-- =========== Left Panel =========== -->
     <aside class="reports-sidebar">
+      <!-- Header -->
       <div class="sidebar-header">
-        <div class="header-top">
-          <h2 class="sidebar-title">周报</h2>
+        <h2 class="sidebar-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          周报
           <span class="report-count" v-if="store.sortedReports.length > 0">{{ store.sortedReports.length }}</span>
-        </div>
-        <p class="sidebar-subtitle">每周工作回顾与总结</p>
+        </h2>
+        <button
+          class="btn-generate"
+          :class="{ regenerating: hasReportForPickerWeek }"
+          @click="handleGenerate"
+          :title="hasReportForPickerWeek ? '重新生成本周' : '生成本周周报'"
+        >
+          <svg v-if="!hasReportForPickerWeek" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span>{{ hasReportForPickerWeek ? '重新生成' : '生成' }}</span>
+        </button>
       </div>
 
       <!-- Week Picker -->
       <div class="week-picker">
         <button class="picker-nav" @click="handleWeekChange(-1)" title="上一周">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
         <div class="picker-center">
+          <span class="picker-week-num">W{{ pickerWeekNum }}</span>
           <span class="picker-label">{{ pickerLabel }}</span>
           <span class="picker-range">{{ pickerDateRange }}</span>
         </div>
         <button class="picker-nav" @click="handleWeekChange(1)" :disabled="isCurrentWeek" title="下一周">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </button>
       </div>
 
-      <!-- Generate Button -->
-      <button
-        class="generate-btn"
-        :class="{ regenerating: hasReportForPickerWeek }"
-        @click="handleGenerate"
-      >
-        <svg v-if="!hasReportForPickerWeek" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-        <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-        </svg>
-        <span>{{ hasReportForPickerWeek ? '重新生成' : '生成本周周报' }}</span>
-      </button>
+      <!-- Decorative bar -->
+      <div class="header-bar"></div>
 
-      <!-- Report Cards -->
-      <div v-if="store.sortedReports.length === 0" class="sidebar-empty">
+      <!-- Report List -->
+      <div v-if="store.sortedReports.length === 0" class="list-empty">
         <div class="empty-icon">
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="8" y1="14" x2="16" y2="14"/>
+            <line x1="8" y1="18" x2="12" y2="18"/>
           </svg>
         </div>
-        <p class="empty-text">暂无周报记录</p>
-        <p class="empty-hint">选择上方周数，点击生成按钮</p>
+        <p class="empty-text">暂无周报数据</p>
+        <p class="empty-hint">选择周数后点击生成</p>
       </div>
 
       <div v-else class="reports-list">
         <div
           v-for="report in store.sortedReports"
           :key="report.id"
-          class="report-card"
+          class="report-item"
           :class="{ active: selectedWeekStart === report.weekStart }"
-          :style="{ '--card-accent-color': report.summary.completionRate >= 80 ? 'var(--color-success)' : report.summary.completionRate >= 50 ? 'var(--color-warning)' : 'var(--color-danger)' }"
           @click="selectReport(report.weekStart)"
         >
-          <div class="card-accent-bar"></div>
-          <div class="card-body">
-            <div class="card-top">
-              <div class="card-week-info">
-                <span class="card-week-num">W{{ getWeekNumber(report.weekStart) }}</span>
-                <span class="card-week-label">{{ getWeekLabel(report.weekStart) }}</span>
-              </div>
-              <button
-                class="card-delete"
-                title="删除"
-                @click.stop="handleDelete(report.id, getWeekLabel(report.weekStart))"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-              </button>
-            </div>
-
-            <!-- 完成率进度条 -->
-            <div class="card-progress">
-              <div class="progress-info">
-                <span class="progress-label">完成率</span>
-                <span class="progress-value" :class="rateClass(report.summary.completionRate)">{{ report.summary.completionRate }}%</span>
-              </div>
-              <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :class="rateClass(report.summary.completionRate)"
-                  :style="{ width: report.summary.completionRate + '%' }"
-                ></div>
-              </div>
-            </div>
-
-            <div class="card-stats">
-              <div class="stat-item">
-                <span class="stat-value">{{ report.summary.tasksCompleted }}</span>
-                <span class="stat-label">完成</span>
-              </div>
-              <div class="stat-divider"></div>
-              <div class="stat-item">
-                <span class="stat-value">{{ report.summary.tasksCreated }}</span>
-                <span class="stat-label">新增</span>
-              </div>
-              <div class="stat-divider"></div>
-              <div class="stat-item">
-                <span class="stat-value">{{ report.summary.totalXpGained }}</span>
-                <span class="stat-label">XP</span>
-              </div>
-            </div>
+          <div class="ri-main">
+            <span class="ri-week-num">W{{ getWeekNumber(report.weekStart) }}</span>
+            <span class="ri-label">{{ getWeekLabel(report.weekStart) }}</span>
+            <span class="ri-rate" :class="rateClass(report.summary.completionRate)">{{ report.summary.completionRate }}%</span>
+          </div>
+          <div class="ri-meta">
+            <span class="ri-stats">{{ report.summary.tasksCompleted }} done · {{ report.summary.tasksCreated }} new · {{ report.summary.totalXpGained }} XP</span>
+            <span class="ri-date">{{ reportDateRange(report.weekStart) }}</span>
+          </div>
+          <div class="ri-actions">
+            <button class="ri-btn ri-btn-del" @click.stop="handleDelete(report.id, getWeekLabel(report.weekStart))" title="删除">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- Right Panel: Report Detail -->
+    <!-- =========== Right Panel =========== -->
     <main class="reports-main">
-      <template v-if="selectedReport">
-        <div class="report-detail">
-          <!-- Report Hero -->
-          <div class="report-hero">
-            <div class="hero-decoration"></div>
-            <div class="hero-content">
-              <div class="hero-left">
-                <div class="hero-badge">WEEKLY REPORT</div>
-                <h1 class="hero-title">{{ getWeekLabel(selectedReport.weekStart) }}</h1>
-                <p class="hero-meta">
-                  <span class="meta-date">{{ selectedDateRange }}</span>
-                  <span class="meta-dot"></span>
-                  <span class="meta-time">生成于 {{ formatGeneratedAt(selectedReport.updatedAt || selectedReport.createdAt) }}</span>
-                </p>
-              </div>
-              <div class="hero-right">
-                <div class="completion-ring">
-                  <svg width="96" height="96" viewBox="0 0 96 96">
-                    <circle cx="48" cy="48" :r="RING_RADIUS" fill="none" stroke="var(--color-bg-4)" stroke-width="6"/>
-                    <circle
-                      cx="48" cy="48" :r="RING_RADIUS" fill="none"
-                      :stroke="ringColor"
-                      stroke-width="6"
-                      stroke-linecap="round"
-                      :stroke-dasharray="RING_CIRCUMFERENCE"
-                      :stroke-dashoffset="ringOffset"
-                      transform="rotate(-90 48 48)"
-                      style="transition: stroke-dashoffset 0.6s ease;"
-                    />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-value" :class="rateClass(ringRate)">{{ ringRate }}%</span>
-                    <span class="ring-label">完成率</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      <!-- Empty states -->
+      <div v-if="!selectedReport" class="detail-empty">
+        <div class="empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="empty-text">{{ store.sortedReports.length > 0 ? '选择左侧周报查看详情' : '选择周数并点击「生成」开始' }}</p>
+      </div>
 
-          <!-- Report Content (rendered HTML) -->
-          <div class="report-content" v-html="selectedReport.content"></div>
+      <!-- Active detail -->
+      <div v-else class="detail-active">
+        <!-- Header bar (like memo editor header) -->
+        <div class="detail-header">
+          <div class="dh-left">
+            <span class="dh-week-badge">W{{ getWeekNumber(selectedReport.weekStart) }}</span>
+            <h2 class="dh-title">{{ getWeekLabel(selectedReport.weekStart) }}</h2>
+            <span class="dh-range">{{ selectedDateRange }}</span>
+          </div>
+          <div class="dh-right">
+            <!-- Completion ring -->
+            <div class="dh-ring">
+              <svg width="68" height="68" viewBox="0 0 68 68">
+                <circle cx="34" cy="34" :r="RING_RADIUS" fill="none" stroke="var(--color-border)" stroke-width="4"/>
+                <circle
+                  cx="34" cy="34" :r="RING_RADIUS" fill="none"
+                  :stroke="ringColor"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  :stroke-dasharray="RING_CIRCUMFERENCE"
+                  :stroke-dashoffset="ringOffset"
+                  transform="rotate(-90 34 34)"
+                  class="ring-progress"
+                />
+              </svg>
+              <span class="dh-ring-val" :class="rateClass(ringRate)">{{ ringRate }}%</span>
+            </div>
+            <button class="dh-btn poster-btn" @click="posterVisible = true" title="海报模式">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+              </svg>
+              <span>海报</span>
+            </button>
+            <button class="dh-btn dh-btn-del" @click="handleDelete(selectedReport.id, getWeekLabel(selectedReport.weekStart))" title="删除此报告">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable content -->
+        <div class="detail-content">
+          <div class="content-inner" v-html="selectedReport.content"></div>
 
           <!-- Report Footer -->
-          <div class="report-footer">
+          <div class="detail-footer">
+            <div class="footer-line"></div>
             <div class="footer-brand">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
               </svg>
-              <span>清记 · 自动生成</span>
+              <span>清记 · Auto Report</span>
+              <span class="footer-sep">·</span>
+              <span class="footer-meta">生成于 {{ formatGeneratedAt(selectedReport.updatedAt || selectedReport.createdAt) }}</span>
             </div>
           </div>
         </div>
-      </template>
-
-      <template v-else-if="store.sortedReports.length > 0">
-        <div class="report-empty">
-          <div class="empty-icon">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-          </div>
-          <p>从左侧选择一份周报查看</p>
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="report-empty">
-          <div class="empty-icon">
-            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-          </div>
-          <p>选择周数并点击「生成周报」开始</p>
-        </div>
-      </template>
+      </div>
     </main>
 
     <!-- Delete Confirmation -->
@@ -331,62 +319,135 @@ function rateClass(rate: number): string {
       @confirm="confirmDelete"
       @cancel="deleteConfirmVisible = false"
     />
+
+    <!-- Poster Mode -->
+    <ReportPoster
+      v-if="posterVisible && selectedReport"
+      :report="selectedReport"
+      @close="posterVisible = false"
+    />
   </div>
 </template>
 
 <style scoped>
+/* =========================================================
+   REPORTS VIEW — Memo-style layout with tech aesthetic
+   ========================================================= */
+
+/* ---- Animations ---- */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Layout ---- */
 .reports-view {
   display: flex;
   height: 100%;
   overflow: hidden;
   background: var(--color-bg-1);
+  position: relative;
 }
 
-/* ---- Left Sidebar ---- */
+/* Subtle dot grid overlay */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(
+    circle,
+    var(--color-border-light) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 24px 24px;
+  opacity: 0.3;
+}
+
+/* =========== Left Sidebar (300px, memo-style) =========== */
 .reports-sidebar {
-  width: 320px;
+  width: 300px;
+  min-width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border-light);
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  overflow: hidden;
+  background: var(--color-bg-2);
+  z-index: 1;
 }
 
 .sidebar-header {
-  padding: 24px 20px 16px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.header-top {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+  flex-shrink: 0;
 }
 
 .sidebar-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--color-text-1);
   margin: 0;
-  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sidebar-title svg {
+  color: var(--color-text-3);
 }
 
 .report-count {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-3);
-  background: var(--color-bg-3);
-  padding: 2px 8px;
-  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 1px 6px;
+  border-radius: 6px;
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
 }
 
-.sidebar-subtitle {
-  font-size: 12px;
-  color: var(--color-text-4);
-  margin: 4px 0 0;
+/* Generate button — compact */
+.btn-generate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-success-light);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-generate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.btn-generate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.btn-generate.regenerating {
+  background: linear-gradient(135deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 60%, var(--color-danger)));
 }
 
 /* Week Picker */
@@ -394,34 +455,34 @@ function rateClass(rate: number): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 16px 20px;
+  gap: 6px;
+  padding: 8px 16px 10px;
   flex-shrink: 0;
 }
 
 .picker-nav {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   background: var(--color-surface);
-  color: var(--color-text-2);
+  color: var(--color-text-3);
   cursor: pointer;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .picker-nav:hover:not(:disabled) {
-  background: var(--color-bg-3);
-  color: var(--color-text-1);
-  border-color: var(--color-text-4);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .picker-nav:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
@@ -429,58 +490,50 @@ function rateClass(rate: number): string {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
 }
 
+.picker-week-num {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+
 .picker-label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text-1);
   user-select: none;
 }
 
 .picker-range {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-text-4);
   user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Generate Button */
-.generate-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin: 0 20px 16px;
-  padding: 10px 16px;
-  border: none;
-  background: var(--color-success);
-  color: #fff;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
+/* Decorative accent bar */
+.header-bar {
+  height: 2px;
+  margin: 0 16px 8px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-accent) 40%,
+    var(--color-success) 80%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  opacity: 0.4;
   flex-shrink: 0;
 }
 
-.generate-btn:hover {
-  background: var(--color-success-text);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-success) 30%, transparent);
-}
-
-.generate-btn.regenerating {
-  background: var(--color-warning);
-}
-
-.generate-btn.regenerating:hover {
-  background: var(--color-warning-text);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-warning) 30%, transparent);
-}
-
-/* Empty State */
-.sidebar-empty {
+/* Empty state */
+.list-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -490,494 +543,489 @@ function rateClass(rate: number): string {
   text-align: center;
 }
 
-.empty-icon {
+.list-empty .empty-icon {
   color: var(--color-text-4);
   margin-bottom: 12px;
-  opacity: 0.4;
+  opacity: 0.25;
 }
 
-.empty-text {
-  font-size: 14px;
+.list-empty .empty-text {
+  margin: 0 0 4px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-text-3);
-  margin: 0 0 4px;
 }
 
-.empty-hint {
-  font-size: 12px;
-  color: var(--color-text-4);
+.list-empty .empty-hint {
   margin: 0;
+  font-size: 11px;
+  color: var(--color-text-4);
 }
 
-/* Report Cards */
+/* Report list — memo-style items */
 .reports-list {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  padding: 0 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  overflow-y: auto;
+  padding: 0 8px 12px;
 }
 
 .reports-list::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
-
 .reports-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .reports-list::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
 }
-
 .reports-list::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-4);
 }
 
-.report-card {
-  display: flex;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+/* Report list item — compact like memo */
+.report-item {
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.18s;
-  overflow: hidden;
-  flex-shrink: 0;
-  min-height: 118px;
+  transition: background 0.12s;
+  position: relative;
 }
 
-.report-card:hover {
-  border-color: var(--color-text-4);
-  box-shadow: 0 2px 10px var(--color-shadow);
+.report-item:hover {
+  background: var(--color-bg-4);
 }
 
-.report-card.active {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-primary) 12%, transparent);
+.report-item.active {
+  background: var(--color-primary-light);
 }
 
-.card-accent-bar {
-  width: 3px;
-  flex-shrink: 0;
-  background: var(--card-accent-color, var(--color-primary));
+.report-item:hover .ri-actions {
+  opacity: 1;
 }
 
-.card-body {
-  flex: 1;
-  padding: 14px 16px;
-  min-width: 0;
-}
-
-.card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.card-week-info {
+.ri-main {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
 }
 
-.card-week-num {
-  font-size: 11px;
+.ri-week-num {
+  font-size: 10px;
   font-weight: 700;
-  color: var(--color-text-3);
-  background: var(--color-bg-3);
-  padding: 2px 6px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 1px 5px;
   border-radius: 4px;
   flex-shrink: 0;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 
-.card-week-label {
+.report-item.active .ri-week-num {
+  background: var(--color-surface);
+}
+
+.ri-label {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.card-delete {
-  border: none;
-  background: none;
-  color: var(--color-text-4);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 5px;
-  transition: all 0.15s;
-  display: flex;
-  opacity: 0;
-  flex-shrink: 0;
-}
-
-.report-card:hover .card-delete {
-  opacity: 1;
-}
-
-.card-delete:hover {
-  color: var(--color-danger);
-  background: var(--color-danger-light);
-}
-
-/* Progress Bar */
-.card-progress {
-  margin-bottom: 12px;
-}
-
-.progress-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 5px;
-}
-
-.progress-label {
-  font-size: 11px;
-  color: var(--color-text-4);
-}
-
-.progress-value {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.progress-value.high { color: var(--color-success-text); }
-.progress-value.mid { color: var(--color-warning-text); }
-.progress-value.low { color: var(--color-danger-text); }
-
-.progress-bar {
-  height: 4px;
-  background: var(--color-bg-4);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.4s ease;
-}
-
-.progress-fill.high { background: var(--color-success); }
-.progress-fill.mid { background: var(--color-warning); }
-.progress-fill.low { background: var(--color-danger); }
-
-/* Card Stats */
-.card-stats {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
   flex: 1;
 }
 
-.stat-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--color-border);
-}
-
-.stat-value {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text-1);
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 10px;
-  color: var(--color-text-4);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ---- Right Main ---- */
-.reports-main {
-  flex: 1;
-  overflow-y: auto;
-  min-width: 0;
-  background: var(--color-bg-1);
-}
-
-.report-detail {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 32px 48px 48px;
-}
-
-/* ---- Report Hero ---- */
-.report-hero {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  margin-bottom: 32px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 1px 4px var(--color-shadow);
-}
-
-.hero-decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg,
-    var(--color-primary),
-    var(--color-accent),
-    var(--color-success)
-  );
-}
-
-.hero-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 36px 40px;
-}
-
-.hero-left {
-  flex: 1;
-  min-width: 0;
-}
-
-.hero-badge {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+.report-item.active .ri-label {
   color: var(--color-primary);
-  background: var(--color-primary-light);
-  padding: 4px 10px;
-  border-radius: 4px;
-  display: inline-block;
-  margin-bottom: 12px;
 }
 
-.hero-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-text-1);
-  margin: 0 0 10px;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-}
-
-.hero-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  color: var(--color-text-3);
-}
-
-.meta-dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--color-text-4);
-  flex-shrink: 0;
-}
-
-/* Completion Ring */
-.hero-right {
-  flex-shrink: 0;
-}
-
-.completion-ring {
-  position: relative;
-  width: 96px;
-  height: 96px;
-}
-
-.ring-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-}
-
-.ring-value {
-  font-size: 20px;
+.ri-rate {
+  font-size: 12px;
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
-.ring-value.high { color: var(--color-success-text); }
-.ring-value.mid { color: var(--color-warning-text); }
-.ring-value.low { color: var(--color-danger-text); }
+.ri-rate.high { color: var(--color-success-text); }
+.ri-rate.mid { color: var(--color-warning-text); }
+.ri-rate.low { color: var(--color-danger-text); }
 
-.ring-label {
-  font-size: 10px;
-  color: var(--color-text-4);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Report Footer */
-.report-footer {
-  margin-top: 40px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border-light);
-}
-
-.footer-brand {
+.ri-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  color: var(--color-text-4);
+  margin-top: 3px;
+  padding-left: 2px;
 }
 
-/* Empty State (right) */
-.report-empty {
+.ri-stats {
+  font-size: 10px;
+  color: var(--color-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ri-date {
+  font-size: 10px;
+  color: var(--color-text-4);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.ri-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.ri-btn {
+  width: 24px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.ri-btn-del:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* =========== Right Panel (memo-style) =========== */
+.reports-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+  z-index: 1;
+  position: relative;
+}
+
+/* Empty state */
+.detail-empty {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  gap: 12px;
   color: var(--color-text-3);
-  font-size: 14px;
 }
 
-.report-empty .empty-icon {
-  margin-bottom: 16px;
+.detail-empty .empty-icon {
+  color: var(--color-text-4);
+  opacity: 0.3;
 }
 
-/* ---- Report Content (rendered HTML from store) ---- */
-.report-content {
+.detail-empty .empty-text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Active detail */
+.detail-active {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  animation: fadeIn 0.35s ease;
+}
+
+/* Header bar */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.dh-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dh-week-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 3px 8px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.dh-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dh-range {
+  font-size: 12px;
+  color: var(--color-text-4);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.dh-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Completion ring — compact */
+.dh-ring {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-progress {
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+.dh-ring-val {
+  position: absolute;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.dh-ring-val.high { color: var(--color-success-text); }
+.dh-ring-val.mid { color: var(--color-warning-text); }
+.dh-ring-val.low { color: var(--color-danger-text); }
+
+/* Header buttons */
+.dh-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  color: var(--color-text-3);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dh-btn:hover {
+  background: var(--color-bg-3);
+  border-color: var(--color-border);
+  color: var(--color-text-1);
+}
+
+.poster-btn:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.dh-btn-del:hover {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* Scrollable content */
+.detail-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 24px;
+}
+
+.detail-content::-webkit-scrollbar {
+  width: 5px;
+}
+.detail-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.detail-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.content-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 0;
   font-size: 14px;
   color: var(--color-text-2);
   line-height: 1.7;
 }
 
 /* Section wrapper */
-.report-content :deep(.report-section) {
-  margin-bottom: 36px;
+.content-inner :deep(.report-section) {
+  margin-bottom: 32px;
 }
 
-/* Section header with number */
-.report-content :deep(.section-header) {
+/* Section header */
+.content-inner :deep(.section-header) {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
-.report-content :deep(.section-num) {
-  font-size: 13px;
+.content-inner :deep(.section-num) {
+  font-size: 12px;
   font-weight: 800;
   color: var(--color-primary);
   letter-spacing: 0.02em;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+  background: var(--color-primary-light);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
-.report-content :deep(.section-title-text) {
+.content-inner :deep(.section-title-text) {
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text-1);
   flex-shrink: 0;
 }
 
-.report-content :deep(.section-line) {
+.content-inner :deep(.section-line) {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, var(--color-border), transparent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-primary) 30%, var(--color-border)) 0%,
+    transparent 100%
+  );
 }
 
 /* Stat Cards Grid */
-.report-content :deep(.stat-grid) {
+.content-inner :deep(.stat-grid) {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
-.report-content :deep(.stat-card) {
+.content-inner :deep(.stat-card) {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   border-radius: 12px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
-  transition: all 0.18s;
+  transition: all 0.25s;
   position: relative;
   overflow: hidden;
 }
 
-.report-content :deep(.stat-card::before) {
+.content-inner :deep(.stat-card::before) {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: var(--card-accent, var(--color-primary));
-  opacity: 0.8;
+  height: 2px;
+  background: linear-gradient(90deg, var(--card-accent, var(--color-primary)), transparent);
+  opacity: 0.6;
 }
 
-.report-content :deep(.stat-card:hover) {
-  border-color: var(--card-accent, var(--color-primary));
-  box-shadow: 0 4px 16px var(--color-shadow);
-  transform: translateY(-1px);
+.content-inner :deep(.stat-card::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1px solid var(--card-accent, var(--color-primary));
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
 }
 
-.report-content :deep(.sc-icon) {
+.content-inner :deep(.stat-card:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--color-shadow-md);
+  border-color: transparent;
+}
+
+.content-inner :deep(.stat-card:hover::after) {
+  opacity: 0.3;
+}
+
+.content-inner :deep(.sc-icon) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
-  background: var(--card-bg, var(--color-bg-3));
+  background: var(--card-bg, var(--color-primary-light));
   color: var(--card-accent, var(--color-primary));
   flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--color-primary)) 15%, transparent);
 }
 
-.report-content :deep(.sc-body) {
+.content-inner :deep(.sc-body) {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.report-content :deep(.sc-value) {
-  font-size: 24px;
+.content-inner :deep(.sc-value) {
+  font-size: 22px;
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
-.report-content :deep(.sc-label) {
-  font-size: 11px;
+.content-inner :deep(.sc-label) {
+  font-size: 10px;
+  font-weight: 600;
   color: var(--color-text-4);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Task Table */
-.report-content :deep(.task-table) {
+.content-inner :deep(.task-table) {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -987,61 +1035,66 @@ function rateClass(rate: number): string {
   border: 1px solid var(--color-border);
 }
 
-.report-content :deep(.task-table th) {
-  padding: 11px 16px;
+.content-inner :deep(.task-table th) {
+  padding: 10px 16px;
   text-align: left;
   background: var(--color-bg-3);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-text-2);
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   border-bottom: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
 }
 
-.report-content :deep(.task-table td) {
-  padding: 11px 16px;
+.content-inner :deep(.task-table td) {
+  padding: 10px 16px;
   color: var(--color-text-2);
   border-bottom: 1px solid var(--color-border-light);
+  font-variant-numeric: tabular-nums;
 }
 
-.report-content :deep(.task-table tr:last-child td) {
+.content-inner :deep(.task-table tr:last-child td) {
   border-bottom: none;
 }
 
-.report-content :deep(.task-table tbody tr) {
-  transition: background 0.12s;
+.content-inner :deep(.task-table tbody tr) {
+  transition: background 0.15s;
 }
 
-.report-content :deep(.task-table tbody tr:hover td) {
+.content-inner :deep(.task-table tbody tr:hover td) {
   background: var(--color-bg-3);
 }
 
-.report-content :deep(.task-table .task-name) {
+.content-inner :deep(.task-table .task-name) {
   font-weight: 500;
   color: var(--color-text-1);
 }
 
 /* Priority Badge */
-.report-content :deep(.pri-badge) {
+.content-inner :deep(.pri-badge) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Todo List */
-.report-content :deep(.todo-list) {
+.content-inner :deep(.todo-list) {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.report-content :deep(.todo-list li) {
+.content-inner :deep(.todo-list li) {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -1049,24 +1102,26 @@ function rateClass(rate: number): string {
   border-radius: 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
-.report-content :deep(.todo-list li:hover) {
+.content-inner :deep(.todo-list li:hover) {
   border-color: var(--color-border);
-  box-shadow: 0 1px 4px var(--color-shadow);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  transform: translateY(-1px);
 }
 
-.report-content :deep(.todo-list .todo-dot) {
-  width: 7px;
-  height: 7px;
+.content-inner :deep(.todo-list .todo-dot) {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--color-primary);
-  margin-top: 6px;
+  margin-top: 7px;
   flex-shrink: 0;
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
-.report-content :deep(.todo-content) {
+.content-inner :deep(.todo-content) {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1074,13 +1129,13 @@ function rateClass(rate: number): string {
   flex: 1;
 }
 
-.report-content :deep(.todo-title) {
+.content-inner :deep(.todo-title) {
   font-size: 13px;
   font-weight: 500;
   color: var(--color-text-1);
 }
 
-.report-content :deep(.todo-desc) {
+.content-inner :deep(.todo-desc) {
   font-size: 12px;
   color: var(--color-text-3);
   overflow: hidden;
@@ -1089,16 +1144,16 @@ function rateClass(rate: number): string {
 }
 
 /* Pending List */
-.report-content :deep(.pending-list) {
+.content-inner :deep(.pending-list) {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.report-content :deep(.pending-list li) {
+.content-inner :deep(.pending-list li) {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1106,22 +1161,23 @@ function rateClass(rate: number): string {
   border-radius: 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
-.report-content :deep(.pending-list li:hover) {
+.content-inner :deep(.pending-list li:hover) {
   border-color: var(--color-border);
-  box-shadow: 0 1px 4px var(--color-shadow);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  transform: translateY(-1px);
 }
 
-.report-content :deep(.pending-list .pending-pri) {
+.content-inner :deep(.pending-list .pending-pri) {
   width: 3px;
-  height: 20px;
+  height: 22px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
-.report-content :deep(.pending-list .pending-title) {
+.content-inner :deep(.pending-list .pending-title) {
   flex: 1;
   font-size: 13px;
   font-weight: 500;
@@ -1131,15 +1187,16 @@ function rateClass(rate: number): string {
   white-space: nowrap;
 }
 
-.report-content :deep(.pending-list .pending-due) {
+.content-inner :deep(.pending-list .pending-due) {
   font-size: 11px;
   color: var(--color-text-4);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 /* Empty paragraph */
-.report-content :deep(.section-empty) {
+.content-inner :deep(.section-empty) {
   padding: 20px 16px;
   text-align: center;
   font-size: 13px;
@@ -1147,5 +1204,44 @@ function rateClass(rate: number): string {
   background: var(--color-bg-3);
   border-radius: 10px;
   border: 1px dashed var(--color-border);
+}
+
+/* Footer */
+.detail-footer {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.footer-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-accent) 30%,
+    var(--color-success) 60%,
+    transparent 100%
+  );
+  opacity: 0.2;
+  margin-bottom: 10px;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-4);
+  letter-spacing: 0.02em;
+}
+
+.footer-sep {
+  opacity: 0.4;
+}
+
+.footer-meta {
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -9,7 +9,7 @@ import {
 } from '@/services/weeklyReportStorage'
 import { getXpEvents, getGrowthState } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
-import { useTaskStore } from './task'
+import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
 
 function genId(): string {
@@ -222,12 +222,14 @@ function generateReportContent(
 
   if (completedTasks.length > 0) {
     parts.push('<table class="task-table">')
-    parts.push('<thead><tr><th>任务名称</th><th style="text-align: center; width: 80px;">优先级</th><th style="text-align: center; width: 120px;">完成日期</th></tr></thead>')
+    parts.push('<thead><tr><th>任务名称</th><th style="text-align: center; width: 80px;">优先级</th><th style="text-align: center; width: 140px; white-space: nowrap;">实际开始时间</th><th style="text-align: center; width: 100px; white-space: nowrap;">耗时</th><th style="text-align: center; width: 140px; white-space: nowrap;">实际完成日期</th></tr></thead>')
     parts.push('<tbody>')
     for (const t of completedTasks) {
-      const completedDate = t.completedAt ? t.completedAt.slice(0, 10) : ''
+      const completedDate = t.completedAt ? formatReportDateTime(t.completedAt) : ''
+      const startedAt = t.inProgressAt ? formatReportDateTime(t.inProgressAt) : '—'
+      const duration = formatDuration(t) || '—'
       const pri = priorityConfig[t.priority] || priorityConfig.medium
-      parts.push(`<tr><td class="task-name">${escapeHtml(t.title)}</td><td style="text-align: center;"><span class="pri-badge" style="color: ${pri.color}; background: ${pri.bg};">${pri.label}</span></td><td style="text-align: center; font-size: 12px; color: var(--color-text-3);">${completedDate}</td></tr>`)
+      parts.push(`<tr><td class="task-name">${escapeHtml(t.title)}</td><td style="text-align: center;"><span class="pri-badge" style="color: ${pri.color}; background: ${pri.bg};">${pri.label}</span></td><td style="text-align: center; font-size: 12px; color: var(--color-text-3); white-space: nowrap;">${startedAt}</td><td style="text-align: center; font-size: 12px; color: var(--color-text-3); white-space: nowrap;">${duration}</td><td style="text-align: center; font-size: 12px; color: var(--color-text-3); white-space: nowrap;">${completedDate}</td></tr>`)
     }
     parts.push('</tbody></table>')
   } else {
@@ -279,6 +281,17 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
+}
+
+/** 格式化 ISO 时间戳为本地 YYYY-MM-DD HH:MM */
+function formatReportDateTime(iso: string): string {
+  const d = new Date(iso)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const mins = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${mins}`
 }
 
 export const useWeeklyReportStore = defineStore('weeklyReport', () => {
