@@ -9,7 +9,7 @@
 - 实际使用方式：dist 目录挂在 IIS 下，纯 Web 模式；每次修改后必须 `npx vite build` 才能生效
 - **构建时版本**：`vite.config.ts` 注入 `__APP_VERSION__`（package.json version）和 `__BUILD_TIME__`（YYYY-MM-DD HH:mm 格式化时间戳），侧栏底部显示
 - **测试报告系统**：侧栏版本号点击打开 TestReportModal，从 `public/test-reports/*.json` 动态加载报告列表；新增版本只需添加 JSON 文件即可自动显示
-- **Git 状态**：已 git init（最新 commit c500f44），但未推送到任何 remote。
+- **Git 状态**：已 git init，remote 已配置 `https://github.com/shzalen/cleannotes.git`
 
 ## 暗黑模式架构
 - CSS 自定义属性体系：`:root` 定义 ~40 个变量，`[data-theme="dark"]` 覆盖
