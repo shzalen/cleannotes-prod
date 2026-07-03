@@ -1,0 +1,276 @@
+@import "tailwindcss";
+
+:root {
+  /* Primary & Semantic */
+  --color-primary: #4f6cf7;
+  --color-primary-light: #eef2ff;
+  --color-success: #22c55e;
+  --color-success-light: #ecfdf5;
+  --color-success-lighter: #f0fdf4;
+  --color-success-text: #16a34a;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fffbeb;
+  --color-danger: #ef4444;
+  --color-danger-light: #fef2f2;
+  --color-danger-text: #dc2626;
+  --color-info: #3b82f6;
+  --color-info-light: #eff6ff;
+  --color-info-lighter: #f0f9ff;
+  --color-info-text: #2563eb;
+  --color-warning-text: #d97706;
+  --color-accent: #7c3aed;
+  --color-accent-light: #faf5ff;
+  --color-accent-text: #5b21b6;
+  --color-white: #ffffff;
+
+  /* Primary interactive states */
+  --color-primary-hover: #3b5de7;
+  --color-primary-disabled: #b4c4f9;
+
+  /* Text */
+  --color-text-1: #0f172a;
+  --color-text-2: #475569;
+  --color-text-3: #64748b;
+  --color-text-4: #9ca3af;
+
+  /* Background */
+  --color-bg-1: #f8f9fc;
+  --color-bg-2: #f1f5f9;
+  --color-bg-3: #f9fafb;
+  --color-bg-4: #f3f4f6;
+  --color-surface: #ffffff;
+
+  /* Border */
+  --color-border: #e2e8f0;
+  --color-border-light: #ebeef5;
+
+  /* Effects */
+  --color-focus-ring: rgba(79, 108, 247, 0.1);
+  --color-shadow: rgba(0, 0, 0, 0.04);
+  --color-shadow-md: rgba(0, 0, 0, 0.1);
+  --color-overlay: rgba(0, 0, 0, 0.25);
+  --color-overlay-md: rgba(0, 0, 0, 0.35);
+
+  /* Code */
+  --color-code-bg: #f3f4f6;
+  --color-code-text: #4b5563;
+  --color-pre-bg: #1e293b;
+  --color-pre-text: #e2e8f0;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  /* Primary & Semantic */
+  --color-primary: #6b81f8;
+  --color-primary-light: #1c1f3d;
+  --color-success: #4d8fff;
+  --color-success-light: #0d1a36;
+  --color-success-lighter: #0f1e3d;
+  --color-success-text: #6aabff;
+  --color-warning: #fbbf24;
+  --color-warning-light: #2d2006;
+  --color-warning-text: #fbbf24;
+  --color-danger: #f87171;
+  --color-danger-light: #2d1516;
+  --color-danger-text: #fca5a5;
+  --color-info: #60a5fa;
+  --color-info-light: #162032;
+  --color-info-lighter: #131d2d;
+  --color-info-text: #93bbfd;
+
+  --color-accent: #a78bfa;
+  --color-accent-light: #1e1538;
+  --color-accent-text: #c4b5fd;
+  --color-white: #ffffff;
+
+  /* Primary interactive states */
+  --color-primary-hover: #5a73f0;
+  --color-primary-disabled: #3a4060;
+
+  /* Text */
+  --color-text-1: #f1f5f9;
+  --color-text-2: #cbd5e1;
+  --color-text-3: #94a3b8;
+  --color-text-4: #64748b;
+
+  /* Background */
+  --color-bg-1: #0f1115;
+  --color-bg-2: #1a1b20;
+  --color-bg-3: #1e2028;
+  --color-bg-4: #252730;
+  --color-surface: #1a1b20;
+
+  /* Border */
+  --color-border: #2e3038;
+  --color-border-light: #252730;
+
+  /* Effects */
+  --color-focus-ring: rgba(107, 129, 248, 0.15);
+  --color-shadow: rgba(0, 0, 0, 0.25);
+  --color-shadow-md: rgba(0, 0, 0, 0.4);
+  --color-overlay: rgba(0, 0, 0, 0.55);
+  --color-overlay-md: rgba(0, 0, 0, 0.65);
+
+  /* Code */
+  --color-code-bg: #252730;
+  --color-code-text: #cbd5e1;
+  --color-pre-bg: #111318;
+  --color-pre-text: #e2e8f0;
+}
+
+/* ZURU Theme — 品牌红白灰，保留左侧浅色菜单 */
+[data-theme="zuru"] {
+  /* Primary — 品牌红 #CB312D */
+  --color-primary: #CB312D;
+  --color-primary-light: #F9EBEB;
+  --color-primary-hover: #AD2A26;
+  --color-primary-disabled: #E59895;
+
+  /* Functional colors — 全部红/灰/白，无绿无橙无蓝 */
+  --color-success: #CB312D;
+  --color-success-light: #F9EBEB;
+  --color-success-lighter: #FDF6F6;
+  --color-success-text: #AD2A26;
+  --color-warning: #CB312D;
+  --color-warning-light: #FFF5F5;
+  --color-warning-text: #AD2A26;
+  --color-danger: #CB312D;
+  --color-danger-light: #F9EBEB;
+  --color-danger-text: #AD2A26;
+  --color-info: #999999;
+  --color-info-light: #F5F5F5;
+  --color-info-lighter: #FAFAFA;
+  --color-info-text: #666666;
+  --color-accent: #CB312D;
+  --color-accent-light: #F9EBEB;
+  --color-accent-text: #AD2A26;
+  --color-white: #ffffff;
+
+  /* Text — ZURU 深黑+灰阶 */
+  --color-text-1: #1A1A1A;
+  --color-text-2: #666666;
+  --color-text-3: #999999;
+  --color-text-4: #BFBFBF;
+
+  /* Background — F1F3F6 灰白体系（左侧菜单保持浅色） */
+  --color-bg-1: #F1F3F6;
+  --color-bg-2: #F5F6F8;
+  --color-bg-3: #F8F9FB;
+  --color-bg-4: #EBEDF0;
+  --color-surface: #FFFFFF;
+
+  /* Border */
+  --color-border: #DFE2E6;
+  --color-border-light: #E8EBEF;
+
+  /* Effects */
+  --color-focus-ring: rgba(203, 49, 45, 0.12);
+  --color-shadow: rgba(0, 0, 0, 0.04);
+  --color-shadow-md: rgba(0, 0, 0, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.25);
+  --color-overlay-md: rgba(0, 0, 0, 0.35);
+
+  /* Code */
+  --color-code-bg: #F1F3F6;
+  --color-code-text: #1A1A1A;
+  --color-pre-bg: #F8F9FB;
+  --color-pre-text: #1A1A1A;
+}
+
+/* Tencent Theme — 腾讯蓝（TDesign 品牌色 #0052D9） */
+[data-theme="tencent"] {
+  /* Primary — 腾讯蓝 #0052D9 */
+  --color-primary: #0052D9;
+  --color-primary-light: #EDF1FF;
+  --color-primary-hover: #003CAB;
+  --color-primary-disabled: #8EABFF;
+
+  /* Functional colors — TDesign 标准功能色 */
+  /* 注意：success 系列在腾讯蓝主题中重定向为主色蓝，使所有用 success 变量的按钮/侧栏显示蓝色 */
+  --color-success: #0052D9;
+  --color-success-light: #EDF1FF;
+  --color-success-lighter: #F2F3FF;
+  --color-success-text: #003CAB;
+  --color-warning: #E37318;
+  --color-warning-light: #FFF4E8;
+  --color-warning-text: #BE5A00;
+  --color-danger: #D54941;
+  --color-danger-light: #FFECEB;
+  --color-danger-text: #AD352F;
+  --color-info: #0052D9;
+  --color-info-light: #EDF1FF;
+  --color-info-lighter: #F2F3FF;
+  --color-info-text: #003CAB;
+  --color-warning-text: #BE5A00;
+  --color-accent: #7C3AED;
+  --color-accent-light: #F5F0FF;
+  --color-accent-text: #5B21B6;
+  --color-white: #ffffff;
+
+  /* Text — 与浅色主题一致 */
+  --color-text-1: #0F172A;
+  --color-text-2: #475569;
+  --color-text-3: #64748B;
+  --color-text-4: #9CA3AF;
+
+  /* Background — 带蓝灰底色的浅色体系（TDesign BlueGray） */
+  --color-bg-1: #F3F3F4;
+  --color-bg-2: #EEEEF0;
+  --color-bg-3: #E7E8EB;
+  --color-bg-4: #DCDDE1;
+  --color-surface: #FFFFFF;
+
+  /* Border — 蓝灰调 */
+  --color-border: #D5D6DA;
+  --color-border-light: #E0E1E5;
+
+  /* Effects */
+  --color-focus-ring: rgba(0, 82, 217, 0.10);
+  --color-shadow: rgba(0, 0, 0, 0.04);
+  --color-shadow-md: rgba(0, 0, 0, 0.10);
+  --color-overlay: rgba(0, 0, 0, 0.25);
+  --color-overlay-md: rgba(0, 0, 0, 0.35);
+
+  /* Code */
+  --color-code-bg: #F3F3F4;
+  --color-code-text: #0F172A;
+  --color-pre-bg: #1E293B;
+  --color-pre-text: #E2E8F0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-3);
+}
+
+input, textarea, button {
+  font-family: inherit;
+}
