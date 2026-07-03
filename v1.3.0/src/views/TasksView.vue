@@ -37,6 +37,8 @@ const filteredTasks = computed(() => {
   const isToday = d === today
 
   return store.tasks.filter(t => {
+    // 状态筛选
+    if (filter.value !== 'all' && t.status !== filter.value) return false
     // 1. 开始日期为选中日期
     if (t.startDate === d) return true
     // 2. 开始日期早于选中日期且未完成（仅当选中今天时）
@@ -321,6 +323,7 @@ function cycleStatus(task: Task) {
           <TaskRightPanel
             :tasks="store.tasks"
             :selected-date="selectedDate"
+            v-model:status-filter="filter"
             @toggle-status="store.toggleStatus"
           />
         </div>

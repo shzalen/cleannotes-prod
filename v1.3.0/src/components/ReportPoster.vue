@@ -359,6 +359,24 @@ const s = props.report.summary
             </div>
           </div>
 
+          <!-- ========== AI SUMMARY ========== -->
+          <div v-if="report.aiSummary || report.aiSummaryStatus" class="poster-section poster-section-ai">
+            <div class="sec-head">
+              <span class="sec-num ai-num">AI</span>
+              <span class="sec-title">智能总结</span>
+              <div class="sec-line"></div>
+            </div>
+            <div v-if="report.aiSummaryStatus === 'generating'" class="ai-placeholder ai-placeholder-generating">
+              <div class="ai-shimmer-bar"></div>
+              <span class="ai-placeholder-text">AI 总结正在生成中，请稍后查看</span>
+            </div>
+            <div v-else-if="report.aiSummaryStatus === 'failed'" class="ai-placeholder ai-placeholder-failed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ai-fail-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <span class="ai-placeholder-text">AI 总结暂不可用</span>
+            </div>
+            <div v-else-if="report.aiSummary" class="ai-summary-text">{{ report.aiSummary }}</div>
+          </div>
+
           <!-- ========== COMPLETED TASKS ========== -->
           <div class="poster-section">
             <div class="sec-head">
@@ -422,6 +440,12 @@ const s = props.report.summary
 /* =========================================================
    REPORT POSTER — Standalone visual poster
    ========================================================= */
+
+/* ---- Animations ---- */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
 
 /* ---- Overlay ---- */
 .poster-overlay {
@@ -787,6 +811,76 @@ const s = props.report.summary
   border-radius: 4px;
   font-variant-numeric: tabular-nums;
   border: 1px solid var(--color-border);
+}
+
+.sec-num.ai-num {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+  color: var(--color-accent-text);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.poster-section-ai {
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-bg-3));
+  border-radius: 10px;
+}
+
+.ai-summary-text {
+  font-size: 12px;
+  color: var(--color-text-2);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+/* AI Placeholder styles */
+.ai-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.ai-placeholder-generating {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ai-shimmer-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-bg-3);
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-shimmer-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)) 50%, transparent 100%);
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+.ai-placeholder-failed {
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+}
+
+.ai-fail-icon {
+  color: var(--color-danger-text);
+  flex-shrink: 0;
+}
+
+.ai-placeholder-text {
+  font-size: 11px;
+  color: var(--color-text-3);
+  line-height: 1.5;
+}
+
+.ai-placeholder-failed .ai-placeholder-text {
+  color: var(--color-text-4);
 }
 
 .sec-title {

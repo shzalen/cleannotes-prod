@@ -11,6 +11,7 @@ import { getXpEvents, getGrowthState } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
+import { useAiStore } from './ai'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -160,7 +161,9 @@ function generateReportContent(
   weekEnd: string,
   summary: WeeklyReportSummary,
   tasks: Task[],
-  todos: TodoItem[]
+  todos: TodoItem[],
+  aiSummary?: string,
+  aiSummaryStatus?: 'generating' | 'success' | 'failed' | null
 ): string {
   // 本周完成的任务
   const completedTasks = tasks
@@ -189,6 +192,15 @@ function generateReportContent(
     })
 
   const parts: string[] = []
+
+  // ---- 00 AI 智能总结（根据状态显示不同内容） ----
+  if (aiSummaryStatus === 'generating') {
+    parts.push(aiSummaryPlaceholder('generating'))
+  } else if (aiSummaryStatus === 'failed') {
+    parts.push(aiSummaryPlaceholder('failed'))
+  } else if (aiSummary) {
+    parts.push(aiSummarySection(aiSummary))
+  }
 
   // ---- 01 统计概览 ----
   parts.push('<div class="report-section">')
@@ -294,6 +306,164 @@ function formatReportDateTime(iso: string): string {
   return `${year}-${month}-${day} ${hours}:${mins}`
 }
 
+/** AI 智能总结图标 SVG */
+const AI_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 14v2a4 4 0 0 1-8 0v-2"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/><circle cx="9" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7" r="1" fill="currentColor" stroke="none"/></svg>'
+
+/** 调用 AI 生成周报总结（失败时静默返回 null，不影响周报生成） */
+async function callAiForSummary(
+  summary: WeeklyReportSummary,
+  completedTasks: Task[],
+  pendingTasks: Task[],
+  newTodos: TodoItem[],
+  weekStart: string,
+  weekEnd: string
+): Promise<string | null> {
+  const aiStore = useAiStore()
+
+  // 检查 AI 配置是否可用
+  if (!aiStore.config.apiUrl || !aiStore.config.apiKey) {
+    console.log('[WeeklyReport] AI config not available, skipping summary')
+    return null
+  }
+
+  // 构建 prompt
+  const promptLines: string[] = [
+    `请为以下周报数据生成一段简洁的中文总结（100-200字），包含：工作成效评价、关键完成事项概括、下周重点提醒。语气客观专业，不使用markdown格式，只输出纯文本。`,
+    '',
+    `周报范围：${weekStart} 至 ${weekEnd}`,
+    `完成率：${summary.completionRate}%`,
+    `完成任务数：${summary.tasksCompleted}`,
+    `新增任务数：${summary.tasksCreated}`,
+    `新增待办数：${summary.todosCreated}`,
+    `经验获得：${summary.totalXpGained} XP`,
+    `连续天数：${summary.streakDays}`,
+  ]
+
+  if (completedTasks.length > 0) {
+    promptLines.push('', '本周完成任务列表：')
+    for (const t of completedTasks.slice(0, 15)) {
+      const pri = t.priority === 'high' ? '高' : t.priority === 'low' ? '低' : '中'
+      const dur = formatDuration(t) || '未知耗时'
+      promptLines.push(`- ${t.title}（优先级${pri}，${dur}）`)
+    }
+  }
+
+  if (pendingTasks.length > 0) {
+    promptLines.push('', '下周待跟进任务：')
+    for (const t of pendingTasks.slice(0, 10)) {
+      const due = t.dueDate ? `截止${t.dueDate}` : '无截止日期'
+      promptLines.push(`- ${t.title}（${due}）`)
+    }
+  }
+
+  if (newTodos.length > 0) {
+    promptLines.push('', '本周新增待办：')
+    for (const t of newTodos.slice(0, 5)) {
+      promptLines.push(`- ${t.title}`)
+    }
+  }
+
+  // 构建 API URL
+  const input = aiStore.config.apiUrl.trim()
+  let apiUrl: string
+  if (input.includes('/chat/completions')) {
+    apiUrl = input
+  } else {
+    const base = input.replace(/\/+$/, '')
+    if (base.endsWith('/v1')) {
+      apiUrl = base + '/chat/completions'
+    } else {
+      apiUrl = base + '/v1/chat/completions'
+    }
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000) // 30s timeout
+
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${aiStore.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: aiStore.config.model || 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: '你是清记App的周报分析助手。请根据提供的数据生成简洁的中文周报总结。' },
+          { role: 'user', content: promptLines.join('\n') },
+        ],
+        stream: false,
+        max_tokens: 500,
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeout)
+
+    if (!res.ok) {
+      console.warn(`[WeeklyReport] AI API returned HTTP ${res.status}, skipping summary`)
+      return null
+    }
+
+    const data = await res.json()
+    const content = data.choices?.[0]?.message?.content
+    if (!content || typeof content !== 'string') {
+      console.warn('[WeeklyReport] AI response has no content, skipping summary')
+      return null
+    }
+
+    return content.trim()
+  } catch (e) {
+    console.warn('[WeeklyReport] AI summary generation failed:', e instanceof Error ? e.message : e)
+    return null
+  }
+}
+
+/** 生成 AI 总结占位 section（generating / failed） */
+function aiSummaryPlaceholder(status: 'generating' | 'failed'): string {
+  if (status === 'generating') {
+    return `<div class="report-section report-section-ai ai-status-generating">
+  ${sectionHeader('00', 'AI 智能总结')}
+  <div class="ai-summary-content">
+    <div class="ai-badge">${AI_ICON}<span>AI</span></div>
+    <div class="ai-placeholder ai-placeholder-generating">
+      <div class="ai-shimmer-line"></div>
+      <span class="ai-placeholder-text">AI 总结正在生成中，请稍后查看</span>
+    </div>
+  </div>
+</div>`
+  }
+  // failed
+  return `<div class="report-section report-section-ai ai-status-failed">
+  ${sectionHeader('00', 'AI 智能总结')}
+  <div class="ai-summary-content">
+    <div class="ai-badge">${AI_ICON}<span>AI</span></div>
+    <div class="ai-placeholder ai-placeholder-failed">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ai-failed-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span class="ai-placeholder-text">AI 总结暂不可用</span>
+    </div>
+  </div>
+</div>`
+}
+
+/** 生成 AI 总结 section HTML（成功状态） */
+function aiSummarySection(aiSummary: string): string {
+  const paragraphs = aiSummary
+    .split(/\n\n+/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+    .map(p => `<p>${escapeHtml(p)}</p>`)
+    .join('')
+
+  return `<div class="report-section report-section-ai ai-status-success">
+  ${sectionHeader('00', 'AI 智能总结')}
+  <div class="ai-summary-content">
+    <div class="ai-badge">${AI_ICON}<span>AI</span></div>
+    ${paragraphs}
+  </div>
+</div>`
+}
 export const useWeeklyReportStore = defineStore('weeklyReport', () => {
   const reports = ref<WeeklyReport[]>([])
   const loaded = ref(false)
@@ -321,15 +491,13 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     }).catch(() => {})
   }
 
-  /** 生成指定周的报告 */
+  /** Phase 1: 立即生成报告基础内容（AI 占位为 generating），同步返回 */
   function generateReport(weekStart: string): WeeklyReport {
     const weekEnd = getSunday(weekStart)
 
-    // 访问 taskStore 和 todoStore 获取数据
     const taskStore = useTaskStore()
     const todoStore = useTodoStore()
 
-    // 确保 store 已加载
     if (!taskStore.loaded) taskStore.load()
     if (!todoStore.loaded) todoStore.load()
 
@@ -337,11 +505,12 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     const todos = todoStore.todos
 
     const summary = buildSummary(tasks, todos, weekStart, weekEnd)
-    const content = generateReportContent(weekStart, weekEnd, summary, tasks, todos)
+
+    // 先生成带 AI generating 占位的 HTML
+    const content = generateReportContent(weekStart, weekEnd, summary, tasks, todos, undefined, 'generating')
 
     const now = toUTCISO()
 
-    // 检查是否已有该周报告，有则更新
     const existing = reports.value.find(r => r.weekStart === weekStart)
     const id = existing ? existing.id : genId()
     const createdAt = existing ? existing.createdAt : now
@@ -352,21 +521,76 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
       weekEnd,
       content,
       summary,
+      aiSummaryStatus: 'generating',
       createdAt,
       updatedAt: now,
     }
 
-    // 更新本地列表
     if (existing) {
       Object.assign(existing, report)
     } else {
       reports.value.push(report)
     }
 
-    // 持久化
     upsertWeeklyReport(report)
 
     return report
+  }
+
+  /** Phase 2: 异步调用 AI 并更新报告内容 */
+  async function generateAiSummary(weekStart: string): Promise<void> {
+    const report = reports.value.find(r => r.weekStart === weekStart)
+    if (!report) return
+
+    const weekEnd = getSunday(weekStart)
+
+    const taskStore = useTaskStore()
+    const todoStore = useTodoStore()
+
+    if (!taskStore.loaded) taskStore.load()
+    if (!todoStore.loaded) todoStore.load()
+
+    const tasks = taskStore.tasks
+    const todos = todoStore.todos
+
+    const completedTasks = tasks
+      .filter(t =>
+        t.status === 'done' && t.completedAt &&
+        t.completedAt >= weekStart + 'T00:00:00' &&
+        t.completedAt <= weekEnd + 'T23:59:59'
+      )
+      .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
+
+    const pendingTasks = tasks
+      .filter(t => t.status !== 'done')
+      .sort((a, b) => {
+        if (a.dueDate && !b.dueDate) return -1
+        if (!a.dueDate && b.dueDate) return 1
+        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate)
+        return 0
+      })
+
+    const newTodos = todos
+      .filter(t =>
+        t.createdAt >= weekStart + 'T00:00:00' &&
+        t.createdAt <= weekEnd + 'T23:59:59'
+      )
+
+    // 调用 AI
+    const aiSummary = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)
+
+    // 更新报告
+    const status: 'success' | 'failed' = aiSummary ? 'success' : 'failed'
+    const newContent = generateReportContent(weekStart, weekEnd, report.summary, tasks, todos, aiSummary, status)
+
+    Object.assign(report, {
+      content: newContent,
+      aiSummary: aiSummary || undefined,
+      aiSummaryStatus: status,
+      updatedAt: toUTCISO(),
+    })
+
+    upsertWeeklyReport(report)
   }
 
   /** 删除报告 */
@@ -389,6 +613,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     currentWeekMonday,
     load,
     generateReport,
+    generateAiSummary,
     deleteReport,
     getReportByWeek,
     hasCurrentWeekReport,

@@ -59,9 +59,18 @@ function selectReport(weekStart: string) {
   pickerWeekStart.value = weekStart
 }
 
+const generating = ref(false)
+
 function handleGenerate() {
+  // Phase 1: 立即生成报告（带 AI generating 占位）
   const report = store.generateReport(pickerWeekStart.value)
   selectedWeekStart.value = report.weekStart
+
+  // Phase 2: 后台异步调用 AI 并更新
+  generating.value = true
+  store.generateAiSummary(pickerWeekStart.value).finally(() => {
+    generating.value = false
+  })
 }
 
 function handleDelete(id: string, label: string) {
@@ -149,17 +158,21 @@ function reportDateRange(weekStart: string): string {
         </h2>
         <button
           class="btn-generate"
-          :class="{ regenerating: hasReportForPickerWeek }"
+          :class="{ regenerating: hasReportForPickerWeek, generating: generating }"
           @click="handleGenerate"
+          :disabled="generating"
           :title="hasReportForPickerWeek ? '重新生成本周' : '生成本周周报'"
         >
-          <svg v-if="!hasReportForPickerWeek" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-if="generating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          <svg v-else-if="!hasReportForPickerWeek" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
-          <span>{{ hasReportForPickerWeek ? '重新生成' : '生成' }}</span>
+          <span>{{ generating ? 'AI分析中...' : hasReportForPickerWeek ? '重新生成' : '生成' }}</span>
         </button>
       </div>
 
@@ -448,6 +461,20 @@ function reportDateRange(weekStart: string): string {
 
 .btn-generate.regenerating {
   background: linear-gradient(135deg, var(--color-warning), color-mix(in srgb, var(--color-warning) 60%, var(--color-danger)));
+}
+
+.btn-generate.generating {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
 }
 
 /* Week Picker */
@@ -934,6 +961,106 @@ function reportDateRange(weekStart: string): string {
     color-mix(in srgb, var(--color-primary) 30%, var(--color-border)) 0%,
     transparent 100%
   );
+}
+
+/* AI Summary Section */
+.content-inner :deep(.report-section-ai) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.content-inner :deep(.ai-summary-content) {
+  position: relative;
+  padding-left: 0;
+}
+
+.content-inner :deep(.ai-badge) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.content-inner :deep(.ai-summary-content p) {
+  font-size: 14px;
+  color: var(--color-text-2);
+  line-height: 1.7;
+  margin: 0 0 10px 0;
+}
+
+.content-inner :deep(.ai-summary-content p:last-child) {
+  margin-bottom: 0;
+}
+
+/* AI Placeholder — generating state */
+.content-inner :deep(.ai-status-generating) {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.content-inner :deep(.ai-placeholder) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 8px;
+}
+
+.content-inner :deep(.ai-placeholder-generating) {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+
+.content-inner :deep(.ai-placeholder-text) {
+  font-size: 13px;
+  color: var(--color-text-3);
+  line-height: 1.5;
+}
+
+.content-inner :deep(.ai-shimmer-line) {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-bg-3);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.content-inner :deep(.ai-shimmer-line::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)) 50%, transparent 100%);
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* AI Placeholder — failed state */
+.content-inner :deep(.ai-status-failed) {
+  border-color: color-mix(in srgb, var(--color-danger) 20%, var(--color-border));
+  opacity: 0.85;
+}
+
+.content-inner :deep(.ai-placeholder-failed) {
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-surface));
+}
+
+.content-inner :deep(.ai-failed-icon) {
+  color: var(--color-danger-text);
+  flex-shrink: 0;
+}
+
+.content-inner :deep(.ai-placeholder-failed .ai-placeholder-text) {
+  color: var(--color-text-4);
 }
 
 /* Stat Cards Grid */

@@ -322,7 +322,7 @@ function openNew(date?: string) {
   description.value = ''
   priority.value = 'medium'
   dueDate.value = date || ''
-  startDate.value = toLocalDate()
+  startDate.value = date || toLocalDate()
   status.value = 'todo'
   startTime.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   initialDate.value = date || ''

@@ -172,6 +172,8 @@ export interface WeeklyReport {
   weekEnd: string         // 周日日期 YYYY-MM-DD
   content: string         // HTML 富文本内容
   summary: WeeklyReportSummary
+  aiSummary?: string      // AI 智能总结（可选，AI不可用时为空）
+  aiSummaryStatus?: 'generating' | 'success' | 'failed'  // AI 总结生成状态
   createdAt: string       // 生成时间
   updatedAt: string
 }

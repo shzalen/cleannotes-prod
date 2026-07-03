@@ -11,15 +11,26 @@ import { useTaskStore, formatDuration } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
 import { toLocalDate } from '@/utils/time'
 
-type ViewMode = 'day' | 'week' | 'month' | 'quarter' | 'year'
+type ViewMode = 'all' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 
 const props = defineProps<{
   tasks: Task[]
   selectedDate: string // YYYY-MM-DD
+  statusFilter?: TaskStatus | 'all'
 }>()
 const emit = defineEmits<{
   toggleStatus: [id: string]
+  'update:statusFilter': [value: TaskStatus | 'all']
 }>()
+
+const activeFilter = computed(() => props.statusFilter ?? 'all')
+
+const statusOptions: { value: TaskStatus | 'all'; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'todo', label: '待办' },
+  { value: 'in_progress', label: '进行中' },
+  { value: 'done', label: '已完成' },
+]
 
 const store = useTaskStore()
 const { isDark, isZuru, isTencent } = useTheme()
@@ -41,6 +52,7 @@ const tabs: { value: ViewMode; label: string }[] = [
   { value: 'month', label: '月' },
   { value: 'quarter', label: '季' },
   { value: 'year', label: '年' },
+  { value: 'all', label: '全部' },
 ]
 
 // ---- 工具函数 ----
@@ -130,7 +142,7 @@ const dayTasks = computed(() => {
     if (t.completedAt && t.completedAt.startsWith(d)) return true
     return false
   })
-  return sortAligned(filtered)
+  return sortAligned(filtered.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
 })
 
 /** 是否显示日期标签：未完成且日期（开始日期或创建日期）与选中日期不同 */
@@ -178,6 +190,14 @@ function isOverdue(task: Task) {
   return task.dueDate < today
 }
 
+/** 计算逾期天数 */
+function overdueDays(task: Task): number {
+  if (!task.dueDate) return 0
+  const due = new Date(task.dueDate)
+  const now = new Date(todayStr)
+  return Math.floor((now.getTime() - due.getTime()) / 86400000)
+}
+
 /** 日视图中：任务在选中日期完成，但开始日期不是选中日期 → 显示原定开始日期 */
 function showPlannedDate(task: Task): boolean {
   if (task.status !== 'done') return false
@@ -213,7 +233,7 @@ const weekTasks = computed(() => {
     if (t.completedAt && isInWeek(t.completedAt, monday, sunday)) return true
     return false
   })
-  return sortAligned(filtered)
+  return sortAligned(filtered.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
 })
 
 // ---- Month view ----
@@ -231,7 +251,7 @@ const monthTasks = computed(() => {
     if (t.completedAt && t.completedAt.startsWith(prefix)) return true
     return false
   })
-  return sortAligned(filtered)
+  return sortAligned(filtered.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
 })
 
 const monthHeader = computed(() => {
@@ -269,7 +289,7 @@ const quarterTasks = computed(() => {
     seen.add(t.id)
     return true
   })
-  return sortAligned(unique)
+  return sortAligned(unique.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
 })
 
 const quarterHeader = computed(() => {
@@ -290,11 +310,45 @@ const yearTasks = computed(() => {
     if (t.completedAt && t.completedAt.startsWith(prefix)) return true
     return false
   })
-  return sortAligned(filtered)
+  return sortAligned(filtered.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
 })
 
 const yearHeader = computed(() => {
   return `${new Date(props.selectedDate).getFullYear()}年`
+})
+
+// ---- All view (全部任务总览) ----
+const allTasks = computed(() => {
+  return sortAligned(props.tasks.filter(t => activeFilter.value === 'all' || t.status === activeFilter.value))
+})
+
+const allStats = computed(() => {
+  const all = props.tasks
+  return {
+    total: all.length,
+    todo: all.filter(t => t.status === 'todo').length,
+    inProgress: all.filter(t => t.status === 'in_progress').length,
+    done: all.filter(t => t.status === 'done').length,
+  }
+})
+
+const todayStr = toLocalDate()
+const overdueTasks = computed(() => {
+  return props.tasks.filter(t => {
+    if (!t.dueDate) return false
+    if (t.status === 'done') return false
+    return t.dueDate < todayStr
+  }).sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))
+})
+
+const highPriorityPending = computed(() => {
+  return props.tasks.filter(t => {
+    return t.priority === 'high' && t.status !== 'done'
+  }).sort((a, b) => {
+    const da = a.startDate || a.createdAt.slice(0, 10)
+    const db = b.startDate || b.createdAt.slice(0, 10)
+    return da.localeCompare(db)
+  })
 })
 
 // ---- 通用统计 ----
@@ -400,6 +454,7 @@ function getDistribution(taskList: Task[], mode: ViewMode) {
 // 当前视图的数据
 const currentTasks = computed(() => {
   switch (viewMode.value) {
+    case 'all': return allTasks.value
     case 'day': return dayTasks.value
     case 'week': return weekTasks.value
     case 'month': return monthTasks.value
@@ -416,6 +471,7 @@ const maxDistCount = computed(() => Math.max(1, ...currentDistribution.value.map
 
 const currentHeader = computed(() => {
   switch (viewMode.value) {
+    case 'all': return '全部任务'
     case 'day': return dayHeader.value
     case 'week': return `第 ${weekNumber.value} 周`
     case 'month': return monthHeader.value
@@ -655,6 +711,15 @@ function saveTimestamps() {
           {{ tab.label }}
         </button>
       </div>
+      <!-- Status filter inline -->
+      <div class="rp-status-filter">
+        <button
+          v-for="s in statusOptions"
+          :key="s.value"
+          :class="['rp-status-btn', { active: activeFilter === s.value }]"
+          @click="emit('update:statusFilter', s.value)"
+        >{{ s.label }}</button>
+      </div>
       <div class="rp-tabs-actions">
         <button class="ai-quick-btn" @click="goAi('分析我今天的任务，给出优先级建议')" title="智能分析">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>
@@ -709,7 +774,7 @@ function saveTimestamps() {
 
         <div class="rp-body">
           <div v-if="dayTasks.length === 0" class="rp-empty">
-            该日期暂无任务
+            {{ activeFilter === 'all' ? '该日期暂无任务' : '该日期无' + (statusLabelMap[activeFilter] || '匹配') + '任务' }}
           </div>
           <div v-else class="task-list">
             <div
@@ -802,8 +867,187 @@ function saveTimestamps() {
         </div>
       </template>
 
+      <!-- ========== All View (全部任务总览) ========== -->
+      <template v-else-if="viewMode === 'all'">
+        <!-- Stats cards (4 cols) -->
+        <div class="stats-row stats-row-all">
+          <div class="stat-card">
+            <div class="stat-num">{{ allStats.total }}</div>
+            <div class="stat-label">总任务</div>
+          </div>
+          <div class="stat-card stat-card-todo">
+            <div class="stat-num">{{ allStats.todo }}</div>
+            <div class="stat-label">待办</div>
+          </div>
+          <div class="stat-card stat-card-progress">
+            <div class="stat-num">{{ allStats.inProgress }}</div>
+            <div class="stat-label">进行中</div>
+          </div>
+          <div class="stat-card stat-card-done">
+            <div class="stat-num">{{ allStats.done }}</div>
+            <div class="stat-label">已完成</div>
+          </div>
+        </div>
+
+        <!-- Focus area: overdue + high priority -->
+        <div class="all-focus-row" v-if="overdueTasks.length > 0 || highPriorityPending.length > 0">
+          <div v-if="overdueTasks.length > 0" class="all-focus-card all-focus-danger">
+            <div class="all-focus-header">
+              <span class="all-focus-title">逾期任务</span>
+              <span class="all-focus-badge danger">{{ overdueTasks.length }} 项</span>
+            </div>
+            <div class="all-focus-list">
+              <div
+                v-for="t in overdueTasks.slice(0, 4)"
+                :key="t.id"
+                class="all-focus-item"
+                @click="openView(t)"
+              >
+                <span class="all-focus-dot danger"></span>
+                <span class="all-focus-name">{{ t.title }}</span>
+                <span class="all-focus-tag danger">逾期 {{ overdueDays(t) }} 天</span>
+              </div>
+              <div v-if="overdueTasks.length > 4" class="all-focus-more">+ 还有 {{ overdueTasks.length - 4 }} 项</div>
+            </div>
+          </div>
+
+          <div v-if="highPriorityPending.length > 0" class="all-focus-card">
+            <div class="all-focus-header">
+              <span class="all-focus-title">高优先级待处理</span>
+              <span class="all-focus-badge">{{ highPriorityPending.length }} 项</span>
+            </div>
+            <div class="all-focus-list">
+              <div
+                v-for="t in highPriorityPending.slice(0, 4)"
+                :key="t.id"
+                class="all-focus-item"
+                @click="openView(t)"
+              >
+                <span
+                  class="tc-priority"
+                  :style="{ background: priorityBgMap[t.priority], color: priorityColorMap[t.priority] }"
+                >高</span>
+                <span class="all-focus-name">{{ t.title }}</span>
+                <span class="all-focus-date">{{ formatDate(t.startDate || t.createdAt.slice(0, 10)) }}</span>
+              </div>
+              <div v-if="highPriorityPending.length > 4" class="all-focus-more">+ 还有 {{ highPriorityPending.length - 4 }} 项</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status distribution bar -->
+        <div class="dist-section" v-if="allStats.total > 0">
+          <div class="dist-title">状态分布</div>
+          <div class="all-dist-bar">
+            <div class="all-dist-seg todo" :style="{ flex: `0 0 ${allStats.todo / allStats.total * 100}%` }" />
+            <div class="all-dist-seg progress" :style="{ flex: `0 0 ${allStats.inProgress / allStats.total * 100}%` }" />
+            <div class="all-dist-seg done" :style="{ flex: `0 0 ${allStats.done / allStats.total * 100}%` }" />
+          </div>
+          <div class="all-dist-legend">
+            <span class="legend-item todo">待办 {{ allStats.todo }} · {{ Math.round(allStats.todo / allStats.total * 100) }}%</span>
+            <span class="legend-item progress">进行中 {{ allStats.inProgress }} · {{ Math.round(allStats.inProgress / allStats.total * 100) }}%</span>
+            <span class="legend-item done">已完成 {{ allStats.done }} · {{ Math.round(allStats.done / allStats.total * 100) }}%</span>
+          </div>
+        </div>
+
+        <!-- All tasks list -->
+        <div class="rp-body">
+          <div class="detail-list-header">
+            <span class="detail-list-title">全部任务 ({{ allTasks.length }})</span>
+            <button class="btn-copy" @click="copyList">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              {{ copyTip || '复制列表' }}
+            </button>
+          </div>
+          <div v-if="allTasks.length === 0" class="rp-empty">
+            {{ activeFilter === 'all' ? '暂无任务' : '无' + (statusLabelMap[activeFilter] || '匹配') + '任务' }}
+          </div>
+          <div v-else class="task-list">
+            <div
+              v-for="task in allTasks"
+              :key="task.id"
+              :class="['task-card', { 'task-done': task.status === 'done' }, { 'task-selected': selectedTaskId === task.id }]"
+              @click="toggleSelect(task)"
+            >
+              <div class="tc-top">
+                <span class="tc-title" @click.stop="openView(task)">{{ task.title }}</span>
+                <div class="tc-actions">
+                  <button v-if="task.status !== 'done'" class="tc-btn tc-btn-copy" @click.stop="openCopy(task)" title="复制">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  </button>
+                  <button v-if="task.status !== 'done'" class="tc-btn tc-btn-edit" @click.stop="openEdit(task)" title="编辑">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  <button v-if="task.status !== 'done'" class="tc-btn tc-btn-delete" @click.stop="requestDelete(task)" title="删除">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                  </button>
+                  <button v-if="task.status !== 'done'" class="tc-btn tc-btn-time" @click.stop="showDetail(task)" title="编辑执行时间">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                  </button>
+                  <button class="tc-btn tc-btn-ai" @click.stop="analyzeTask(task.id)" title="AI 分析">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
+                    </svg>
+                  </button>
+                  <button class="tc-btn tc-btn-view" @click.stop="openView(task)" title="查看详情">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="tc-meta">
+                <span
+                  class="tc-priority"
+                  :style="{ background: priorityBgMap[task.priority], color: priorityColorMap[task.priority] }"
+                >{{ priorityLabelMap[task.priority] }}</span>
+                <span
+                  class="tc-status"
+                  :class="{ 'tc-status-locked': isFutureTask(task) }"
+                  :style="{ background: statusBgMap[task.status], color: statusColorMap[task.status] }"
+                  @click.stop="!isFutureTask(task) && cycleStatus(task)"
+                >{{ statusLabelMap[task.status] }}</span>
+                <span v-if="task.status === 'done' && task.inProgressAt" class="tc-duration">耗时 {{ formatDuration(task) }}</span>
+                <span class="tc-date created">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  {{ formatDate(task.startDate || task.createdAt.slice(0, 10)) }}
+                </span>
+                <span
+                  v-if="task.dueDate && task.status !== 'done'"
+                  :class="['tc-date', 'due', { overdue: task.dueDate < todayStr }]"
+                >
+                  <template v-if="task.dueDate < todayStr">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    延期 {{ formatDate(task.dueDate) }}
+                  </template>
+                  <template v-else>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    截止 {{ formatDate(task.dueDate) }}
+                  </template>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
       <!-- ========== Week / Month / Quarter / Year View ========== -->
-      <template v-if="viewMode !== 'day'">
+      <template v-else>
         <div class="rp-header">
           <h3 class="rp-title">{{ currentHeader }} <span class="rp-sub">共 {{ currentStats.total }} 项任务</span></h3>
           <div class="rp-header-actions">
@@ -904,7 +1148,7 @@ function saveTimestamps() {
             </button>
           </div>
           <div v-if="currentTasks.length === 0" class="rp-empty">
-            暂无任务
+            {{ activeFilter === 'all' ? '暂无任务' : '无' + (statusLabelMap[activeFilter] || '匹配') + '任务' }}
           </div>
           <div v-else class="task-list">
             <div
@@ -1074,6 +1318,37 @@ function saveTimestamps() {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* ---- Status filter ---- */
+.rp-status-filter {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.rp-status-btn {
+  padding: 4px 14px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  font-size: 12px;
+  color: var(--color-text-2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.rp-status-btn:hover {
+  background: var(--color-bg-3);
+  color: var(--color-text-1);
+}
+
+.rp-status-btn.active {
+  background: var(--color-success);
+  color: var(--color-white);
+  border-color: var(--color-success);
 }
 
 /* ---- Tabs ---- */
@@ -1827,4 +2102,180 @@ function saveTimestamps() {
   color: var(--color-text-3);
   font-style: italic;
 }
+
+/* ---- All View (全部任务总览) ---- */
+.stats-row-all {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.stat-card-todo .stat-num { color: var(--color-warning-text); }
+.stat-card-progress .stat-num { color: var(--color-info); }
+.stat-card-done .stat-num { color: var(--color-success); }
+
+/* Focus area */
+.all-focus-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.all-focus-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.all-focus-danger {
+  border-left: 3px solid var(--color-danger);
+}
+
+.all-focus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.all-focus-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.all-focus-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.all-focus-badge.danger {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.all-focus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.all-focus-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--color-bg-2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.all-focus-item:hover {
+  background: var(--color-bg-3);
+}
+
+.all-focus-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-info);
+  flex-shrink: 0;
+}
+
+.all-focus-dot.danger {
+  background: var(--color-danger);
+}
+
+.all-focus-name {
+  font-size: 12px;
+  color: var(--color-text-1);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.all-focus-tag {
+  font-size: 11px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.all-focus-tag.danger {
+  color: var(--color-danger);
+  background: var(--color-danger-light);
+}
+
+.all-focus-date {
+  font-size: 11px;
+  color: var(--color-text-3);
+  flex-shrink: 0;
+}
+
+.all-focus-item .tc-priority {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.all-focus-more {
+  font-size: 11px;
+  color: var(--color-text-3);
+  text-align: center;
+  padding-top: 2px;
+}
+
+/* Distribution bar */
+.all-dist-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.all-dist-seg.todo {
+  background: var(--color-warning);
+}
+
+.all-dist-seg.progress {
+  background: var(--color-info);
+}
+
+.all-dist-seg.done {
+  background: var(--color-success);
+}
+
+.all-dist-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.legend-item {
+  font-size: 11px;
+  color: var(--color-text-3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-item::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-item.todo::before { background: var(--color-warning); }
+.legend-item.progress::before { background: var(--color-info); }
+.legend-item.done::before { background: var(--color-success); }
 </style>

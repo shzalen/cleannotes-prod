@@ -607,6 +607,8 @@ function weeklyReportToRow(r: WeeklyReport) {
     week_end: r.weekEnd,
     content: r.content,
     summary: r.summary,
+    ai_summary: r.aiSummary || null,
+    ai_summary_status: r.aiSummaryStatus || null,
     created_at: normalizeTimestamp(r.createdAt),
     updated_at: normalizeTimestamp(r.updatedAt),
   }
@@ -619,6 +621,8 @@ function rowToWeeklyReport(r: Record<string, unknown>): WeeklyReport {
     weekEnd: (r.week_end as string) ?? '',
     content: (r.content as string) ?? '',
     summary: (r.summary as WeeklyReport['summary']) ?? { tasksCreated: 0, tasksCompleted: 0, todosCreated: 0, totalXpGained: 0, completionRate: 0, streakDays: 0 },
+    aiSummary: (r.ai_summary as string) || undefined,
+    aiSummaryStatus: (r.ai_summary_status as 'generating' | 'success' | 'failed') || undefined,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
   }
