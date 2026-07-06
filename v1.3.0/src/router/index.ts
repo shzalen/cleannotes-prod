@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { switchUser } from '@/services/storage'
+import { isMobileDevice, isForcePC, clearForcePC } from '@/utils/device'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -103,15 +104,25 @@ const router = createRouter({
   ],
 })
 
-// Navigation guard: check auth
+// Navigation guard: check auth + device auto-redirect
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
+  const isH5 = to.path.startsWith('/h5')
+
+  // 用户主动进入 H5 → 清除 force_pc，恢复自动检测
+  if (isH5) {
+    clearForcePC()
+  }
 
   // Public routes don't need auth
   if (to.meta.public) {
-    // If already authenticated, redirect to home (except for diag)
+    // If already authenticated, redirect (except for diag)
     if (auth.isAuthenticated && to.name !== 'diag') {
-      next({ name: 'home' })
+      if (isMobileDevice() && !isH5 && !isForcePC()) {
+        next('/h5/tasks')
+      } else {
+        next({ name: 'home' })
+      }
       return
     }
     next()
@@ -121,10 +132,22 @@ router.beforeEach((to, _from, next) => {
   // Protected routes require auth
   if (!auth.isAuthenticated) {
     // H5 路由：保存重定向路径，登录后跳回
-    if (to.path.startsWith('/h5')) {
+    if (isH5) {
       sessionStorage.setItem('h5_redirect', to.fullPath)
     }
     next({ name: 'login' })
+    return
+  }
+
+  // ── 已认证：设备自适应重定向 ──
+  // 移动端访问 PC 路由 → 跳转 H5（除非用户已强制桌面版）
+  if (isMobileDevice() && !isH5 && !isForcePC()) {
+    next('/h5/tasks')
+    return
+  }
+  // 桌面端访问 H5 路由 → 跳转 PC 首页
+  if (!isMobileDevice() && isH5) {
+    next({ name: 'home' })
     return
   }
 

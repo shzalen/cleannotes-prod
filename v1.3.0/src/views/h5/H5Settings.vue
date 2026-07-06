@@ -77,6 +77,7 @@ import { useTheme } from '@/composables/useTheme'
 import type { ThemeMode } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import { setForcePC } from '@/utils/device'
 
 const { mode, setTheme } = useTheme()
 const auth = useAuthStore()
@@ -93,6 +94,9 @@ const themes: { label: string; value: ThemeMode }[] = [
 ]
 
 function goPC() {
+  // 设置强制桌面版标记，阻止路由守卫自动跳回 H5
+  // 用户再次进入 /h5/* 时会自动清除该标记
+  setForcePC()
   router.push('/')
 }
 

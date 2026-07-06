@@ -12,6 +12,7 @@ import { useSync, stopAllSync } from '@/composables/useSync'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { isMobileDevice } from '@/utils/device'
 import XpToast from '@/components/XpToast.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -189,10 +190,15 @@ onMounted(async () => {
       sessionStorage.removeItem('h5_redirect')
       router.push(h5Redirect)
     } else {
-      // 仅当无路由或从登录页进入时才跳转首页，刷新时保持当前页面
+      // 仅当无路由或从登录页进入时才跳转，刷新时保持当前页面
       const currentRoute = router.currentRoute.value
       if (!currentRoute.name || currentRoute.name === 'login') {
-        router.push({ name: 'home' })
+        // 移动端自动进入 H5
+        if (isMobileDevice()) {
+          router.push('/h5/tasks')
+        } else {
+          router.push({ name: 'home' })
+        }
       }
     }
     // ③ 后台异步合并云端数据；若有变更则刷新 store

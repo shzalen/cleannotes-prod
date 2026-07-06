@@ -7,6 +7,7 @@ import { mergeFromCloud } from '@/services/hybrid'
 import { useTaskStore } from '@/stores/task'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useRouter } from 'vue-router'
+import { isMobileDevice } from '@/utils/device'
 
 const auth = useAuthStore()
 const taskStore = useTaskStore()
@@ -58,6 +59,9 @@ async function onLoginSuccess() {
     if (h5Redirect) {
       sessionStorage.removeItem('h5_redirect')
       await router.push(h5Redirect)
+    } else if (isMobileDevice()) {
+      // 移动端自动进入 H5
+      await router.push('/h5/tasks')
     } else {
       await router.push({ name: 'home' })
     }
