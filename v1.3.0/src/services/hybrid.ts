@@ -13,6 +13,7 @@ import type { StorageAdapter } from './storage'
 import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig } from '@/types'
 import { supabaseAdapter } from './supabase'
 import { localAdapter } from './local'
+import { setSyncLogUserId, appendSyncLog } from './syncLog'
 import { SUPABASE_URL, SUPABASE_KEY } from './supabase'
 import { toUTCISO } from '@/utils/time'
 
@@ -374,6 +375,9 @@ export async function mergeFromCloud(): Promise<boolean> {
       await supabaseAdapter.saveTimerConfig(freshLocalTimer).catch(() => {
         pushDirtyOp({ type: 'save_timer_config', data: freshLocalTimer })
       })
+    } else if (cloudTimer && freshLocalTimer) {
+      // Both exist: cloud wins per declared strategy
+      await localAdapter.saveTimerConfig(cloudTimer)
     }
 
     // ---- AI Config (cloud wins if both exist) ----
@@ -383,14 +387,46 @@ export async function mergeFromCloud(): Promise<boolean> {
       await supabaseAdapter.saveAiConfig(freshLocalAiConfig).catch(() => {
         pushDirtyOp({ type: 'save_ai_config', data: freshLocalAiConfig })
       })
+    } else if (cloudAiConfig && freshLocalAiConfig) {
+      // Both exist: cloud wins per declared strategy
+      await localAdapter.saveAiConfig(cloudAiConfig)
     }
 
     isOnline.value = true
     syncStatus.value = 'idle'
     saveLastSyncAt(toUTCISO())
+
+    // Log sync result
+    const taskChanges = filteredCloudTasks.length + filteredLocalTasks.length > 0
+    appendSyncLog({
+      type: 'full_merge',
+      summary: hasChanges
+        ? `全量合并完成，处理了 ${filteredCloudTasks.length} 个云端任务${orphanedIds.length > 0 ? `（清理 ${orphanedIds.length} 个孤立记录）` : ''}`
+        : '全量合并完成，无差异',
+      tasksSynced: filteredCloudTasks.length,
+      deletedSynced: cloudDeleted.length + freshLocalDeleted.length,
+      memosSynced: 0,
+      todosSynced: 0,
+      reportsSynced: 0,
+      status: 'success',
+    })
+
     return hasChanges
-  } catch {
+  } catch (err: any) {
     syncStatus.value = 'error'
+
+    appendSyncLog({
+      type: 'error',
+      summary: '全量合并失败',
+      tasksSynced: 0,
+      deletedSynced: 0,
+      memosSynced: 0,
+      todosSynced: 0,
+      reportsSynced: 0,
+      status: 'failed',
+      errorMsg: err?.message || String(err),
+    })
+
     return false
   }
 }
@@ -448,6 +484,16 @@ export async function fetchRemoteChanges(): Promise<RemoteChanges | null> {
     ])
 
     // ---- Compute task diff ----
+    // Build a set of pending task IDs from the dirty queue — these are tasks
+    // that failed to sync to cloud and will be retried. They should NOT be
+    // treated as "remote deleted" just because cloud doesn't have them yet.
+    const dirtyQueue = getDirtyQueue()
+    const pendingSyncTaskIds = new Set(
+      dirtyQueue
+        .filter(op => op.type === 'upsert_task')
+        .map(op => (op.data as Task).id)
+    )
+
     // Build a set of IDs that are in the deleted_tasks table (recycle bin).
     // Any task present in deleted_tasks should NOT be restored to the main list.
     const deletedTaskIdsSet = new Set(cloudDeleted.map(t => t.id))
@@ -487,7 +533,7 @@ export async function fetchRemoteChanges(): Promise<RemoteChanges | null> {
       }
     }
     for (const id of localTaskMap.keys()) {
-      if (!cloudTaskMap.has(id)) {
+      if (!cloudTaskMap.has(id) && !pendingSyncTaskIds.has(id)) {
         deletedTaskIds.push(id)
       }
     }
@@ -592,6 +638,7 @@ export const hybridAdapter: StorageAdapter = {
     currentUserId = userId
     supabaseAdapter.setUserId(userId)
     localAdapter.setUserId(userId)
+    setSyncLogUserId(userId)
     // Load persisted lastSyncAt
     lastSyncAt.value = loadLastSyncAt()
     // Clean up old tombstones on user switch

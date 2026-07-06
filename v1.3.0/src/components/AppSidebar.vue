@@ -7,6 +7,7 @@ import { stopAllSync } from '@/composables/useSync'
 import { marked } from 'marked'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import TestReportModal from '@/components/TestReportModal.vue'
+import SyncLogModal from '@/components/SyncLogModal.vue'
 
 const props = defineProps<{
   isOnline?: boolean
@@ -32,6 +33,7 @@ const testReportVisible = ref(false)
 const readmeVisible = ref(false)
 const readmeHtml = ref('')
 const isReadmeFullscreen = ref(false)
+const syncLogVisible = ref(false)
 
 function toggleReadmeFs() {
   isReadmeFullscreen.value = !isReadmeFullscreen.value
@@ -211,7 +213,7 @@ function confirmLogout() {
       <div class="status-row">
         <div class="status-dot" :class="{ online: online, syncing: syncing }" :title="statusLabel" />
         <span class="status-text">{{ statusLabel }}</span>
-        <span v-if="lastSyncText && online && !syncing" class="status-time">{{ lastSyncText }}</span>
+        <span v-if="lastSyncText && online && !syncing" class="status-time" @click="syncLogVisible = true" title="查看同步日志">{{ lastSyncText }}</span>
       </div>
       <div class="version-row" @click="testReportVisible = true" title="查看测试报告">v{{ appVersion }} · {{ buildTime }}</div>
       <div class="readme-row" @click="showReadme">README</div>
@@ -234,6 +236,12 @@ function confirmLogout() {
     :visible="testReportVisible"
     :current-version="appVersion"
     @close="testReportVisible = false"
+  />
+
+  <!-- Sync Log Modal -->
+  <SyncLogModal
+    :visible="syncLogVisible"
+    @close="syncLogVisible = false"
   />
 
   <!-- README Modal -->
@@ -455,6 +463,12 @@ function confirmLogout() {
   font-size: 10px;
   color: var(--color-text-4);
   margin-left: auto;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.status-time:hover {
+  color: var(--color-text-3);
 }
 
 .version-row {

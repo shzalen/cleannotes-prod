@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vue-tsc --noEmit && vite build",
-    "build:gh-pages": "vite build --base /cleannotes/",
+    "build:gh-pages": "vite build --base /cleannotes-prod/",
     "copy:prod": "bash scripts/copy-to-prod.sh",
     "preview": "vite preview --host",
     "start": "vite preview --host --port 4173"

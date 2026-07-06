@@ -146,25 +146,59 @@ export async function syncGrowthFromCloud(): Promise<void> {
     const localXpEvents = getXpEvents()
     const localAchievements = getAchievementRecords()
 
-    // 状态：比较 updatedAt（无法直接比较，简单策略：云端数据更全就用云端）
-    // 简单合并：本地优先，云端补充分支
-    const mergedState = { ...localState }
+    // 状态合并：totalXp 高的为权威源（level/xp/totalXp/maxStreakDays 取最大值）
+    // 原因：本地可能被重置（如切换域名 localStorage 隔离），云端保留历史进度
+    const cloudWins = cloudData.state.totalXp > localState.totalXp
+    const mergedState: GrowthState = cloudWins
+      ? {
+          ...cloudData.state,
+          // 累积型字段取双方最大值（云端为基础源，本地可能有更新的计数值）
+          streakDays: Math.max(localState.streakDays, cloudData.state.streakDays),
+          witheredDays: Math.max(localState.witheredDays, cloudData.state.witheredDays),
+          maxStreakDays: Math.max(localState.maxStreakDays, cloudData.state.maxStreakDays),
+          // 时间型字段取较新值
+          lastActiveDate: [localState.lastActiveDate, cloudData.state.lastActiveDate].sort().pop() || cloudData.state.lastActiveDate,
+          lastXpGainAt: [localState.lastXpGainAt, cloudData.state.lastXpGainAt].sort().pop() || cloudData.state.lastXpGainAt,
+          // dailyState 以 cloudData 权威值为准（云端 totalXp 更高，状态更可信）
+        }
+      : {
+          ...localState,
+          level: Math.max(localState.level, cloudData.state.level),
+          xp: Math.max(localState.xp, cloudData.state.xp),
+          totalXp: Math.max(localState.totalXp, cloudData.state.totalXp),
+          maxStreakDays: Math.max(localState.maxStreakDays, cloudData.state.maxStreakDays),
+          streakDays: Math.max(localState.streakDays, cloudData.state.streakDays),
+          witheredDays: Math.max(localState.witheredDays, cloudData.state.witheredDays),
+          lastActiveDate: [localState.lastActiveDate, cloudData.state.lastActiveDate].sort().pop() || localState.lastActiveDate,
+          lastXpGainAt: [localState.lastXpGainAt, cloudData.state.lastXpGainAt].sort().pop() || localState.lastXpGainAt,
+          // dailyState：若云端状态更"健康"（vitality > recovery > withered），倾向于使用云端
+          // 但本地 totalXp 更高，本地更有发言权；仅在本地非 vitality 且云端为 vitality 时采纳云端
+          ...(localState.dailyState !== 'vitality' && cloudData.state.dailyState === 'vitality'
+            ? { dailyState: 'vitality' as DailyState }
+            : {}),
+        }
 
-    // XpEvents：合并去重（按 id）
+    // XpEvents：合并去重（按 id），同 ID 冲突时以时间戳较新者为准
     const eventMap = new Map<string, XpEvent>()
     for (const e of localXpEvents) eventMap.set(e.id, e)
     for (const e of cloudData.xpEvents) {
-      if (!eventMap.has(e.id)) eventMap.set(e.id, e)
+      const existing = eventMap.get(e.id)
+      if (!existing || e.createdAt > existing.createdAt) {
+        eventMap.set(e.id, e)
+      }
     }
     const mergedEvents = Array.from(eventMap.values())
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(-XP_EVENTS_CAP)
 
-    // Achievements：云端有但本地没有的补齐
+    // Achievements：合并去重（按 id），同 ID 冲突时以 unlockedAt 较新者为准
     const achMap = new Map<string, AchievementRecord>()
     for (const a of localAchievements) achMap.set(a.id, a)
     for (const a of cloudData.achievements) {
-      if (!achMap.has(a.id)) achMap.set(a.id, a)
+      const existing = achMap.get(a.id)
+      if (!existing || a.unlockedAt > existing.unlockedAt) {
+        achMap.set(a.id, a)
+      }
     }
     const mergedAchievements = Array.from(achMap.values())
 

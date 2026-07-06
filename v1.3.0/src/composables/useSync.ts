@@ -11,6 +11,7 @@ import { onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAiStore } from '@/stores/ai'
 import { fetchRemoteChanges, isOnline, syncStatus, lastSyncAt, startHealthCheck, stopHealthCheck } from '@/services/hybrid'
+import { appendSyncLog } from '@/services/syncLog'
 
 const SYNC_INTERVAL = 30_000 // 30 seconds
 
@@ -38,17 +39,34 @@ export function formatLastSync(isoStr: string): string {
 /** 执行一次增量同步 */
 async function runIncrementalSync() {
   const changes = await fetchRemoteChanges()
-  if (!changes) return
+  if (!changes) {
+    appendSyncLog({
+      type: 'incremental',
+      summary: '增量同步跳过（网络不可达）',
+      tasksSynced: 0,
+      deletedSynced: 0,
+      memosSynced: 0,
+      todosSynced: 0,
+      reportsSynced: 0,
+      status: 'partial',
+    })
+    return
+  }
 
   const taskStore = useTaskStore()
   const aiStore = useAiStore()
 
+  let taskCount = 0
+  let deletedCount = 0
+
   // 应用任务变更
   for (const task of changes.updatedTasks) {
     taskStore.applyRemoteTask(task)
+    taskCount++
   }
   for (const id of changes.deletedTaskIds) {
     taskStore.applyRemoteTaskDelete(id)
+    deletedCount++
   }
 
   // 应用回收站变更
@@ -66,6 +84,20 @@ async function runIncrementalSync() {
   for (const id of changes.deletedAiMessageIds) {
     aiStore.applyRemoteAiMessageDelete(id)
   }
+
+  const totalChanges = taskCount + deletedCount + changes.updatedDeletedTasks.length + changes.deletedDeletedTaskIds.length + changes.updatedAiMessages.length + changes.deletedAiMessageIds.length
+  appendSyncLog({
+    type: 'incremental',
+    summary: totalChanges > 0
+      ? `增量同步: ${taskCount} 任务更新, ${deletedCount} 删除`
+      : '增量同步完成，无变更',
+    tasksSynced: taskCount,
+    deletedSynced: deletedCount,
+    memosSynced: 0,
+    todosSynced: 0,
+    reportsSynced: 0,
+    status: 'success',
+  })
 }
 
 function startSyncLoop() {
