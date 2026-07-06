@@ -10,6 +10,8 @@ target="D:/CleanNotepad-Prod/v1.3.0"
 rm -rf "$target"/*
 mkdir -p "$target"
 cp -r dist/* "$target/"
+# 添加 .nojekyll 防止 GitHub Pages 用 Jekyll 处理静态资源
+touch "$target/.nojekyll"
 echo "Copied $(ls "$target" | wc -l) items to $target"
 
 echo "=== Rebuilding for local IIS (base=/) ==="
