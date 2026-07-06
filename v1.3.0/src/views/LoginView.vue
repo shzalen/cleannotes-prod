@@ -53,7 +53,14 @@ async function onLoginSuccess() {
   // ③ 等待响应式更新完成，再跳转（避免 beforeEach 守卫中 isAuthenticated 尚未更新）
   await nextTick()
   try {
-    await router.push({ name: 'home' })
+    // H5 重定向：未登录访问 H5 页面 → 登录后跳回
+    const h5Redirect = sessionStorage.getItem('h5_redirect')
+    if (h5Redirect) {
+      sessionStorage.removeItem('h5_redirect')
+      await router.push(h5Redirect)
+    } else {
+      await router.push({ name: 'home' })
+    }
   } catch (e: any) {
     // 重复导航（已在首页）不属于错误，忽略
     if (e?.code !== 'NAVIGATION_DUPLICATE') {
