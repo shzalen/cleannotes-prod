@@ -61,12 +61,16 @@
         <!-- 任务内容 -->
         <div class="h5-task-body">
           <div class="h5-task-title" :class="{ done: task.status === 'done' }">{{ task.title }}</div>
+
+          <!-- 计划开始时间 — 醒目展示 -->
+          <div v-if="task.startDate" class="h5-task-schedule">
+            <svg class="h5-schedule-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span class="h5-schedule-date">{{ formatDateFull(task.startDate) }}</span>
+            <span v-if="task.startTime" class="h5-schedule-time">{{ task.startTime }}</span>
+          </div>
+
           <div class="h5-task-meta">
             <span class="h5-priority-badge" :class="`p-${task.priority}`">{{ priorityLabel(task.priority) }}</span>
-            <span v-if="task.startDate" class="h5-task-time">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              {{ formatDate(task.startDate) }}{{ task.startTime ? ' ' + task.startTime : '' }}
-            </span>
             <span v-if="task.dueDate" class="h5-task-due">
               截止 {{ formatDate(task.dueDate) }}
             </span>
@@ -113,25 +117,31 @@ const tasks = ref<Task[]>([])
 const activeFilter = ref<TaskStatus | 'all'>('all')
 const toggling = ref(false)
 
+// 只展示未完成任务（排除 done）
+const activeTasks = computed(() => tasks.value.filter(t => t.status !== 'done'))
+
 const filterTabs = computed(() => [
-  { label: '全部', value: 'all' as const, count: tasks.value.length },
-  { label: '待办', value: 'todo' as const, count: tasks.value.filter(t => t.status === 'todo').length },
-  { label: '进行中', value: 'in_progress' as const, count: tasks.value.filter(t => t.status === 'in_progress').length },
-  { label: '已完成', value: 'done' as const, count: tasks.value.filter(t => t.status === 'done').length },
+  { label: '全部', value: 'all' as const, count: activeTasks.value.length },
+  { label: '待办', value: 'todo' as const, count: activeTasks.value.filter(t => t.status === 'todo').length },
+  { label: '进行中', value: 'in_progress' as const, count: activeTasks.value.filter(t => t.status === 'in_progress').length },
 ])
 
 const filteredTasks = computed(() => {
-  if (activeFilter.value === 'all') {
-    // 排序：进行中 > 待办 > 已完成；同状态内按优先级降序
-    const order: Record<TaskStatus, number> = { in_progress: 0, todo: 1, done: 2 }
-    const prio: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 }
-    return [...tasks.value].sort((a, b) => {
-      if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status]
-      if (prio[a.priority] !== prio[b.priority]) return prio[a.priority] - prio[b.priority]
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    })
-  }
-  return tasks.value.filter(t => t.status === activeFilter.value)
+  const list = activeFilter.value === 'all'
+    ? activeTasks.value
+    : activeTasks.value.filter(t => t.status === activeFilter.value)
+
+  // 排序：进行中 > 待办；同状态内按优先级降序，再按开始时间升序
+  const order: Record<TaskStatus, number> = { in_progress: 0, todo: 1, done: 2 }
+  const prio: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 }
+  return [...list].sort((a, b) => {
+    if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status]
+    if (prio[a.priority] !== prio[b.priority]) return prio[a.priority] - prio[b.priority]
+    // 有开始时间的排前面，同优先级按开始时间升序
+    const aTime = a.startDate ? new Date(a.startDate).getTime() : Infinity
+    const bTime = b.startDate ? new Date(b.startDate).getTime() : Infinity
+    return aTime - bTime
+  })
 })
 
 const stats = computed(() => ({
@@ -147,6 +157,14 @@ function priorityLabel(p: TaskPriority): string {
 function formatDate(d: string): string {
   const date = new Date(d)
   return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+function formatDateFull(d: string): string {
+  const date = new Date(d)
+  const m = date.getMonth() + 1
+  const day = date.getDate()
+  const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]
+  return `${m}月${day}日 ${week}`
 }
 
 async function loadData() {
@@ -366,11 +384,44 @@ onActivated(loadData)
   color: var(--color-text-3);
 }
 
+/* 计划开始时间 — 醒目展示 */
+.h5-task-schedule {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.h5-schedule-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.h5-schedule-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  letter-spacing: 0.2px;
+}
+
+.h5-schedule-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-primary);
+  padding-left: 5px;
+  margin-left: 2px;
+  border-left: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
 .h5-task-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 7px;
   flex-wrap: wrap;
 }
 
@@ -397,7 +448,6 @@ onActivated(loadData)
   color: var(--color-info-text);
 }
 
-.h5-task-time,
 .h5-task-due {
   font-size: 11px;
   color: var(--color-text-3);
