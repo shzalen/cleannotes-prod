@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
 import { useGrowthStore } from '@/stores/growth'
 import { switchUser } from '@/services/storage'
-import { mergeFromCloud } from '@/services/hybrid'
+import { mergeFromCloud, syncLogs } from '@/services/hybrid'
 import { supabaseAdapter } from '@/services/supabase'
 import { useSync, stopAllSync } from '@/composables/useSync'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
@@ -237,6 +237,7 @@ onUnmounted(() => {
       :is-online="isOnline"
       :sync-status="syncStatus"
       :last-sync-text="formatLastSync(lastSyncAt)"
+      :sync-logs="syncLogs"
       @logout="handleLogout"
     />
     <main class="app-main">

@@ -22,6 +22,30 @@ export const isOnline = ref(true)
 export const syncStatus = ref<'idle' | 'syncing' | 'error'>('idle')
 export const lastSyncAt = ref<string>('')
 
+// ---- Sync logs (最近 N 条，展示用) ----
+
+export interface SyncLogEntry {
+  id: number
+  time: string
+  status: 'success' | 'error' | 'idle'
+  message: string
+}
+
+let _syncLogId = 0
+const MAX_SYNC_LOGS = 20
+export const syncLogs = ref<SyncLogEntry[]>([])
+
+/** 追加一条同步日志 */
+export function pushSyncLog(status: SyncLogEntry['status'], message: string) {
+  const entry: SyncLogEntry = {
+    id: ++_syncLogId,
+    time: new Date().toISOString(),
+    status,
+    message,
+  }
+  syncLogs.value = [entry, ...syncLogs.value].slice(0, MAX_SYNC_LOGS)
+}
+
 // ---- User context ----
 
 let currentUserId = ''
