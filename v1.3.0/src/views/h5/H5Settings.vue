@@ -86,11 +86,10 @@ const router = useRouter()
 const appVersion = __APP_VERSION__ || '1.3.0'
 
 const themes: { label: string; value: ThemeMode }[] = [
-  { label: '浅色', value: 'light' },
+  { label: '腾讯蓝', value: 'tencent' },
   { label: '深色', value: 'dark' },
   { label: '跟随系统', value: 'auto' },
   { label: 'ZURU', value: 'zuru' },
-  { label: '腾讯蓝', value: 'tencent' },
 ]
 
 function goPC() {

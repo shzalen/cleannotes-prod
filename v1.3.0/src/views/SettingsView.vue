@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAiStore } from '@/stores/ai'
 import { isOnline } from '@/services/storage'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
+import { findUserByPhoneWithCredentials } from '@/services/auth'
 
 const timerStore = useTimerStore()
 const auth = useAuthStore()
@@ -16,6 +17,21 @@ const workEnd = ref('18:00')
 const saved = ref(false)
 const nicknameEdit = ref('')
 const nicknameSaved = ref(false)
+
+// 密码修改
+const hasPassword = ref(false)
+const pwCurrent = ref('')
+const pwNew = ref('')
+const pwNewConfirm = ref('')
+const showPwCurrent = ref(false)
+const showPwNew = ref(false)
+const pwSaving = ref(false)
+const pwSaved = ref(false)
+const pwError = ref('')
+
+const pwCurrentValid = computed(() => pwCurrent.value.length >= 8 || !hasPassword.value)
+const pwNewValid = computed(() => pwNew.value.length >= 8)
+const pwConfirmValid = computed(() => pwNew.value.length >= 8 && pwNew.value === pwNewConfirm.value)
 
 // AI 配置
 const aiApiUrl = ref('')
@@ -47,7 +63,44 @@ onMounted(async () => {
   aiApiUrl.value = aiStore.config.apiUrl
   aiApiKey.value = aiStore.config.apiKey
   aiModel.value = aiStore.config.model
+
+  // 检查是否已设置密码
+  if (auth.user) {
+    try {
+      const creds = await findUserByPhoneWithCredentials(auth.user.phone)
+      hasPassword.value = !!(creds?.passwordHash && creds?.passwordSalt)
+    } catch { /* 离线时静默 */ }
+  }
 })
+
+async function handleChangePassword() {
+  pwError.value = ''
+  pwSaved.value = false
+  if (!pwNewValid.value || !pwConfirmValid.value) return
+  if (hasPassword.value && !pwCurrentValid.value) {
+    pwError.value = '请输入当前密码'
+    return
+  }
+  pwSaving.value = true
+  try {
+    const ok = await auth.changePassword(
+      hasPassword.value ? pwCurrent.value : '',
+      pwNew.value,
+    )
+    if (ok) {
+      hasPassword.value = true
+      pwCurrent.value = ''
+      pwNew.value = ''
+      pwNewConfirm.value = ''
+      pwSaved.value = true
+      setTimeout(() => pwSaved.value = false, 2000)
+    } else {
+      pwError.value = auth.error || '修改失败'
+    }
+  } finally {
+    pwSaving.value = false
+  }
+}
 
 async function saveTimer() {
   timerStore.config.workStart = workStart.value
@@ -115,6 +168,63 @@ async function saveAiConfig() {
             </div>
           </div>
 
+          <!-- Change Password -->
+          <div class="sc-card">
+            <h3 class="sc-title">{{ hasPassword ? '修改密码' : '设置密码' }}</h3>
+            <div class="form-group full" v-if="hasPassword">
+              <label>当前密码</label>
+              <div class="input-with-btn">
+                <input
+                  :type="showPwCurrent ? 'text' : 'password'"
+                  v-model="pwCurrent"
+                  placeholder="请输入当前密码"
+                />
+                <button class="btn-sm-ghost" @click="showPwCurrent = !showPwCurrent" :title="showPwCurrent ? '隐藏' : '显示'">
+                  <svg v-if="!showPwCurrent" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>新密码</label>
+              <div class="input-with-btn">
+                <input
+                  :type="showPwNew ? 'text' : 'password'"
+                  v-model="pwNew"
+                  placeholder="至少8位字符"
+                />
+                <button class="btn-sm-ghost" @click="showPwNew = !showPwNew" :title="showPwNew ? '隐藏' : '显示'">
+                  <svg v-if="!showPwNew" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>确认新密码</label>
+              <input
+                :type="showPwNew ? 'text' : 'password'"
+                v-model="pwNewConfirm"
+                placeholder="再次输入新密码"
+              />
+            </div>
+            <div v-if="pwError" class="pw-error">{{ pwError }}</div>
+            <button
+              class="btn-primary"
+              :disabled="pwSaving || !pwNewValid || !pwConfirmValid || (hasPassword && !pwCurrentValid)"
+              @click="handleChangePassword"
+            >
+              {{ pwSaving ? '保存中...' : (pwSaved ? '已保存' : (hasPassword ? '修改密码' : '设置密码')) }}
+            </button>
+          </div>
+
           <!-- Work Time -->
           <div class="sc-card">
             <h3 class="sc-title">上下班时间</h3>
@@ -158,15 +268,6 @@ async function saveAiConfig() {
           <div class="sc-card">
             <h3 class="sc-title">外观</h3>
             <div class="theme-options">
-              <button
-                :class="['theme-btn', { active: themeMode === 'light' }]"
-                @click="setTheme('light')"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-                <span>浅色</span>
-              </button>
               <button
                 :class="['theme-btn', { active: themeMode === 'tencent' }]"
                 @click="setTheme('tencent')"
@@ -534,6 +635,16 @@ async function saveAiConfig() {
   background: var(--color-primary-light);
   color: var(--color-primary);
   box-shadow: 0 0 0 1px var(--color-primary-light);
+}
+
+/* Password error */
+.pw-error {
+  font-size: 12px;
+  color: var(--color-danger-text);
+  padding: 6px 10px;
+  background: var(--color-danger-light);
+  border-radius: 6px;
+  margin-bottom: 8px;
 }
 
 /* ---- Responsive: single column on narrow screens ---- */

@@ -203,6 +203,45 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** 修改密码（需验证旧密码） */
+  async function changePassword(oldPassword: string, newPassword: string): Promise<boolean> {
+    if (!user.value) {
+      error.value = '未登录'
+      return false
+    }
+    if (newPassword.length < 8) {
+      error.value = '新密码长度至少 8 位'
+      return false
+    }
+    error.value = ''
+    loading.value = true
+    try {
+      const creds = await findUserByPhoneWithCredentials(user.value.phone)
+      if (!creds) {
+        error.value = '账号不存在'
+        return false
+      }
+      // 已有密码 → 校验旧密码
+      if (creds.passwordHash && creds.passwordSalt) {
+        const ok = await verifyPassword(oldPassword, creds.passwordSalt, creds.passwordHash)
+        if (!ok) {
+          error.value = '当前密码错误'
+          return false
+        }
+      }
+      // 生成新密码哈希
+      const salt = generateSalt()
+      const hash = await hashPassword(newPassword, salt)
+      await setPassword(user.value.id, hash, salt)
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '修改密码失败'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   /** 退出登录 */
   function logout() {
     user.value = null
@@ -240,6 +279,7 @@ export const useAuthStore = defineStore('auth', () => {
     checkPhoneAndLogin,
     verifyAndRegister,
     submitPassword,
+    changePassword,
     logout,
     changeNickname,
   }
