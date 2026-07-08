@@ -183,7 +183,7 @@ async function exportAsImage() {
         clonedDoc.head.appendChild(styleTag)
 
         // 2) Inline resolved computed values on every element
-        const clonedEls = [clonedPoster, ...Array.from(clonedPoster.querySelectorAll('*'))]
+        const clonedEls = [clonedPoster, ...Array.from(clonedPoster.querySelectorAll('*'))] as HTMLElement[]
         clonedEls.forEach((clone, i) => {
           const data = computedStyles[i]
           if (!data) return

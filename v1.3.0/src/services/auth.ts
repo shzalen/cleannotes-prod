@@ -95,6 +95,32 @@ function rowToUser(r: Record<string, unknown>): User {
   }
 }
 
+export interface UserCredentials {
+  user: User
+  /** PBKDF2 派生哈希（base64），NULL 表示尚未设置密码（遗留账号） */
+  passwordHash: string | null
+  /** 随机盐（base64），NULL 表示尚未设置密码 */
+  passwordSalt: string | null
+}
+
+/**
+ * 查找手机号对应的用户，并一并返回密码凭据。
+ * 与 findUserByPhone 区别：此处额外返回 password_hash / password_salt，
+ * 供客户端在本地校验密码（密码明文永不发送至服务端）。
+ */
+export async function findUserByPhoneWithCredentials(phone: string): Promise<UserCredentials | null> {
+  const rows = (await request('cleannote_users', 'GET', {
+    query: `?phone=eq.${encodeURIComponent(phone)}&limit=1`,
+  })) as Record<string, unknown>[]
+  if (rows.length === 0) return null
+  const r = rows[0]
+  return {
+    user: rowToUser(r),
+    passwordHash: (r.password_hash as string) || null,
+    passwordSalt: (r.password_salt as string) || null,
+  }
+}
+
 /** 查找手机号对应的用户 */
 export async function findUserByPhone(phone: string): Promise<User | null> {
   const rows = (await request('cleannote_users', 'GET', {
@@ -103,16 +129,25 @@ export async function findUserByPhone(phone: string): Promise<User | null> {
   return rows.length > 0 ? rowToUser(rows[0]) : null
 }
 
-/** 注册新用户 */
-export async function registerUser(phone: string, nickname?: string): Promise<User> {
+/** 注册新用户（可选携带密码哈希，用于密码登录注册） */
+export async function registerUser(
+  phone: string,
+  nickname?: string,
+  passwordHash?: string,
+  passwordSalt?: string,
+): Promise<User> {
   const id = crypto.randomUUID()
   const now = toUTCISO()
-  const body = {
+  const body: Record<string, unknown> = {
     id,
     phone,
     nickname: nickname || `用户${phone.slice(-4)}`,
     created_at: now,
     last_login_at: now,
+  }
+  if (passwordHash && passwordSalt) {
+    body.password_hash = passwordHash
+    body.password_salt = passwordSalt
   }
   await request('cleannote_users', 'POST', {
     body,
@@ -120,6 +155,19 @@ export async function registerUser(phone: string, nickname?: string): Promise<Us
     userId: id,
   })
   return rowToUser(body as Record<string, unknown>)
+}
+
+/** 为用户设置/更新密码（仅写入哈希与盐，明文不落库） */
+export async function setPassword(
+  userId: string,
+  passwordHash: string,
+  passwordSalt: string,
+): Promise<void> {
+  await request('cleannote_users', 'PATCH', {
+    query: `?id=eq.${userId}`,
+    body: { password_hash: passwordHash, password_salt: passwordSalt },
+    userId,
+  })
 }
 
 /** 更新最后登录时间 */
