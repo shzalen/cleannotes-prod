@@ -99,16 +99,20 @@ async function renderMermaid(code: string): Promise<string> {
   const id = `${containerId.value}-${++renderSeq}`
   const trimmed = code.trim() || 'graph TD\n  A[Empty]'
 
+  // 记录 render 前 body 中所有子元素的快照（用于事后精确清理）
+  const preChildren = new Set(Array.from(document.body.children))
+
   try {
     const { svg } = await mermaid.default.render(id, trimmed)
     return svg
   } finally {
-    // 无论成功失败，都清理 mermaid 在 body 中插入的临时 DOM
-    // 防止错误 SVG 残留到页面底部
-    const ghost = document.getElementById(`d${id}`)
-    if (ghost) ghost.remove()
-    // 额外清理 mermaid 可能创建的错误 DOM
-    document.querySelectorAll('#mermaid-error, .mermaid-error, [id^="mermaid-error"]').forEach(el => el.remove())
+    // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
+    // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容
+    Array.from(document.body.children).forEach((child) => {
+      if (!preChildren.has(child)) {
+        child.remove()
+      }
+    })
   }
 }
 
