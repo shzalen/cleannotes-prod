@@ -145,7 +145,15 @@ const TEMPLATES: MemoTemplate[] = [
 ]
 
 const templatePickerVisible = ref(false)
+const tagExpandThreshold = 8
 const showAllTags = ref(false)
+
+/** 默认只显示前 N 个标签，展开后显示全部 */
+const displayedTags = computed(() => {
+  if (store.allTags.length <= tagExpandThreshold) return store.allTags
+  if (showAllTags.value) return store.allTags
+  return store.allTags.slice(0, tagExpandThreshold)
+})
 
 function createFromTemplate(tpl: MemoTemplate) {
   if (isDirty.value) flushAutoSave()
@@ -581,19 +589,19 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Tag filters -->
-      <div v-if="store.allTags.length > 0" class="tag-filters" :class="{ expanded: showAllTags }">
+      <div v-if="store.allTags.length > 0" class="tag-filters">
         <button
-          v-for="tag in store.allTags"
+          v-for="tag in displayedTags"
           :key="tag"
           :class="['tag-filter', { active: store.activeTag === tag }]"
           @click="setActiveTag(tag)"
         >{{ tag }}</button>
         <button
-          v-if="store.allTags.length > 8"
+          v-if="store.allTags.length > tagExpandThreshold"
           class="tag-filter tag-filter--toggle"
           @click="showAllTags = !showAllTags"
         >
-          {{ showAllTags ? '收起' : `+${store.allTags.length - 8} 更多` }}
+          {{ showAllTags ? '收起' : `+${store.allTags.length - tagExpandThreshold} 更多` }}
         </button>
       </div>
 
@@ -1134,24 +1142,6 @@ export default { name: 'MemoView' }
   gap: 4px;
   margin: 0 12px 8px;
   flex-shrink: 0;
-  max-height: 52px;
-  overflow: hidden;
-  transition: max-height 0.25s ease;
-}
-
-.tag-filters.expanded {
-  max-height: 300px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.tag-filters.expanded::-webkit-scrollbar {
-  width: 4px;
-}
-
-.tag-filters.expanded::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 2px;
 }
 
 .tag-filter {
