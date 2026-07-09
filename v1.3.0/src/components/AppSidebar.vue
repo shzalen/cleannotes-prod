@@ -8,6 +8,7 @@ import { marked } from 'marked'
 import type { SyncLogEntry } from '@/services/hybrid'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import TestReportModal from '@/components/TestReportModal.vue'
+import SyncLogModal from '@/components/SyncLogModal.vue'
 
 const props = defineProps<{
   isOnline?: boolean
@@ -254,6 +255,12 @@ function confirmLogout() {
     :visible="testReportVisible"
     :current-version="appVersion"
     @close="testReportVisible = false"
+  />
+
+  <!-- Sync Log Modal -->
+  <SyncLogModal
+    :visible="syncLogVisible"
+    @close="syncLogVisible = false"
   />
 
   <!-- README Modal -->

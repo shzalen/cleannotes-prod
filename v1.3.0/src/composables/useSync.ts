@@ -87,6 +87,20 @@ async function runIncrementalSync() {
   } catch {
     pushSyncLog('error', '同步失败，稍后重试')
   }
+
+  const totalChanges = taskCount + deletedCount + changes.updatedDeletedTasks.length + changes.deletedDeletedTaskIds.length + changes.updatedAiMessages.length + changes.deletedAiMessageIds.length
+  appendSyncLog({
+    type: 'incremental',
+    summary: totalChanges > 0
+      ? `增量同步: ${taskCount} 任务更新, ${deletedCount} 删除`
+      : '增量同步完成，无变更',
+    tasksSynced: taskCount,
+    deletedSynced: deletedCount,
+    memosSynced: 0,
+    todosSynced: 0,
+    reportsSynced: 0,
+    status: 'success',
+  })
 }
 
 function startSyncLoop() {
