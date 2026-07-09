@@ -7,18 +7,42 @@ import { mergeFromCloud } from '@/services/hybrid'
 import { useTaskStore } from '@/stores/task'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useRouter } from 'vue-router'
+import { isMobileDevice } from '@/utils/device'
 
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const growthStore = useGrowthStore()
 const router = useRouter()
 
+// ---- 密码登录（手机号为账号） ----
 const phone = ref('')
-const code = ref('')
-const step = ref<'phone' | 'verify'>('phone')
+const pw = ref('')
+const pwConfirm = ref('')
+const showPw = ref(false)
+const pwStep = ref<'input' | 'setup'>('input') // input: 输入密码；setup: 首次设置密码（含确认）
 
 const phoneValid = computed(() => /^1[3-9]\d{9}$/.test(phone.value))
-const codeValid = computed(() => /^\d{6}$/.test(code.value))
+const pwValid = computed(() => pw.value.length >= 8)
+const pwConfirmValid = computed(() => pwConfirm.value.length >= 8 && pwConfirm.value === pw.value)
+
+async function handlePasswordSubmit() {
+  if (!phoneValid.value || !pwValid.value || auth.loading) return
+  const res = await auth.submitPassword(phone.value, pw.value)
+  if (auth.error) return
+  if (res === 'needSetup') {
+    pwStep.value = 'setup'
+    pwConfirm.value = ''
+    return
+  }
+  onLoginSuccess()
+}
+
+async function handlePasswordSetup() {
+  if (!phoneValid.value || !pwValid.value || !pwConfirmValid.value || auth.loading) return
+  const res = await auth.submitPassword(phone.value, pw.value, pwConfirm.value)
+  if (auth.error) return
+  onLoginSuccess()
+}
 
 // ---- Clock widget ----
 const now = ref(new Date())
@@ -53,7 +77,17 @@ async function onLoginSuccess() {
   // ③ 等待响应式更新完成，再跳转（避免 beforeEach 守卫中 isAuthenticated 尚未更新）
   await nextTick()
   try {
-    await router.push({ name: 'home' })
+    // H5 重定向：未登录访问 H5 页面 → 登录后跳回
+    const h5Redirect = sessionStorage.getItem('h5_redirect')
+    if (h5Redirect) {
+      sessionStorage.removeItem('h5_redirect')
+      await router.push(h5Redirect)
+    } else if (isMobileDevice()) {
+      // 移动端自动进入 H5
+      await router.push('/h5/tasks')
+    } else {
+      await router.push({ name: 'home' })
+    }
   } catch (e: any) {
     // 重复导航（已在首页）不属于错误，忽略
     if (e?.code !== 'NAVIGATION_DUPLICATE') {
@@ -66,40 +100,6 @@ async function onLoginSuccess() {
   mergeFromCloud()
 }
 
-async function handlePhoneSubmit() {
-  if (!phoneValid.value || auth.loading) return
-
-  const result = await auth.checkPhoneAndLogin(phone.value)
-
-  if (result === 'loggedIn') {
-    // 已注册用户 → 直接进入
-    onLoginSuccess()
-  } else {
-    // 未注册 → 进入验证码步骤
-    step.value = 'verify'
-  }
-}
-
-async function handleVerify() {
-  if (!codeValid.value || auth.loading) return
-  const ok = await auth.verifyAndRegister(code.value)
-  if (ok) {
-    onLoginSuccess()
-  }
-}
-
-// 输入6位验证码后自动提交
-function onCodeInput() {
-  if (codeValid.value && !auth.loading) {
-    handleVerify()
-  }
-}
-
-function handleBack() {
-  step.value = 'phone'
-  code.value = ''
-  auth.error = ''
-}
 </script>
 
 <template>
@@ -151,65 +151,78 @@ function handleBack() {
     <div class="login-right">
       <div class="form-card">
         <h2 class="form-title">欢迎回来</h2>
-        <p class="form-desc">登录你的笔记本</p>
+        <p class="form-desc">使用手机号和密码登录</p>
 
-        <!-- Step 1: Phone -->
-        <div v-if="step === 'phone'" class="form-body">
-          <div class="input-field">
-            <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
-            </svg>
-            <input
-              v-model="phone"
-              type="tel"
-              maxlength="11"
-              placeholder="请输入手机号"
-              class="field-input"
-              @keyup.enter="handlePhoneSubmit"
-            />
-          </div>
-          <button
-            class="btn-submit"
-            :disabled="!phoneValid || auth.loading"
-            @click="handlePhoneSubmit"
-          >
-            {{ auth.loading ? '验证中...' : '登录' }}
-          </button>
-          <p class="form-foot">新用户将自动注册账号</p>
-        </div>
+        <!-- 密码登录 -->
+        <div class="form-body">
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+              </svg>
+              <input
+                v-model="phone"
+                type="tel"
+                maxlength="11"
+                placeholder="请输入手机号"
+                class="field-input"
+                @keyup.enter="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+              />
+            </div>
 
-        <!-- Step 2: Verify (仅未注册用户) -->
-        <div v-else class="form-body">
-          <p class="verify-phone">
-            手机号 <strong>{{ auth.pendingPhone }}</strong> 尚未注册
-          </p>
-          <div class="verify-code-display">
-            <span class="code-label">验证码</span>
-            <span class="code-value">{{ auth.verifyCode }}</span>
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input
+                v-model="pw"
+                :type="showPw ? 'text' : 'password'"
+                maxlength="64"
+                placeholder="请输入密码（至少8位）"
+                class="field-input has-toggle"
+                @keyup.enter="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+              />
+              <button
+                type="button"
+                class="pw-toggle"
+                :title="showPw ? '隐藏密码' : '显示密码'"
+                @click="showPw = !showPw"
+              >
+                <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+
+            <div v-if="pwStep === 'setup'" class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input
+                v-model="pwConfirm"
+                :type="showPw ? 'text' : 'password'"
+                maxlength="64"
+                placeholder="请再次输入密码"
+                class="field-input has-toggle"
+                @keyup.enter="handlePasswordSetup()"
+              />
+            </div>
+
+            <button
+              class="btn-submit"
+              :disabled="(pwStep === 'input'
+                ? (!phoneValid || !pwValid)
+                : (!phoneValid || !pwValid || !pwConfirmValid)) || auth.loading"
+              @click="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+            >
+              {{ auth.loading ? '处理中...' : (pwStep === 'input' ? '登录' : '设置并登录') }}
+            </button>
+
+            <p class="form-foot" v-if="pwStep === 'input'">手机号 + 密码登录，新用户将自动注册</p>
+            <p class="form-foot" v-else>首次登录，请设置你的登录密码</p>
           </div>
-          <div class="input-field">
-            <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            <input
-              v-model="code"
-              type="text"
-              maxlength="6"
-              placeholder="请输入6位验证码"
-              class="field-input"
-              @input="onCodeInput"
-              @keyup.enter="handleVerify"
-            />
-          </div>
-          <button
-            class="btn-submit"
-            :disabled="!codeValid || auth.loading"
-            @click="handleVerify"
-          >
-            {{ auth.loading ? '注册中...' : '注册并登录' }}
-          </button>
-          <button class="btn-back" @click="handleBack">返回修改手机号</button>
-        </div>
 
         <!-- Error -->
         <div v-if="auth.error" class="form-error">{{ auth.error }}</div>
@@ -454,6 +467,33 @@ export default { name: 'LoginView' }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
+/* Password field with show/hide toggle */
+.field-input.has-toggle {
+  padding-right: 44px;
+}
+
+.pw-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  color: var(--color-text-3);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.pw-toggle:hover {
+  color: var(--color-success-text);
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}
+
 /* Submit button */
 .btn-submit {
   padding: 12px;
@@ -486,56 +526,6 @@ export default { name: 'LoginView' }
   color: var(--color-text-4);
   text-align: center;
   margin: 0;
-}
-
-/* Verify step */
-.verify-phone {
-  font-size: 13px;
-  color: var(--color-text-2);
-  margin: 0;
-  text-align: center;
-}
-
-.verify-phone strong {
-  color: var(--color-text-1);
-}
-
-.verify-code-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: color-mix(in srgb, var(--color-success) 8%, transparent);
-  border: 1.5px dashed color-mix(in srgb, var(--color-success-text) 40%, var(--color-border));
-  border-radius: 10px;
-}
-
-.code-label {
-  font-size: 12px;
-  color: var(--color-success-text);
-}
-
-.code-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-success);
-  letter-spacing: 4px;
-  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-}
-
-.btn-back {
-  border: none;
-  background: none;
-  color: var(--color-text-3);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 4px;
-  text-align: center;
-}
-
-.btn-back:hover {
-  color: var(--color-success-text);
 }
 
 /* Error */

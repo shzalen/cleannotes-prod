@@ -581,7 +581,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
 
     // 更新报告
     const status: 'success' | 'failed' = aiSummary ? 'success' : 'failed'
-    const newContent = generateReportContent(weekStart, weekEnd, report.summary, tasks, todos, aiSummary, status)
+    const newContent = generateReportContent(weekStart, weekEnd, report.summary, tasks, todos, aiSummary ?? undefined, status)
 
     Object.assign(report, {
       content: newContent,

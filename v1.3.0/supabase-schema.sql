@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS cleannote_users (
   id            TEXT PRIMARY KEY,           -- UUID
   phone         TEXT UNIQUE NOT NULL,       -- 手机号（唯一标识）
   nickname      TEXT NOT NULL DEFAULT '',   -- 昵称
+  -- 密码凭据：仅存储 PBKDF2 派生的哈希与随机盐，绝不存储明文密码
+  -- 由客户端使用 Web Crypto 计算，服务端无法还原明文
+  password_hash TEXT,                       -- PBKDF2-HMAC-SHA256 派生哈希（base64）
+  password_salt TEXT,                       -- 每用户随机盐（base64，16 字节）
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

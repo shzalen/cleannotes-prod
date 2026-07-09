@@ -6,12 +6,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
 import { useGrowthStore } from '@/stores/growth'
 import { switchUser } from '@/services/storage'
-import { mergeFromCloud } from '@/services/hybrid'
+import { mergeFromCloud, syncLogs } from '@/services/hybrid'
 import { supabaseAdapter } from '@/services/supabase'
 import { useSync, stopAllSync } from '@/composables/useSync'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { isMobileDevice } from '@/utils/device'
 import XpToast from '@/components/XpToast.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -27,6 +28,9 @@ useTheme()
 const { isOnline, syncStatus, lastSyncAt, formatLastSync } = useSync()
 
 const showApp = computed(() => auth.isAuthenticated)
+
+/** H5 移动端路由：不渲染 PC 侧栏，直接全屏展示 */
+const isH5Route = computed(() => router.currentRoute.value.path.startsWith('/h5'))
 
 /** 一次性迁移：将旧「本地时间无 Z 后缀」格式转为标准 UTC ISO（带 Z）
  *  v4 迁移（UTC → 本地无Z）不再执行；现在统一为 UTC ISO + Z */
@@ -180,10 +184,22 @@ onMounted(async () => {
     taskStore.load()
     growthStore.load()
     useGrowthIntegration()
-    // ② 仅当无路由或从登录页进入时才跳转首页，刷新时保持当前页面
-    const currentRoute = router.currentRoute.value
-    if (!currentRoute.name || currentRoute.name === 'login') {
-      router.push({ name: 'home' })
+    // ② 检查 H5 重定向（未登录访问 H5 页面 → 登录后跳回）
+    const h5Redirect = sessionStorage.getItem('h5_redirect')
+    if (h5Redirect) {
+      sessionStorage.removeItem('h5_redirect')
+      router.push(h5Redirect)
+    } else {
+      // 仅当无路由或从登录页进入时才跳转，刷新时保持当前页面
+      const currentRoute = router.currentRoute.value
+      if (!currentRoute.name || currentRoute.name === 'login') {
+        // 移动端自动进入 H5
+        if (isMobileDevice()) {
+          router.push('/h5/tasks')
+        } else {
+          router.push({ name: 'home' })
+        }
+      }
     }
     // ③ 后台异步合并云端数据；若有变更则刷新 store
     mergeFromCloud().then((changed) => {
@@ -216,11 +232,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="showApp" class="app-shell">
+  <div v-if="showApp && !isH5Route" class="app-shell">
     <AppSidebar
       :is-online="isOnline"
       :sync-status="syncStatus"
       :last-sync-text="formatLastSync(lastSyncAt)"
+      :sync-logs="syncLogs"
       @logout="handleLogout"
     />
     <main class="app-main">

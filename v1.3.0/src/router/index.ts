@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { switchUser } from '@/services/storage'
+import { isMobileDevice, isForcePC, clearForcePC } from '@/utils/device'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -57,18 +58,71 @@ const router = createRouter({
       component: () => import('@/views/DiagView.vue'),
       meta: { public: true },
     },
+    // ==================== H5 移动端 ====================
+    {
+      path: '/h5',
+      component: () => import('@/layouts/H5Layout.vue'),
+      children: [
+        { path: '', redirect: '/h5/tasks' },
+        {
+          path: 'tasks',
+          name: 'h5-tasks',
+          component: () => import('@/views/h5/H5TaskList.vue'),
+        },
+        {
+          path: 'tasks/new',
+          name: 'h5-task-new',
+          component: () => import('@/views/h5/H5TaskEdit.vue'),
+        },
+        {
+          path: 'tasks/:id',
+          name: 'h5-task-edit',
+          component: () => import('@/views/h5/H5TaskEdit.vue'),
+        },
+        {
+          path: 'todos',
+          name: 'h5-todos',
+          component: () => import('@/views/h5/H5TodoList.vue'),
+        },
+        {
+          path: 'todos/new',
+          name: 'h5-todo-new',
+          component: () => import('@/views/h5/H5TodoEdit.vue'),
+        },
+        {
+          path: 'todos/:id',
+          name: 'h5-todo-edit',
+          component: () => import('@/views/h5/H5TodoEdit.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'h5-settings',
+          component: () => import('@/views/h5/H5Settings.vue'),
+        },
+      ],
+    },
   ],
 })
 
-// Navigation guard: check auth
+// Navigation guard: check auth + device auto-redirect
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
+  const isH5 = to.path.startsWith('/h5')
+
+  // 用户主动进入 H5 → 清除 force_pc，恢复自动检测
+  if (isH5) {
+    clearForcePC()
+  }
 
   // Public routes don't need auth
   if (to.meta.public) {
-    // If already authenticated, redirect to home (except for diag)
+    // If already authenticated, redirect (except for diag)
     if (auth.isAuthenticated && to.name !== 'diag') {
-      next({ name: 'home' })
+      if (isMobileDevice() && !isH5 && !isForcePC()) {
+        next('/h5/tasks')
+      } else {
+        next({ name: 'home' })
+      }
       return
     }
     next()
@@ -77,7 +131,23 @@ router.beforeEach((to, _from, next) => {
 
   // Protected routes require auth
   if (!auth.isAuthenticated) {
+    // H5 路由：保存重定向路径，登录后跳回
+    if (isH5) {
+      sessionStorage.setItem('h5_redirect', to.fullPath)
+    }
     next({ name: 'login' })
+    return
+  }
+
+  // ── 已认证：设备自适应重定向 ──
+  // 移动端访问 PC 路由 → 跳转 H5（除非用户已强制桌面版）
+  if (isMobileDevice() && !isH5 && !isForcePC()) {
+    next('/h5/tasks')
+    return
+  }
+  // 桌面端访问 H5 路由 → 跳转 PC 首页
+  if (!isMobileDevice() && isH5) {
+    next({ name: 'home' })
     return
   }
 

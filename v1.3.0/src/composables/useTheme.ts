@@ -4,7 +4,7 @@ export type ThemeMode = 'light' | 'dark' | 'auto' | 'zuru' | 'tencent'
 
 const STORAGE_KEY = 'cleannotes_theme'
 
-const mode = ref<ThemeMode>('auto')
+const mode = ref<ThemeMode>('tencent')
 const isDark = ref(false)
 const isZuru = computed(() => mode.value === 'zuru')
 const isTencent = computed(() => mode.value === 'tencent')
@@ -18,7 +18,7 @@ function getDataTheme(): string {
   if (mode.value === 'auto') {
     return mediaQuery?.matches ? 'dark' : 'light'
   }
-  return 'light'
+  return 'tencent'
 }
 
 function applyTheme() {
@@ -38,7 +38,8 @@ export function useTheme() {
     // Read persisted preference
     const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null
     if (stored && ['light', 'dark', 'auto', 'zuru', 'tencent'].includes(stored)) {
-      mode.value = stored
+      // 浅色已隐藏，遗留 preference 自动迁移为腾讯蓝
+      mode.value = stored === 'light' ? 'tencent' : stored
     }
 
     // Set up media query listener
@@ -59,12 +60,12 @@ export function useTheme() {
   }
 
   function toggle() {
-    if (mode.value === 'light') {
+    if (mode.value === 'tencent') {
       mode.value = 'dark'
     } else if (mode.value === 'dark') {
       mode.value = 'auto'
     } else {
-      mode.value = 'light'
+      mode.value = 'tencent'
     }
   }
 

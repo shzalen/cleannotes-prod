@@ -6,11 +6,14 @@ import {
   saveSession,
   clearSession,
   findUserByPhone,
+  findUserByPhoneWithCredentials,
   registerUser,
+  setPassword,
   updateLastLogin,
   updateNickname,
   generateVerifyCode,
 } from '@/services/auth'
+import { generateSalt, hashPassword, verifyPassword } from '@/utils/crypto'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -121,6 +124,124 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * 密码登录 / 注册入口（手机号为账号标识）。
+   * 密码明文仅在客户端用于本地校验，绝不发送到服务端；服务端只存哈希+盐。
+   *
+   * 返回状态：
+   * - 'loggedIn'    : 已设密账号校验通过
+   * - 'registered'  : 新用户注册并设置密码成功
+   * - 'passwordSet' : 遗留账号（原本无密码）首次设置密码成功
+   * - 'needSetup'   : 需要设置密码（新用户或遗留账号），UI 应展示确认密码框
+   * - 'wrongPassword': 密码错误
+   * 出错时 auth.error 会被设置，UI 优先展示 error。
+   */
+  async function submitPassword(
+    phone: string,
+    password: string,
+    confirm?: string,
+  ): Promise<'loggedIn' | 'registered' | 'passwordSet' | 'needSetup' | 'wrongPassword'> {
+    error.value = ''
+    loading.value = true
+
+    try {
+      // 客户端强度校验
+      if (password.length < 8) {
+        error.value = '密码长度至少 8 位'
+        return 'wrongPassword'
+      }
+
+      const found = await findUserByPhoneWithCredentials(phone)
+
+      // ① 新用户 → 必须设置密码（需确认一致）
+      if (!found) {
+        if (!confirm || confirm !== password) {
+          error.value = '请设置密码并再次确认'
+          return 'needSetup'
+        }
+        const salt = generateSalt()
+        const hash = await hashPassword(password, salt)
+        const newUser = await registerUser(phone, undefined, hash, salt)
+        user.value = newUser
+        saveSession(newUser)
+        hasSession.value = true
+        return 'registered'
+      }
+
+      // ② 遗留账号（无密码）→ 首次设置密码
+      if (!found.passwordHash || !found.passwordSalt) {
+        if (!confirm || confirm !== password) {
+          error.value = '请设置密码并再次确认'
+          return 'needSetup'
+        }
+        const salt = generateSalt()
+        const hash = await hashPassword(password, salt)
+        await setPassword(found.user.id, hash, salt)
+        user.value = found.user
+        await updateLastLogin(found.user.id)
+        saveSession(found.user)
+        hasSession.value = true
+        return 'passwordSet'
+      }
+
+      // ③ 已设密账号 → 本地校验
+      const ok = await verifyPassword(password, found.passwordSalt, found.passwordHash)
+      if (!ok) {
+        error.value = '密码错误'
+        return 'wrongPassword'
+      }
+      user.value = found.user
+      await updateLastLogin(found.user.id)
+      saveSession(found.user)
+      hasSession.value = true
+      return 'loggedIn'
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '登录失败，请重试'
+      return 'wrongPassword'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** 修改密码（需验证旧密码） */
+  async function changePassword(oldPassword: string, newPassword: string): Promise<boolean> {
+    if (!user.value) {
+      error.value = '未登录'
+      return false
+    }
+    if (newPassword.length < 8) {
+      error.value = '新密码长度至少 8 位'
+      return false
+    }
+    error.value = ''
+    loading.value = true
+    try {
+      const creds = await findUserByPhoneWithCredentials(user.value.phone)
+      if (!creds) {
+        error.value = '账号不存在'
+        return false
+      }
+      // 已有密码 → 校验旧密码
+      if (creds.passwordHash && creds.passwordSalt) {
+        const ok = await verifyPassword(oldPassword, creds.passwordSalt, creds.passwordHash)
+        if (!ok) {
+          error.value = '当前密码错误'
+          return false
+        }
+      }
+      // 生成新密码哈希
+      const salt = generateSalt()
+      const hash = await hashPassword(newPassword, salt)
+      await setPassword(user.value.id, hash, salt)
+      return true
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '修改密码失败'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   /** 退出登录 */
   function logout() {
     user.value = null
@@ -157,6 +278,8 @@ export const useAuthStore = defineStore('auth', () => {
     init,
     checkPhoneAndLogin,
     verifyAndRegister,
+    submitPassword,
+    changePassword,
     logout,
     changeNickname,
   }

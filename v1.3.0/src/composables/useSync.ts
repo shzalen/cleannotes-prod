@@ -10,8 +10,7 @@
 import { onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAiStore } from '@/stores/ai'
-import { fetchRemoteChanges, isOnline, syncStatus, lastSyncAt, startHealthCheck, stopHealthCheck } from '@/services/hybrid'
-import { appendSyncLog } from '@/services/syncLog'
+import { fetchRemoteChanges, isOnline, syncStatus, lastSyncAt, pushSyncLog, startHealthCheck, stopHealthCheck } from '@/services/hybrid'
 
 const SYNC_INTERVAL = 30_000 // 30 seconds
 
@@ -38,51 +37,55 @@ export function formatLastSync(isoStr: string): string {
 
 /** 执行一次增量同步 */
 async function runIncrementalSync() {
-  const changes = await fetchRemoteChanges()
-  if (!changes) {
-    appendSyncLog({
-      type: 'incremental',
-      summary: '增量同步跳过（网络不可达）',
-      tasksSynced: 0,
-      deletedSynced: 0,
-      memosSynced: 0,
-      todosSynced: 0,
-      reportsSynced: 0,
-      status: 'partial',
-    })
-    return
-  }
+  try {
+    const changes = await fetchRemoteChanges()
+    if (!changes) {
+      pushSyncLog('idle', '云端无新变更')
+      return
+    }
 
-  const taskStore = useTaskStore()
-  const aiStore = useAiStore()
+    const taskStore = useTaskStore()
+    const aiStore = useAiStore()
 
-  let taskCount = 0
-  let deletedCount = 0
+    let changeCount = 0
 
-  // 应用任务变更
-  for (const task of changes.updatedTasks) {
-    taskStore.applyRemoteTask(task)
-    taskCount++
-  }
-  for (const id of changes.deletedTaskIds) {
-    taskStore.applyRemoteTaskDelete(id)
-    deletedCount++
-  }
+    // 应用任务变更
+    for (const task of changes.updatedTasks) {
+      taskStore.applyRemoteTask(task)
+      changeCount++
+    }
+    for (const id of changes.deletedTaskIds) {
+      taskStore.applyRemoteTaskDelete(id)
+      changeCount++
+    }
 
-  // 应用回收站变更
-  for (const task of changes.updatedDeletedTasks) {
-    taskStore.applyRemoteDeletedTask(task)
-  }
-  for (const id of changes.deletedDeletedTaskIds) {
-    taskStore.applyRemoteDeletedTaskDelete(id)
-  }
+    // 应用回收站变更
+    for (const task of changes.updatedDeletedTasks) {
+      taskStore.applyRemoteDeletedTask(task)
+      changeCount++
+    }
+    for (const id of changes.deletedDeletedTaskIds) {
+      taskStore.applyRemoteDeletedTaskDelete(id)
+      changeCount++
+    }
 
-  // 应用 AI 消息变更
-  for (const msg of changes.updatedAiMessages) {
-    aiStore.applyRemoteAiMessage(msg)
-  }
-  for (const id of changes.deletedAiMessageIds) {
-    aiStore.applyRemoteAiMessageDelete(id)
+    // 应用 AI 消息变更
+    for (const msg of changes.updatedAiMessages) {
+      aiStore.applyRemoteAiMessage(msg)
+      changeCount++
+    }
+    for (const id of changes.deletedAiMessageIds) {
+      aiStore.applyRemoteAiMessageDelete(id)
+      changeCount++
+    }
+
+    if (changeCount > 0) {
+      pushSyncLog('success', `同步 ${changeCount} 项变更`)
+    } else {
+      pushSyncLog('success', '已是最新')
+    }
+  } catch {
+    pushSyncLog('error', '同步失败，稍后重试')
   }
 
   const totalChanges = taskCount + deletedCount + changes.updatedDeletedTasks.length + changes.deletedDeletedTaskIds.length + changes.updatedAiMessages.length + changes.deletedAiMessageIds.length

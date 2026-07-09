@@ -97,13 +97,23 @@ async function renderMermaid(code: string): Promise<string> {
   })
 
   const id = `${containerId.value}-${++renderSeq}`
-  const { svg } = await mermaid.default.render(id, code.trim() || 'graph TD\n  A[Empty]')
+  const trimmed = code.trim() || 'graph TD\n  A[Empty]'
 
-  // Clean up: mermaid.render appends a hidden div to body; remove it
-  const ghost = document.getElementById(`d${id}`)
-  if (ghost) ghost.remove()
+  // 记录 render 前 body 中所有子元素的快照（用于事后精确清理）
+  const preChildren = new Set(Array.from(document.body.children))
 
-  return svg
+  try {
+    const { svg } = await mermaid.default.render(id, trimmed)
+    return svg
+  } finally {
+    // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
+    // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容
+    Array.from(document.body.children).forEach((child) => {
+      if (!preChildren.has(child)) {
+        child.remove()
+      }
+    })
+  }
 }
 
 async function refreshDiagram() {
@@ -543,6 +553,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 20px;
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 5%, transparent);
+  border: 1px dashed var(--color-danger, #ef4444);
+  border-radius: 8px;
+  margin: 12px;
+  min-height: 80px;
+  justify-content: center;
 }
 .rte-mermaid-error-icon {
   font-size: 24px;
