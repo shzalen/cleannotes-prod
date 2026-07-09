@@ -37,19 +37,6 @@ const readmeHtml = ref('')
 const isReadmeFullscreen = ref(false)
 const syncLogVisible = ref(false)
 
-// 最近3条同步日志
-const recentSyncLogs = computed(() => (props.syncLogs || []).slice(0, 3))
-
-function formatLogTime(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  if (diffMs < 60_000) return '刚刚'
-  if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)} 分钟前`
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
 function toggleSyncLog() {
   syncLogVisible.value = !syncLogVisible.value
 }
@@ -293,29 +280,6 @@ function confirmLogout() {
     </div>
   </Teleport>
 
-  <!-- Sync Log Popup -->
-  <Teleport to="body">
-    <div v-if="syncLogVisible" class="sync-log-overlay" @click="syncLogVisible = false">
-      <div class="sync-log-popup" @click.stop>
-        <div class="sync-log-header">
-          <span class="sync-log-title">同步记录</span>
-          <button class="sync-log-close" @click="syncLogVisible = false" title="关闭">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div class="sync-log-body">
-          <template v-if="recentSyncLogs.length > 0">
-            <div v-for="log in recentSyncLogs" :key="log.id" class="sync-log-item">
-              <span class="sync-log-dot" :class="log.status" />
-              <span class="sync-log-msg">{{ log.message }}</span>
-              <span class="sync-log-time">{{ formatLogTime(log.time) }}</span>
-            </div>
-          </template>
-          <div v-else class="sync-log-empty">暂无同步记录</div>
-        </div>
-      </div>
-    </div>
-  </Teleport>
 </template>
 
 <style scoped>
@@ -758,119 +722,6 @@ function confirmLogout() {
 .readme-body :deep(strong) {
   font-weight: 600;
   color: var(--color-text-1);
-}
-
-/* Sync Log Popup */
-.sync-log-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 11000;
-}
-
-.sync-log-popup {
-  position: absolute;
-  bottom: 42px;
-  left: 224px;
-  width: 260px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
-  animation: popIn 0.15s ease;
-}
-
-.sync-log-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.sync-log-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-2);
-}
-
-.sync-log-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  color: var(--color-text-4);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.sync-log-close:hover {
-  background: var(--color-bg-4);
-  color: var(--color-text-2);
-}
-
-.sync-log-body {
-  padding: 6px 0;
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.sync-log-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  font-size: 12px;
-}
-
-.sync-log-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--color-text-4);
-}
-
-.sync-log-dot.success {
-  background: var(--color-success);
-}
-
-.sync-log-dot.error {
-  background: var(--color-danger);
-}
-
-.sync-log-dot.idle {
-  background: var(--color-text-4);
-}
-
-.sync-log-msg {
-  flex: 1;
-  color: var(--color-text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sync-log-time {
-  font-size: 11px;
-  color: var(--color-text-4);
-  flex-shrink: 0;
-}
-
-.sync-log-empty {
-  padding: 16px 14px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--color-text-4);
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: translateY(4px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ============ Keyframes ============ */
