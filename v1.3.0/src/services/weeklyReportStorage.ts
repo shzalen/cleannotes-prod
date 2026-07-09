@@ -86,6 +86,11 @@ export async function syncWeeklyReportsFromCloud(): Promise<void> {
     for (const cloud of cloudData) {
       const localItem = localMap.get(cloud.id)
       if (!localItem || cloud.updatedAt >= localItem.updatedAt) {
+        // 保护 AI 总结字段：如果云端缺失但本地有，保留本地数据
+        if (!cloud.aiSummary && localItem?.aiSummary) {
+          cloud.aiSummary = localItem.aiSummary
+          cloud.aiSummaryStatus = localItem.aiSummaryStatus
+        }
         localMap.set(cloud.id, cloud)
       }
     }
