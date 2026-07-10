@@ -25,7 +25,7 @@ function buildTime(): string {
 }
 
 export default defineConfig({
-  base: '/',
+  base: './',
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __BUILD_TIME__: JSON.stringify(buildTime()),
