@@ -8,9 +8,11 @@
 - 打包：NSIS 安装程序（零 exe 方案，依赖本机 Python + pywebview）
 - 实际使用方式：dist 目录挂在 IIS 下，纯 Web 模式；每次修改后必须 `npx vite build` 才能生效
 - **默认部署到 prod**：每次构建后，除非用户明确说"不要部署到 prod"，否则必须同步执行 `copy:prod` 等价流程（gh-pages 构建 → 覆盖 `D:/CleanNotepad-Prod/v1.3.0` → 重建本地 IIS dist）
+- **⚠️ robocopy 不能用 /MIR**：prod 目录有自己的 `.git` 仓库，`/MIR` 会删除目标目录中源目录没有的文件（包括 `.git`）。必须排除 `.git`：`robocopy dist prod /E /XD .git` 或用 `xcopy`
 - **构建时版本**：`vite.config.ts` 注入 `__APP_VERSION__`（package.json version）和 `__BUILD_TIME__`（YYYY-MM-DD HH:mm 格式化时间戳），侧栏底部显示
 - **测试报告系统**：侧栏版本号点击打开 TestReportModal，从 `public/test-reports/*.json` 动态加载报告列表；新增版本只需添加 JSON 文件即可自动显示
 - **Git 状态**：已 git init，remote 已配置 `https://github.com/shzalen/cleannotes.git`
+- **Prod Git 仓库**：`D:\CleanNotepad-Prod\v1.3.0` 是独立仓库 `cleannotes-prod`（remote: `https://github.com/shzalen/cleannotes-prod.git`），不是 cleannotes 主仓库
 
 ## 暗黑模式架构
 - CSS 自定义属性体系：`:root` 定义 ~40 个变量，`[data-theme="dark"]` 覆盖
