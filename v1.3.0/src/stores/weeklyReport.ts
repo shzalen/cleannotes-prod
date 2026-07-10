@@ -320,6 +320,9 @@ async function callAiForSummary(
 ): Promise<string | null> {
   const aiStore = useAiStore()
 
+  // 确保 AI 配置已加载（防御性加载，避免因 App.vue 未初始化导致配置缺失）
+  await aiStore.load()
+
   // 检查 AI 配置是否可用
   if (!aiStore.config.apiUrl || !aiStore.config.apiKey) {
     console.log('[WeeklyReport] AI config not available, skipping summary')

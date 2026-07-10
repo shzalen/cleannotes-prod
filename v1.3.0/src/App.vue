@@ -5,6 +5,7 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
 import { useGrowthStore } from '@/stores/growth'
+import { useAiStore } from '@/stores/ai'
 import { switchUser } from '@/services/storage'
 import { mergeFromCloud, syncLogs } from '@/services/hybrid'
 import { supabaseAdapter } from '@/services/supabase'
@@ -20,6 +21,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const growthStore = useGrowthStore()
+const aiStore = useAiStore()
 const router = useRouter()
 
 // Initialize theme system
@@ -183,6 +185,7 @@ onMounted(async () => {
     // ① 加载本地数据到 store
     taskStore.load()
     growthStore.load()
+    aiStore.load()
     useGrowthIntegration()
     // ② 检查 H5 重定向（未登录访问 H5 页面 → 登录后跳回）
     const h5Redirect = sessionStorage.getItem('h5_redirect')
