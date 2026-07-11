@@ -25,12 +25,19 @@ onMounted(() => {
   store.load()
   growth.load()
   refreshTimer = setInterval(() => { now.value = new Date() }, 30_000)
-  // 暴露手动触发入口用于调试
-  // @ts-ignore
-  window.__celebration = celebration
+  // R2-P01: 调试入口仅在开发环境暴露，卸载时清理
+  if (import.meta.env.DEV) {
+    // @ts-ignore
+    window.__celebration = celebration
+  }
 })
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
+  // R2-P01: 清理调试入口
+  if (import.meta.env.DEV) {
+    // @ts-ignore
+    delete window.__celebration
+  }
 })
 
 const today = computed(() => toLocalDate(now.value))

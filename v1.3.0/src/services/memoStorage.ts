@@ -32,6 +32,7 @@ const pendingWrites = new Map<string, PendingWrite>()
 
 // ---- Retry triggers ----
 let listenersInitialized = false
+let retryIntervalId: ReturnType<typeof setInterval> | null = null
 
 function initRetryListeners() {
   if (listenersInitialized) return
@@ -50,11 +51,25 @@ function initRetryListeners() {
   })
 
   // Periodic safety net — every 30s
-  setInterval(() => {
+  // R2-P03: store interval ID for cleanup on logout
+  retryIntervalId = setInterval(() => {
     if (pendingWrites.size > 0) {
       flushPendingWrites()
     }
   }, 30_000)
+}
+
+// ---- Cleanup ----
+
+/** Clear interval and flush pending writes. Call on logout. */
+export function cleanupMemoStorage() {
+  if (retryIntervalId) {
+    clearInterval(retryIntervalId)
+    retryIntervalId = null
+  }
+  pendingWrites.clear()
+  lastWrittenContent.clear()
+  listenersInitialized = false
 }
 
 // ---- Internal write helpers ----

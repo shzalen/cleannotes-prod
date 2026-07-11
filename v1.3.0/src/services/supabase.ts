@@ -657,7 +657,7 @@ export async function supabaseUploadAttachment(file: File): Promise<string> {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase Storage upload failed (${res.status}): ${text}`)
+    throw new Error(`Supabase Storage upload failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
   }
 
   return path
@@ -693,7 +693,7 @@ export async function supabaseCreateSignedUrl(
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase signed URL failed (${res.status}): ${text}`)
+    throw new Error(`Supabase signed URL failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
   }
   const data = await res.json()
   return data.signedURL?.startsWith('http')
@@ -715,7 +715,7 @@ export async function supabaseDeleteAttachment(path: string): Promise<void> {
   const res = await fetch(url, { method: 'DELETE', headers })
   if (!res.ok && res.status !== 404) {
     const text = await res.text()
-    console.error(`Supabase Storage delete failed (${res.status}): ${text}`)
+    console.error(`Supabase Storage delete failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
   }
 }
 

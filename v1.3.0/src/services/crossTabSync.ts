@@ -43,3 +43,15 @@ export function onCrossTabSync(fn: (msg: SyncMessage) => void): () => void {
     listeners = listeners.filter((f) => f !== fn)
   }
 }
+
+/**
+ * Close the BroadcastChannel and clear all listeners.
+ * Call this on logout to prevent zombie connections.
+ */
+export function closeCrossTabSync() {
+  if (channel) {
+    channel.close()
+    channel = null
+  }
+  listeners = []
+}

@@ -1022,6 +1022,7 @@ function triggerFileDownload(el: HTMLElement) {
     a.href = fileUrl
     a.download = filename
     a.target = '_blank'
+    a.rel = 'noopener noreferrer'
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

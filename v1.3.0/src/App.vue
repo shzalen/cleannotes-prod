@@ -9,9 +9,9 @@ import { useTodoStore } from '@/stores/todo'
 import { useMemoStore } from '@/stores/memo'
 import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser, isOnline, syncStatus, syncLogs } from '@/services/storage'
-import { flushPendingWrites } from '@/services/memoStorage'
+import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushTaskWrites } from '@/stores/task'
-import { onCrossTabSync, broadcastChange } from '@/services/crossTabSync'
+import { onCrossTabSync, broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
@@ -99,6 +99,9 @@ async function handleLogout() {
   clearAllLastSyncAt()
   // S-14: Broadcast logout to other tabs before clearing local state
   broadcastChange('logout')
+  // R2-P02/P03: Close BroadcastChannel and clear memoStorage interval
+  closeCrossTabSync()
+  cleanupMemoStorage()
   auth.logout()
   router.push({ name: 'login' })
 }

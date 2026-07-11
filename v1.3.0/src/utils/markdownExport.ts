@@ -181,10 +181,14 @@ function tableToMarkdown(el: HTMLElement): string {
 
 /**
  * Strip HTML tags to plain text (preserves line breaks).
+ * R2-P05: Use DOMParser instead of innerHTML to prevent XSS.
  */
 export function htmlToPlainText(html: string): string {
   if (!html) return ''
-  const div = document.createElement('div')
-  div.innerHTML = html.replace(/<\/p>/g, '</p>\n').replace(/<br\s*\/?>/g, '\n')
-  return (div.textContent || div.innerText || '').trim()
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(
+    html.replace(/<\/p>/g, '</p>\n').replace(/<br\s*\/?>/g, '\n'),
+    'text/html'
+  )
+  return (doc.body.textContent || '').trim()
 }

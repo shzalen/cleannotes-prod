@@ -8,9 +8,16 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// S-07: Use environment variables instead of hardcoded keys
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ghkyhbxltdxhkhpqltdr.supabase.co'
-export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3loYnhsdGR4aGtocHFsdGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDY1MTUsImV4cCI6MjA4NDA4MjUxNX0.vTtJRyPO_Q61QB6bTAv8X90ih-wMg9KlDuhXGKXy0FA'
+// R2-S01: Remove hardcoded fallback — require environment variables at build time
+const _url = import.meta.env.VITE_SUPABASE_URL
+const _key = import.meta.env.VITE_SUPABASE_ANON_KEY
+if (!_url || !_key) {
+  throw new Error(
+    'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Copy .env.example to .env and fill in credentials.'
+  )
+}
+export const SUPABASE_URL = _url
+export const SUPABASE_KEY = _key
 
 export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {

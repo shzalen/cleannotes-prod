@@ -34,7 +34,8 @@
 - **删除公约**：所有删除操作必须先弹 ConfirmDialog
 
 ## 富文本编辑器（RichTextEditor.vue）
-- Tiptap + 自定义扩展（SlashCommand/Mermaid/Mindmap/DoubleBracketLinker/MemoMention）
+- Tiptap + 自定义扩展（SlashCommand/Mermaid/Mindmap/DoubleBracketLinker）
+- MemoMention 扩展已删除（@tiptap/extension-mention 崩溃问题，后续如需启用需重新实现）
 - 无固定工具栏：浮动气泡菜单 + 斜杠命令面板 + + 快速插入
 - **图片上传**：Canvas 压缩（1920px + JPEG 80%）→ Supabase Storage 上传 → 公开 URL 引用，失败回退 base64
 - Mermaid/Mindmap 通过动态 import 代码分割，500ms 防抖
@@ -59,6 +60,24 @@
 - **P3 低**：AiChat watch O(1)、AI 消息上限 200、syncState 死代码清理
 - **新建文件**：`src/utils/crypto.ts`（AES-GCM）、`.env`/`.env.example`、`migration-rls-security-audit.sql`（需用户手动执行）
 - **构建**：两次 vite build 通过，prod 仓库已 commit（d9adc21）
+
+## 第三轮安全与性能审计复查（2026-07-11 PM）— 已全部修复
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r2.html`
+- **结果**：0 严重 / 0 高 / 2 中 / 9 低 / 42 已通过 — 第一轮 37 项全部修复确认
+- **新发现 11 项**（无 Critical/High），全部修复完成：
+  - R2-S01(中) anon key 硬编码 fallback → 移除，构建时强制要求环境变量
+  - R2-S02(中) AES-GCM APP_SECRET 客户端可见（架构限制，可接受）
+  - R2-S03(低) 文件下载缺 rel=noopener → 已添加
+  - R2-S04(低) hybrid.ts 注释过时 → 已更新
+  - R2-S05(低) SlashCommand innerHTML → 改为 DOM API createElement + textContent
+  - R2-S06(低) Storage API 错误未脱敏 → 添加 slice+replace 脱敏
+  - R2-P01(低) window.__celebration → 限制 import.meta.env.DEV + onUnmounted 清理
+  - R2-P02(低) BroadcastChannel 未关闭 → 添加 closeCrossTabSync()，登出时调用
+  - R2-P03(低) memoStorage setInterval 未清理 → 添加 cleanupMemoStorage()，登出时调用
+  - R2-P04(低) hybrid.ts 500 行死代码（未处理，保留备查）
+  - R2-P05(低) markdownExport innerHTML → 改为 DOMParser
+  - R2-P06(低) MemoMention.ts 废弃文件 → 已删除
+- **构建验证**：vite build 通过，exit code 0，18.10s
 
 ## Supabase Storage
 - Bucket: `cleannote_attachments`（Public），路径 `memo/{userId}/{randomUUID}-{safeName}`

@@ -5,7 +5,7 @@
  * - 单记录操作：CRUD 通过 upsertTask/deleteTaskById 等方法，不再全量替换
  * - 云端合并：登录时从 Supabase 拉取数据，与本地合并后再加载
  * - 脏标记：单记录粒度，记录需要重试的 upsert/delete 操作
- * - RLS：所有请求带 x-user-id header
+ * - RLS：所有请求带 JWT Bearer token (auth.uid())
  */
 
 import { ref } from 'vue'
