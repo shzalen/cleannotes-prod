@@ -2,8 +2,6 @@
 import { computed, ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { switchUser } from '@/services/storage'
-import { stopAllSync } from '@/composables/useSync'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { SyncLogEntry } from '@/services/storage'
@@ -118,10 +116,9 @@ function handleLogout() {
 }
 
 function confirmLogout() {
-  stopAllSync()
-  auth.logout()
-  switchUser('')
-  router.push({ name: 'login' })
+  // DEF-02 fix: Do NOT clear JWT/userId here — App.vue handleLogout() must
+  // flush pending writes first, then cleanup, then logout. If we clear auth
+  // before emit('logout'), the flush in handleLogout runs with invalid credentials.
   logoutVisible.value = false
   emit('logout')
 }

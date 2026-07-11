@@ -61,6 +61,7 @@ function selectReport(weekStart: string) {
 }
 
 const generating = ref(false)
+const retrying = ref(false)
 
 async function handleGenerate() {
   // Phase 1: 立即生成报告（带 AI generating 占位）
@@ -304,6 +305,23 @@ function reportDateRange(weekStart: string): string {
         <!-- Scrollable content -->
         <div class="detail-content">
           <div class="content-inner" v-html="DOMPurify.sanitize(selectedReport.content)"></div>
+
+          <!-- DEF-05: Retry AI summary button for failed reports -->
+          <div v-if="selectedReport.aiSummaryStatus === 'failed'" class="ai-retry-bar">
+            <span class="ai-retry-hint">
+              AI 总结生成失败{{ selectedReport.aiSummaryError ? `：${selectedReport.aiSummaryError}` : '' }}
+            </span>
+            <button
+              class="ai-retry-btn"
+              :disabled="retrying"
+              @click="async () => { retrying = true; await store.retryAiSummary(selectedWeekStart); retrying = false }"
+            >
+              <svg v-if="retrying" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin-icon">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              {{ retrying ? '重试中...' : '重新生成' }}
+            </button>
+          </div>
 
           <!-- Report Footer -->
           <div class="detail-footer">
@@ -1062,6 +1080,53 @@ function reportDateRange(weekStart: string): string {
 
 .content-inner :deep(.ai-placeholder-failed .ai-placeholder-text) {
   color: var(--color-text-4);
+}
+
+/* DEF-05: AI retry bar (outside v-html, rendered in template) */
+.ai-retry-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 25%, var(--color-border));
+  border-radius: 8px;
+}
+
+.ai-retry-hint {
+  font-size: 13px;
+  color: var(--color-text-3);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--color-warning);
+  color: #fff;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.ai-retry-btn:hover {
+  opacity: 0.85;
+}
+
+.ai-retry-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 /* Stat Cards Grid */

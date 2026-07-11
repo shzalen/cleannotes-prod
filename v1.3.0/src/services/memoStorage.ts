@@ -30,6 +30,12 @@ interface PendingWrite {
 }
 const pendingWrites = new Map<string, PendingWrite>()
 
+/** Retry 排除太久远的写入（> 10 次重试，避免无限循环） */
+const MAX_PENDING_RETRIES = 10
+
+/** DEF-06: Pending deletes — memo IDs that failed to delete and need retry */
+const pendingDeletes = new Set<string>()
+
 // ---- Retry triggers ----
 let listenersInitialized = false
 let retryIntervalId: ReturnType<typeof setInterval> | null = null
@@ -37,7 +43,7 @@ let retryIntervalId: ReturnType<typeof setInterval> | null = null
 // R3-P01: Named event listener functions for proper cleanup
 const onOnline = () => { flushPendingWrites() }
 const onVisibilityChange = () => {
-  if (!document.hidden && pendingWrites.size > 0) {
+  if (!document.hidden && (pendingWrites.size > 0 || pendingDeletes.size > 0)) {
     flushPendingWrites()
   }
 }
@@ -55,7 +61,7 @@ function initRetryListeners() {
   // Periodic safety net — every 30s
   // R2-P03: store interval ID for cleanup on logout
   retryIntervalId = setInterval(() => {
-    if (pendingWrites.size > 0) {
+    if (pendingWrites.size > 0 || pendingDeletes.size > 0) {
       flushPendingWrites()
     }
   }, 30_000)
@@ -74,6 +80,7 @@ export function cleanupMemoStorage() {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   listenersInitialized = false
   pendingWrites.clear()
+  pendingDeletes.clear()
   lastWrittenContent.clear()
 }
 
@@ -109,6 +116,7 @@ function doPatch(memo: MemoItem): void {
 export function setMemoUserId(userId: string) {
   currentUserId = userId
   pendingWrites.clear()
+  pendingDeletes.clear()
   lastWrittenContent.clear()
   initRetryListeners()
 }
@@ -143,35 +151,57 @@ export function upsertMemo(memo: MemoItem): void {
   }
 }
 
-/** 单条删除（fire-and-forget 云端写入） */
+/** 单条删除（fire-and-forget 云端写入，失败时加入重试队列） */
 export function deleteMemoById(id: string): void {
   lastWrittenContent.delete(id)
   pendingWrites.delete(id)
-  supabaseDeleteMemoById(id).catch(() => {})
+  // DEF-06: Add to retry queue on failure instead of silently swallowing the error
+  supabaseDeleteMemoById(id).catch(() => {
+    pendingDeletes.add(id)
+  })
 }
 
 /**
- * Flush all pending writes (retry failed writes).
+ * Flush all pending writes AND deletes (retry failed writes/deletes).
  * Called automatically on online/visibilitychange/interval.
  * Can also be called manually (e.g., before page unload).
  */
 export async function flushPendingWrites(): Promise<void> {
-  if (pendingWrites.size === 0) return
+  // Retry pending upserts
+  if (pendingWrites.size > 0) {
+    const entries = [...pendingWrites.entries()]
+    for (const [id, { memo }] of entries) {
+      try {
+        await supabaseUpsertMemo(memo)
+        lastWrittenContent.set(id, memo.content)
+        pendingWrites.delete(id)
+      } catch {
+        const entry = pendingWrites.get(id)
+        if (entry) {
+          entry.retryCount++
+          if (entry.retryCount > MAX_PENDING_RETRIES) {
+            pendingWrites.delete(id)
+          }
+        }
+      }
+    }
+  }
 
-  const entries = [...pendingWrites.entries()]
-  for (const [id, { memo }] of entries) {
-    try {
-      await supabaseUpsertMemo(memo)
-      lastWrittenContent.set(id, memo.content)
-      pendingWrites.delete(id)
-    } catch {
-      const entry = pendingWrites.get(id)
-      if (entry) entry.retryCount++
+  // Retry pending deletes
+  if (pendingDeletes.size > 0) {
+    const ids = [...pendingDeletes]
+    for (const id of ids) {
+      try {
+        await supabaseDeleteMemoById(id)
+        pendingDeletes.delete(id)
+      } catch {
+        // Will retry on next flush cycle
+      }
     }
   }
 }
 
-/** Returns true if there are failed writes waiting to be retried */
+/** Returns true if there are pending writes or deletes waiting to be retried */
 export function hasPendingWrites(): boolean {
-  return pendingWrites.size > 0
+  return pendingWrites.size > 0 || pendingDeletes.size > 0
 }

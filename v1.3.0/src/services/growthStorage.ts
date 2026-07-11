@@ -129,9 +129,28 @@ export function getAndClearFlag(key: string): string | null {
 // ---- Supabase 同步（防抖上传） ----
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null
+let visRegistered = false
+
+/** DEF-03 fix: Flush growth data when the tab is hidden/closed */
+function onVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    // Fire-and-forget — the page may close before the request completes,
+    // but navigator.sendBeacon is not practical for Supabase REST calls.
+    // The 2s debounce already covers most cases; this is best-effort.
+    void flushGrowthToCloud()
+  }
+}
+
+function ensureVisibilityListener() {
+  if (!visRegistered) {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    visRegistered = true
+  }
+}
 
 /** 防抖后台上传：多次调用合并为一次 Supabase 写入（最多延迟 2 秒） */
 async function syncGrowthToCloud(): Promise<void> {
+  ensureVisibilityListener()
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(async () => {
     try {
@@ -149,5 +168,17 @@ export async function flushGrowthToCloud(): Promise<void> {
     await supabaseUpsertGrowth(cachedState, cachedXpEvents, cachedAchievements)
   } catch {
     // 静默失败
+  }
+}
+
+/** 清理 growthStorage 模块级监听器和 timer */
+export function cleanupGrowthStorage() {
+  if (visRegistered) {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    visRegistered = false
+  }
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
   }
 }

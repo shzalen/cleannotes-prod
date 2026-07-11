@@ -627,9 +627,9 @@ function cancelDelete() {
 
 // ---- Status toggle ----
 function cycleStatus(task: Task) {
-  // 未来日期的任务状态锁定为"待办"，不允许切换
-  const today = toLocalDate()
-  if (task.createdAt.slice(0, 10) > today) return
+  // DEF-04 fix: Reuse isFutureTask() for consistent future-task check
+  // (isFutureTask prioritizes task.startDate over task.createdAt)
+  if (isFutureTask(task)) return
   store.requestToggleStatus(task.id)
 }
 

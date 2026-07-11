@@ -280,7 +280,7 @@ export const useAiStore = defineStore('ai', () => {
         return lines.join('\n')
       }
       case 'update_task': {
-        const task = taskStore.tasks.find(t => t.id.startsWith(args.taskId) || t.id === args.taskId)
+        const task = taskStore.tasks.find(t => t.id === args.taskId)
         if (!task) return `❌ 未找到任务（ID: ${args.taskId}）`
         const patch: Record<string, any> = {}
         if (args.title) patch.title = args.title
@@ -292,7 +292,7 @@ export const useAiStore = defineStore('ai', () => {
         return `✅ 已更新任务「${task.title}」`
       }
       case 'delete_task': {
-        const task = taskStore.tasks.find(t => t.id.startsWith(args.taskId) || t.id === args.taskId)
+        const task = taskStore.tasks.find(t => t.id === args.taskId)
         if (!task) return `❌ 未找到任务（ID: ${args.taskId}）`
         if (task.status === 'done') return `❌ 已完成的任务不允许删除`
         const title = task.title

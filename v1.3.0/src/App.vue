@@ -10,9 +10,9 @@ import { useMemoStore } from '@/stores/memo'
 import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser, isOnline, syncStatus, syncLogs } from '@/services/storage'
 import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
-import { flushTaskWrites, cleanupTaskListeners } from '@/stores/task'
-import { flushGrowthToCloud } from '@/services/growthStorage'
-import { onCrossTabSync, broadcastChange } from '@/services/crossTabSync'
+import { flushTaskWrites, cleanupTaskListeners, clearOnTaskDone } from '@/stores/task'
+import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
+import { onCrossTabSync, broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
@@ -104,13 +104,17 @@ async function handleLogout() {
   // R4-P01: Flush growth data (XP/achievements/state) before logout —
   // growthStorage uses 2s debounced sync, so pending changes may not be saved
   await flushGrowthToCloud()
+  cleanupGrowthStorage()
   clearAllLastSyncAt()
   // S-14: Broadcast logout to other tabs before clearing local state
   broadcastChange('logout')
+  closeCrossTabSync()
   // R3-P02: cleanupMemoStorage clears interval + event listeners
   cleanupMemoStorage()
   // R4-P02: cleanupTaskListeners removes module-level visibilitychange listener
   cleanupTaskListeners()
+  // DEF-03: Clear onTaskDone callback reference
+  clearOnTaskDone()
   // R4-P04: Unsubscribe Supabase Auth state listener
   auth.cleanup()
   auth.logout()

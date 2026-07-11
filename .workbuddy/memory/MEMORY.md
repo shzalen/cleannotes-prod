@@ -127,6 +127,17 @@
 - 文件上传 MIME 白名单：19 种安全类型（pdf/docx/xlsx/pptx/txt/csv/md/json/xml/zip/rar/7z/mp3/mp4/wav/flac 等）
 - 路径用 `crypto.randomUUID()` 增强熵值（122 bits），防止路径遍历猜测
 
+## 全面功能测试（2026-07-12）
+- **报告位置**：`public/test-reports/v1.3.0-functional-test-report.html`
+- **测试团队**：4 名测试员并行（tester-tasks / tester-auth / tester-memos / tester-security-perf）
+- **总计**：164 项测试用例，146 通过(89.0%)，12 未通过
+- **去重缺陷**：17 项（1高 / 5中 / 10低 / 1提示）
+- **P0 必修**：DEF-01 AI taskId.startsWith() 模糊匹配 → 精确匹配
+- **P1 建议**：DEF-02 登出 flush 顺序错误（auth.logout 先于 flush）/ DEF-03 growthStorage 缺 visibilitychange flush
+- **P2 迭代**：DEF-04 cycleStatus 检查不一致 / DEF-05 周报AI失败静默 / DEF-06 deleteMemoById 无重试
+- **性能实测**：入口chunk 106KB(gzip 36KB)，初始加载 131.5KB gzip，8个vendor分块+全懒加载
+- **安全**：五轮审计修复项全部验证通过，DOMPurify/AES-GCM/CSP/RLS/MIME均正确
+
 ## 安全优化（2026-07-10）
 - **S3.3+S5.2 文件附件**：MIME 白名单校验 + Storage 上传替代 base64 内嵌，失败回退 base64
 - **S2.3 Storage 安全**：UUID 路径 + signed URL 函数（为 private bucket 迁移准备）

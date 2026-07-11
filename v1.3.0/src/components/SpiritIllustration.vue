@@ -3,6 +3,11 @@ import { computed } from 'vue'
 import type { DailyState } from '@/types'
 import { useTheme } from '@/composables/useTheme'
 
+// DEF-A5: Unique prefix for SVG gradient IDs to avoid conflicts
+// when multiple SpiritIllustration instances exist on the same page
+let uidCounter = 0
+const uid = `si${uidCounter++}`
+
 const props = defineProps<{
   level: number
   dailyState: DailyState
@@ -155,38 +160,38 @@ const centerX = computed(() => svgWidth.value / 2)
     <!-- ===== 渐变定义 ===== -->
     <defs>
       <!-- 光晕径向渐变 -->
-      <radialGradient id="haloGrad" :cx="centerX" :cy="flameCenterY" :r="haloRadius" gradientUnits="userSpaceOnUse">
+      <radialGradient :id="`${uid}-haloGrad`" :cx="centerX" :cy="flameCenterY" :r="haloRadius" gradientUnits="userSpaceOnUse">
         <stop offset="0%" :stop-color="colors.haloCenter" :stop-opacity="dailyState === 'withered' ? 0.12 : 0.18" />
         <stop offset="70%" :stop-color="colors.haloEdge" :stop-opacity="dailyState === 'withered' ? 0.04 : 0.08" />
         <stop offset="100%" :stop-color="colors.haloEdge" :stop-opacity="0" />
       </radialGradient>
 
       <!-- 火焰外层渐变 -->
-      <linearGradient id="flameOuterGrad" x1="0" y1="1" x2="0" y2="0">
+      <linearGradient :id="`${uid}-flameOuterGrad`" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0%" :stop-color="colors.flameOuterEnd" />
         <stop offset="100%" :stop-color="colors.flameOuterStart" />
       </linearGradient>
 
       <!-- 火焰中层渐变 -->
-      <linearGradient id="flameMiddleGrad" x1="0" y1="1" x2="0" y2="0">
+      <linearGradient :id="`${uid}-flameMiddleGrad`" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0%" :stop-color="colors.flameMiddleEnd" />
         <stop offset="100%" :stop-color="colors.flameMiddleStart" />
       </linearGradient>
 
       <!-- 火焰内层渐变 -->
-      <linearGradient id="flameInnerGrad" x1="0" y1="1" x2="0" y2="0">
+      <linearGradient :id="`${uid}-flameInnerGrad`" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0%" :stop-color="colors.flameInnerEnd" />
         <stop offset="100%" :stop-color="colors.flameInnerStart" />
       </linearGradient>
 
       <!-- 蜡烛体渐变 -->
-      <linearGradient id="candleBodyGrad" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient :id="`${uid}-candleBodyGrad`" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" :stop-color="colors.candleBodyTop" />
         <stop offset="100%" :stop-color="colors.candleBodyBottom" />
       </linearGradient>
 
       <!-- 融化弧渐变 -->
-      <linearGradient id="meltGrad" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient :id="`${uid}-meltGrad`" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" :stop-color="colors.meltFill" />
         <stop offset="100%" :stop-color="colors.candleBodyTop" />
       </linearGradient>
@@ -197,7 +202,7 @@ const centerX = computed(() => svgWidth.value / 2)
       :cx="centerX"
       :cy="flameCenterY"
       :r="haloRadius"
-      fill="url(#haloGrad)"
+      :fill="`url(#${uid}-haloGrad)`"
       class="spirit-halo"
     />
 
@@ -221,7 +226,7 @@ const centerX = computed(() => svgWidth.value / 2)
       :width="candleBodyWidth"
       :height="candleHeight"
       rx="3"
-      fill="url(#candleBodyGrad)"
+      :fill="`url(#${uid}-candleBodyGrad)`"
       :stroke="colors.candleStroke"
       stroke-width="0.8"
       :opacity="stateOpacity"
@@ -241,7 +246,7 @@ const centerX = computed(() => svgWidth.value / 2)
     <!-- ===== 融化弧（蜡烛顶部） ===== -->
     <path
       :d="`M${centerX - candleBodyWidth / 2},${candleBodyTop + meltArcHeight} Q${centerX},${candleBodyTop} ${centerX + candleBodyWidth / 2},${candleBodyTop + meltArcHeight}`"
-      fill="url(#meltGrad)"
+      :fill="`url(#${uid}-meltGrad)`"
       :stroke="colors.meltStroke"
       stroke-width="0.6"
       :opacity="stateOpacity"
@@ -274,7 +279,7 @@ const centerX = computed(() => svgWidth.value / 2)
       :cy="flameCenterY"
       :rx="flameWidth"
       :ry="flameHeight"
-      fill="url(#flameOuterGrad)"
+      :fill="`url(#${uid}-flameOuterGrad)`"
       :opacity="flameOpacity"
       class="spirit-flame-outer"
     />
@@ -285,7 +290,7 @@ const centerX = computed(() => svgWidth.value / 2)
       :cy="flameCenterY + flameHeight * 0.08"
       :rx="flameWidth * 0.55"
       :ry="flameHeight * 0.65"
-      fill="url(#flameMiddleGrad)"
+      :fill="`url(#${uid}-flameMiddleGrad)`"
       :opacity="flameOpacity * 0.9"
       class="spirit-flame-middle"
     />
@@ -296,7 +301,7 @@ const centerX = computed(() => svgWidth.value / 2)
       :cy="flameCenterY + flameHeight * 0.2"
       :rx="flameWidth * 0.25"
       :ry="flameHeight * 0.28"
-      fill="url(#flameInnerGrad)"
+      :fill="`url(#${uid}-flameInnerGrad)`"
       :opacity="flameOpacity * 0.88"
       class="spirit-flame-inner"
     />

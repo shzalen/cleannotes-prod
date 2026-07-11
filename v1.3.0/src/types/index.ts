@@ -166,6 +166,7 @@ export interface WeeklyReport {
   summary: WeeklyReportSummary
   aiSummary?: string      // AI 智能总结（可选，AI不可用时为空）
   aiSummaryStatus?: 'generating' | 'success' | 'failed'  // AI 总结生成状态
+  aiSummaryError?: string  // DEF-05: Error message when AI summary fails
   createdAt: string       // 生成时间
   updatedAt: string
 }

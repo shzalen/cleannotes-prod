@@ -657,7 +657,7 @@ defineExpose({ openNew, openEdit, openCopy, openFromTodo, close })
           </button>
           <span class="footer-spacer" />
           <button class="btn-cancel" @click="close">取消</button>
-          <button class="btn-save" @click="save">
+          <button class="btn-save" @click="save" :disabled="!title.trim()">
             {{ isNew ? '创建' : '保存' }}
           </button>
         </div>

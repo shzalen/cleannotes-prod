@@ -97,10 +97,13 @@ export const useGrowthStore = defineStore('growth', () => {
     return needed > 0 ? Math.min(state.value.xp / needed, 1) : 0
   })
 
-  /** 随机选取当日寄语 */
+  /** DEF-A4 fix: 每日寄语索引在 refreshDailyState 中一次性决定，避免 computed 重算时随机变化 */
+  const dailyMessageIndex = ref(0)
+
+  /** 随机选取当日寄语（仅在 refreshDailyState 时重新选取） */
   const dailyMessage = computed(() => {
     const msgs = DAILY_MESSAGES[state.value.dailyState]
-    return msgs[Math.floor(Math.random() * msgs.length)]
+    return msgs[dailyMessageIndex.value % msgs.length]
   })
 
   /** 已解锁的成就定义列表 */
@@ -173,6 +176,9 @@ export const useGrowthStore = defineStore('growth', () => {
     }
 
     state.value.lastActiveDate = today
+    // DEF-A4: Pick a random daily message index once per day
+    const msgs = DAILY_MESSAGES[state.value.dailyState]
+    dailyMessageIndex.value = msgs.length > 0 ? Math.floor(Math.random() * msgs.length) : 0
     persistState()
     broadcastChange('growth-updated')
   }
