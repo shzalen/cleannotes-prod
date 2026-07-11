@@ -62,7 +62,7 @@
 - **构建**：两次 vite build 通过，prod 仓库已 commit（d9adc21）
 
 ## 第三轮安全与性能审计复查（2026-07-11 PM）— 已全部修复
-- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r2.html`
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r2.html` + `v1.3.0-security-perf-audit-r3.html`
 - **结果**：0 严重 / 0 高 / 2 中 / 9 低 / 42 已通过 — 第一轮 37 项全部修复确认
 - **新发现 11 项**（无 Critical/High），全部修复完成：
   - R2-S01(中) anon key 硬编码 fallback → 移除，构建时强制要求环境变量
@@ -78,6 +78,23 @@
   - R2-P05(低) markdownExport innerHTML → 改为 DOMParser
   - R2-P06(低) MemoMention.ts 废弃文件 → 已删除
 - **构建验证**：vite build 通过，exit code 0，18.10s
+
+## 第四轮安全与性能审计（2026-07-11 PM）
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r3.html`
+- **结果**：0 严重 / 0 高 / 3 中 / 9 低 / 52 已通过
+- **新发现 12 项**（无 Critical/High）：
+  - R3-P02(中高) handleLogout 未清理 Pinia store → 跨用户数据残留
+  - R3-P01(中) memoStorage 事件监听器泄漏 → 重复添加
+  - R3-P03(中) Supabase 查询未用 select= → 返回冗余字段
+  - R3-S01(低) localStorage key 硬编码项目 ID
+  - R3-P04(低) closeCrossTabSync 破坏重新登录后入站同步
+  - R3-P05(低) useTheme mediaQuery 监听器未清理
+  - R3-P06(低) 短时 setTimeout 未清理
+  - R3-P07(低) onTaskDoneCallback 未 logout 清除
+  - R3-P08(低) reorderMemo N+1 查询
+  - R3-P09(低) 查询无 limit 参数
+  - R3-P10(低) vite.config mention 死代码
+  - R3-S02(低) hybrid.ts 500 行死代码（保留）
 
 ## Supabase Storage
 - Bucket: `cleannote_attachments`（Public），路径 `memo/{userId}/{randomUUID}-{safeName}`

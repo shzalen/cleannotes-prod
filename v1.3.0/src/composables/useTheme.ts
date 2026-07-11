@@ -1,4 +1,4 @@
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 
 export type ThemeMode = 'light' | 'dark' | 'auto' | 'zuru' | 'tencent'
 
@@ -48,6 +48,14 @@ export function useTheme() {
 
     // Apply initial theme
     applyTheme()
+  })
+
+  // R3-P05: Clean up mediaQuery listener on unmount
+  onUnmounted(() => {
+    if (mediaQuery) {
+      mediaQuery.removeEventListener('change', onMediaChange)
+      mediaQuery = null
+    }
   })
 
   watch(mode, (val) => {

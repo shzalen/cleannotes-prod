@@ -154,13 +154,13 @@ async function onLoginSuccess() {
   // 清除旧 localStorage 数据，以数据库为准
   clearOldLocalStorage()
   switchUser(auth.userId)
-  // 从 Supabase 加载数据
+  // R3-P02: Force reload all stores to prevent cross-user data residue
   await Promise.all([
-    taskStore.load(),
-    growthStore.load(),
-    todoStore.load(),
-    memoStore.load(),
-    weeklyReportStore.load(),
+    taskStore.load(true),
+    growthStore.load(true),
+    todoStore.load(true),
+    memoStore.load(true),
+    weeklyReportStore.load(true),
   ])
   // 注册成长系统回调
   useGrowthIntegration()

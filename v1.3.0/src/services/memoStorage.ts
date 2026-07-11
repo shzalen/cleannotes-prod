@@ -34,21 +34,23 @@ const pendingWrites = new Map<string, PendingWrite>()
 let listenersInitialized = false
 let retryIntervalId: ReturnType<typeof setInterval> | null = null
 
+// R3-P01: Named event listener functions for proper cleanup
+const onOnline = () => { flushPendingWrites() }
+const onVisibilityChange = () => {
+  if (!document.hidden && pendingWrites.size > 0) {
+    flushPendingWrites()
+  }
+}
+
 function initRetryListeners() {
   if (listenersInitialized) return
   listenersInitialized = true
 
   // Network recovered → flush immediately
-  window.addEventListener('online', () => {
-    flushPendingWrites()
-  })
+  window.addEventListener('online', onOnline)
 
   // Tab becomes visible → flush (covers laptop wake, returning to tab)
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && pendingWrites.size > 0) {
-      flushPendingWrites()
-    }
-  })
+  document.addEventListener('visibilitychange', onVisibilityChange)
 
   // Periodic safety net — every 30s
   // R2-P03: store interval ID for cleanup on logout
@@ -61,15 +63,18 @@ function initRetryListeners() {
 
 // ---- Cleanup ----
 
-/** Clear interval and flush pending writes. Call on logout. */
+/** Clear interval, remove listeners, and flush pending writes. Call on logout. */
 export function cleanupMemoStorage() {
   if (retryIntervalId) {
     clearInterval(retryIntervalId)
     retryIntervalId = null
   }
+  // R3-P01: Remove event listeners to prevent duplicate accumulation on re-login
+  window.removeEventListener('online', onOnline)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  listenersInitialized = false
   pendingWrites.clear()
   lastWrittenContent.clear()
-  listenersInitialized = false
 }
 
 // ---- Internal write helpers ----

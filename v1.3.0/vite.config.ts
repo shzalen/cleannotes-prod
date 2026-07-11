@@ -107,12 +107,6 @@ export default defineConfig({
               return 'vendor-tiptap-task'
             }
             if (
-              id.includes('@tiptap/extension-mention') ||
-              id.includes('@tiptap/suggestion')
-            ) {
-              return 'vendor-tiptap-mention'
-            }
-            if (
               id.includes('@tiptap') ||
               id.includes('tiptap-extension-resize-image')
             ) {

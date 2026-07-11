@@ -42,10 +42,13 @@ export function getCachedAccessToken(): string | null {
 /**
  * 同步获取当前登录用户 ID（从 Supabase localStorage 读取）
  * 用于 localStorage key 前缀等场景，不依赖 Pinia
+ * R3-S01: Derive storage key from SUPABASE_URL instead of hardcoding project ID
  */
 export function getCurrentUserIdSync(): string {
   try {
-    const raw = localStorage.getItem('sb-ghkyhbxltdxhkhpqltdr-auth-token')
+    // Extract project ref from URL: https://ghkyhbxltdxhkhpqltdr.supabase.co → ghkyhbxltdxhkhpqltdr
+    const projectRef = SUPABASE_URL.replace(/^https?:\/\//, '').split('.')[0]
+    const raw = localStorage.getItem(`sb-${projectRef}-auth-token`)
     if (!raw) return ''
     const session = JSON.parse(raw)
     return session?.user?.id ?? ''

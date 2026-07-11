@@ -21,6 +21,11 @@ export function setOnTaskDone(cb: (task: Task) => void) {
   onTaskDoneCallback = cb
 }
 
+/** R3-P07: Clear task done callback (call on logout to prevent stale references) */
+export function clearOnTaskDone() {
+  onTaskDoneCallback = null
+}
+
 // ---- Debounced task writes (P4.3) ----
 // UI updates are synchronous (Pinia); Supabase writes are debounced 300ms
 // to coalesce rapid status toggles / edits into a single HTTP request.

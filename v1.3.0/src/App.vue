@@ -11,7 +11,7 @@ import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser, isOnline, syncStatus, syncLogs } from '@/services/storage'
 import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushTaskWrites } from '@/stores/task'
-import { onCrossTabSync, broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
+import { onCrossTabSync, broadcastChange } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
@@ -99,11 +99,12 @@ async function handleLogout() {
   clearAllLastSyncAt()
   // S-14: Broadcast logout to other tabs before clearing local state
   broadcastChange('logout')
-  // R2-P02/P03: Close BroadcastChannel and clear memoStorage interval
-  closeCrossTabSync()
+  // R3-P02: cleanupMemoStorage clears interval + event listeners
   cleanupMemoStorage()
   auth.logout()
-  router.push({ name: 'login' })
+  // R3-P02+P04: Force page reload to clear all Pinia store data (prevents
+  // cross-user data residue) and re-register cross-tab sync listener
+  window.location.href = '/login'
 }
 
 // Global keyboard shortcut: Ctrl+Shift+D → open diag page

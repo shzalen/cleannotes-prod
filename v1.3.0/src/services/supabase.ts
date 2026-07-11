@@ -211,7 +211,7 @@ export const supabaseAdapter: StorageAdapter = {
   // ========== Tasks ==========
 
   async getTasks(since?: string): Promise<Task[]> {
-    let query = `?user_id=eq.${uidParam()}&order=created_at.asc`
+    let query = `?user_id=eq.${uidParam()}&order=created_at.asc&limit=1000`
     if (since) {
       query += `&updated_at=gt.${encodeURIComponent(since)}`
     }
@@ -433,7 +433,7 @@ function rowToTodo(r: Record<string, unknown>): TodoItem {
 
 export async function supabaseGetTodos(since?: string): Promise<TodoItem[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${uidParam()}&order=created_at.asc`
+  let query = `?user_id=eq.${uidParam()}&order=created_at.asc&limit=500`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
@@ -556,7 +556,7 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
 
 export async function supabaseGetMemos(since?: string): Promise<MemoItem[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${uidParam()}&order=created_at.desc`
+  let query = `?user_id=eq.${uidParam()}&order=created_at.desc&limit=500`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
@@ -753,7 +753,7 @@ function rowToWeeklyReport(r: Record<string, unknown>): WeeklyReport {
 
 export async function supabaseGetWeeklyReports(since?: string): Promise<WeeklyReport[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${uidParam()}&order=week_start.desc`
+  let query = `?user_id=eq.${uidParam()}&order=week_start.desc&limit=200`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
