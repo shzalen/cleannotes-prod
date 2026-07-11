@@ -105,6 +105,14 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
+  /** R4-P04: Unsubscribe Supabase Auth state listener (call on logout) */
+  function cleanup() {
+    if (unsubAuth) {
+      unsubAuth()
+      unsubAuth = null
+    }
+  }
+
   /** 修改密码 */
   async function changePassword(newPassword: string): Promise<boolean> {
     if (!user.value) {
@@ -175,6 +183,7 @@ export const useAuthStore = defineStore('auth', () => {
     signIn,
     signUp,
     logout,
+    cleanup,
     changePassword,
     changeNickname,
     sendPasswordReset,

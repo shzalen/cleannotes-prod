@@ -106,7 +106,7 @@ async function renderMermaid(code: string): Promise<string> {
   try {
     const { svg } = await mermaid.default.render(id, trimmed)
     // S-09: Sanitize SVG output with DOMPurify (defense in depth, even with securityLevel: 'sandbox')
-    return DOMPurify.sanitize(svg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['*'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
+    return DOMPurify.sanitize(svg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['style', 'class', 'id', 'viewBox', 'xmlns', 'xlink:href', 'transform', 'd', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height', 'points', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'stroke-opacity', 'fill-opacity', 'text-anchor', 'font-size', 'font-family', 'font-weight', 'marker-start', 'marker-mid', 'marker-end', 'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'offset', 'stop-color', 'stop-opacity', 'gradientTransform', 'gradientUnits', 'spreadMethod', 'clip-path', 'pathLength', 'href', 'preserveAspectRatio'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
   } finally {
     // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
     // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容

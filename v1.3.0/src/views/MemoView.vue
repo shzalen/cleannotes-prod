@@ -93,13 +93,15 @@ watch(selectedId, (id) => {
 })
 
 // ---- Auto-save lifecycle ----
+// R4-P05: Removed deep: true — all refs are primitives or reassigned (not in-place mutated),
+// so shallow watch is sufficient and avoids O(n) traversal on large memo content
 watch([editTitle, editContent, editTags, editIcon], () => {
   if (!selectedId.value && !isCreating.value) return
   // 新建态下，标题和内容均为空时不触发自动保存（防止刚进入创建就被清退）
   if (isCreating.value && !editTitle.value.trim() && !editContent.value.trim()) return
   isDirty.value = true
   scheduleAutoSave()
-}, { deep: true })
+})
 
 // Flush before leaving
 onBeforeUnmount(() => {
@@ -276,7 +278,7 @@ function addTag() {
   const val = tagInput.value.trim()
   if (!val) return
   if (editTags.value.includes(val)) return
-  editTags.value.push(val)
+  editTags.value = [...editTags.value, val]
   tagInput.value = ''
 }
 

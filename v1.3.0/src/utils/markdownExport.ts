@@ -159,7 +159,9 @@ function toggleToMarkdown(el: HTMLElement): string {
   const summary = el.getAttribute('data-summary') || '点击展开'
   const content = el.querySelector('.rte-toggle-content') as HTMLElement | null
   const text = content ? inlineToMarkdown(content) : inlineToMarkdown(el).replace(summary, '').trim()
-  return `<details>\n<summary>${summary}</summary>\n\n${text}\n</details>`
+  // R4-S04: HTML-escape summary to prevent injection in exported markdown
+  const escapedSummary = summary.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return `<details>\n<summary>${escapedSummary}</summary>\n\n${text}\n</details>`
 }
 
 function tableToMarkdown(el: HTMLElement): string {

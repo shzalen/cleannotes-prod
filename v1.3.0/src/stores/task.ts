@@ -88,10 +88,20 @@ export function flushTaskWrites() {
 }
 
 // Flush on page hide (user switches tab / minimizes)
+// R4-P02: Use named function so it can be explicitly removed
+function onTaskVisibilityChange() {
+  if (document.hidden) flushTaskWrites()
+}
+
 if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) flushTaskWrites()
-  })
+  document.addEventListener('visibilitychange', onTaskVisibilityChange)
+}
+
+/** R4-P02: Remove module-level visibilitychange listener (call on logout) */
+export function cleanupTaskListeners() {
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', onTaskVisibilityChange)
+  }
 }
 
 /** 格式化执行耗时 */
@@ -162,7 +172,11 @@ export const useTaskStore = defineStore('task', () => {
 
       await purgeExpired()
       loaded.value = true
-    })()
+    })().catch((err) => {
+      // R5-P03: Reset loadPromise on failure so subsequent load() can retry
+      loadPromise = null
+      throw err
+    })
 
     return loadPromise
   }
@@ -290,7 +304,10 @@ export const useTaskStore = defineStore('task', () => {
     const storage = getStorage()
     scheduleTaskWrite(tasks.value[idx])
     if (patch.status === 'done' && !wasDone && onTaskDoneCallback) {
-      onTaskDoneCallback(tasks.value[idx])
+      // R5-P02: Catch async rejection to prevent unhandled promise rejection
+      Promise.resolve(onTaskDoneCallback(tasks.value[idx])).catch((err) => {
+        console.error('[task] onTaskDone callback failed:', err)
+      })
     }
   }
 

@@ -198,6 +198,24 @@ async function getMarkmapModules() {
   return { Transformer: lib.Transformer, Markmap: view.Markmap }
 }
 
+/**
+ * R5-S01: Defensive SVG sanitization — removes <script> tags and on* event
+ * attributes from the rendered SVG without destroying markmap's internal
+ * DOM references. Complements input HTML stripping + CSP defense layers.
+ */
+function sanitizeSvg(svgEl: SVGElement) {
+  // Remove any script elements
+  svgEl.querySelectorAll('script').forEach(el => el.remove())
+  // Remove all on* event handler attributes
+  svgEl.querySelectorAll('*').forEach(el => {
+    Array.from(el.attributes || []).forEach(attr => {
+      if (attr.name.toLowerCase().startsWith('on')) {
+        el.removeAttribute(attr.name)
+      }
+    })
+  })
+}
+
 async function renderInline() {
   const rawCode = props.node.attrs.code || ''
   if (!rawCode.trim() || !svgEl.value) return
@@ -228,6 +246,8 @@ async function renderInline() {
         style: mindmapStyleFn,
       }, root)
     }
+    // R5-S01: Defensive sanitization — remove script tags and on* attributes from rendered SVG
+    sanitizeSvg(svgEl.value)
   } catch (err: any) {
     renderError.value = err?.message || String(err)
   } finally {
@@ -260,6 +280,8 @@ async function renderPreview(code: string) {
         style: mindmapStyleFn,
       }, root)
     }
+    // R5-S01: Defensive sanitization
+    if (previewSvgEl.value) sanitizeSvg(previewSvgEl.value)
   } catch {
     // Silently ignore preview errors
   }

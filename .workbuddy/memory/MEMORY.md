@@ -96,7 +96,30 @@
   - R3-P10(低) vite.config mention 死代码
   - R3-S02(低) hybrid.ts 500 行死代码（保留）
 
-## Supabase Storage
+## 第四轮安全与性能审计（2026-07-11）
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r4.html`
+- **发现问题**：10 项（0 严重 / 0 高 / 2 中 / 8 低）+ 55 项已通过
+- **R4-P01 (中)**：handleLogout 未调用 flushGrowthToCloud，Growth 数据 2s 防抖窗口内丢失
+- **R4-S01 (中)**：console_sync_fix.js 硬编码用户 UUID + Supabase 凭据，未在 .gitignore 中
+- **R4-P02~P05 (低)**：task.ts 匿名监听器、ToggleExtension 匿名监听器、auth 订阅未取消、MemoView deep watch
+- **R4-S02~S05 (低)**：DOMPurify ADD_ATTR: ['*'] 过宽、Mermaid style 标签、markdownExport 未转义、CSP wasm-unsafe-eval 可能多余
+- **四轮累计**：3 严重 + 8 高 + 15 中 + 15 低 = 41 项已修复，10 项新发现待处理
+- **全部 10 项已修复**：R4-P01 flushGrowthToCloud + R4-P02 cleanupTaskListeners + R4-P03 ToggleExtension destroy + R4-P04 auth.cleanup + R4-P05 移除 deep watch + R4-S01 删除调试脚本 + R4-S02 DOMPurify 收紧 + R4-S03 保留 + R4-S04 HTML 转义 + R4-S05 CSP 注释
+
+## 第五轮安全与性能审计（2026-07-11）
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit-r5.html`
+- **发现问题**：6 项（0 严重 / 0 高 / 0 中 / 6 低）+ 65 项已通过
+- **R4 修复验证**：10/10 全部通过
+- **R5-S01 (低)**：MindmapNodeView SVG 未经 DOMPurify（缓解：HTML 剥离 + 可信库 + CSP）
+- **R5-P01 (低)**：onCrossTabSync 返回值未捕获（页面重载自然清理）
+- **R5-P02 (低)**：onTaskDoneCallback 异步未 catch（潜在未处理 rejection）
+- **R5-P03 (低)**：loadPromise 失败后不重置
+- **R5-P04 (低)**：无全局错误处理器
+- **R5-S02 (低)**：图片拖放接受 SVG（Canvas 压缩可能跳过小文件）
+- **五轮累计**：55 项已修复，6 项新发现（全部低风险），4 项暂缓
+- **全部 6 项已修复**：R5-S01 sanitizeSvg + R5-P01 unsubCrossTab 捕获 + R5-P02 Promise.resolve().catch() + R5-P03 loadPromise catch 重置 + R5-P04 全局错误处理器 + R5-S02 排除 SVG
+- **构建验证**：vite build 通过，exit code 0，21.88s
+- **四轮暂缓项保留**：R3-P03 select=、R3-P06 setTimeout、R3-P08 N+1、R3-S02 死代码
 - Bucket: `cleannote_attachments`（Public），路径 `memo/{userId}/{randomUUID}-{safeName}`
 - RLS: 公开读取 + `auth.uid()` 隔离写入/删除
 - 函数：`supabaseUploadAttachment` / `supabaseGetPublicUrl` / `supabaseDeleteAttachment` / `supabaseCreateSignedUrl`

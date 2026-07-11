@@ -10,7 +10,8 @@ import { useMemoStore } from '@/stores/memo'
 import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser, isOnline, syncStatus, syncLogs } from '@/services/storage'
 import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
-import { flushTaskWrites } from '@/stores/task'
+import { flushTaskWrites, cleanupTaskListeners } from '@/stores/task'
+import { flushGrowthToCloud } from '@/services/growthStorage'
 import { onCrossTabSync, broadcastChange } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
@@ -40,6 +41,9 @@ const showApp = computed(() => auth.isAuthenticated)
 /** H5 移动端路由：不渲染 PC 侧栏，直接全屏展示 */
 const isH5Route = computed(() => router.currentRoute.value.path.startsWith('/h5'))
 
+// R5-P01: Store cross-tab sync unsubscribe for cleanup
+let unsubCrossTab: (() => void) | null = null
+
 onMounted(async () => {
   await auth.init()
   if (auth.isAuthenticated && auth.userId) {
@@ -57,7 +61,8 @@ onMounted(async () => {
     useGrowthIntegration()
 
     // Cross-tab sync: reload stores when other tabs write data
-    onCrossTabSync((msg) => {
+    // R5-P01: Capture unsubscribe function for cleanup
+    unsubCrossTab = onCrossTabSync((msg) => {
       switch (msg.type) {
         case 'tasks-updated': taskStore.reload().catch(() => {}); break
         case 'memos-updated': memoStore.load(true).catch(() => {}); break
@@ -96,11 +101,18 @@ async function handleLogout() {
   // Flush any pending writes before clearing user context
   await flushPendingWrites()
   flushTaskWrites()
+  // R4-P01: Flush growth data (XP/achievements/state) before logout —
+  // growthStorage uses 2s debounced sync, so pending changes may not be saved
+  await flushGrowthToCloud()
   clearAllLastSyncAt()
   // S-14: Broadcast logout to other tabs before clearing local state
   broadcastChange('logout')
   // R3-P02: cleanupMemoStorage clears interval + event listeners
   cleanupMemoStorage()
+  // R4-P02: cleanupTaskListeners removes module-level visibilitychange listener
+  cleanupTaskListeners()
+  // R4-P04: Unsubscribe Supabase Auth state listener
+  auth.cleanup()
   auth.logout()
   // R3-P02+P04: Force page reload to clear all Pinia store data (prevents
   // cross-user data residue) and re-register cross-tab sync listener
@@ -119,6 +131,8 @@ onMounted(() => {
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeyDown)
+  // R5-P01: Unsubscribe cross-tab sync listener
+  if (unsubCrossTab) unsubCrossTab()
 })
 </script>
 

@@ -101,22 +101,24 @@ export const Toggle = Node.create<ToggleOptions>({
       summary.textContent = node.attrs.summary
       summary.contentEditable = 'true'
 
-      // Update summary attribute on blur
-      summary.addEventListener('blur', () => {
+      // R4-P03: Named event handlers so they can be explicitly removed in destroy()
+      const onSummaryBlur = () => {
         const pos = (getPos as () => number)()
         editor.chain().focus().command(({ tr }) => {
           tr.setNodeAttribute(pos, 'summary', summary.textContent || '点击展开')
           return true
         }).run()
-      })
+      }
 
-      // Enter inside summary should move to content
-      summary.addEventListener('keydown', (e) => {
+      const onSummaryKeydown = (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
           e.preventDefault()
           editor.chain().focus().setTextSelection((getPos as () => number)() + 2).run()
         }
-      })
+      }
+
+      summary.addEventListener('blur', onSummaryBlur)
+      summary.addEventListener('keydown', onSummaryKeydown)
 
       const content = document.createElement('div')
       content.className = 'rte-toggle-content'
@@ -127,6 +129,11 @@ export const Toggle = Node.create<ToggleOptions>({
       return {
         dom,
         contentDOM: content,
+        // R4-P03: Clean up event listeners on node view destroy
+        destroy() {
+          summary.removeEventListener('blur', onSummaryBlur)
+          summary.removeEventListener('keydown', onSummaryKeydown)
+        },
       }
     }
   },

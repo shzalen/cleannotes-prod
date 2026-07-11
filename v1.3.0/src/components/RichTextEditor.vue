@@ -945,7 +945,8 @@ async function onEditorDrop(e: DragEvent) {
   const imageFiles: File[] = []
   for (let i = 0; i < files.length; i++) {
     const f = files[i]
-    if (f.type.startsWith('image/') && f.size <= MAX_FILE_SIZE) {
+    // R5-S02: Exclude SVG — Canvas compression skips SVG, leaving raw XML inline
+    if (f.type.startsWith('image/') && f.type !== 'image/svg+xml' && f.size <= MAX_FILE_SIZE) {
       imageFiles.push(f)
     }
   }
@@ -1100,8 +1101,8 @@ async function handleImageUpload(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件')
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    alert('请选择图片文件（不支持 SVG）')
     input.value = ''
     return
   }
@@ -1313,7 +1314,8 @@ watch(
       // S-10: Sanitize HTML before setContent (defense in depth — ProseMirror schema
       // already strips unknown elements, but this removes script/event handlers upfront)
       const sanitized = DOMPurify.sanitize(val, {
-        ADD_ATTR: ['*'],
+        // R4-S02: Removed overly permissive ADD_ATTR: ['*']
+        // DOMPurify's default allowlist covers standard HTML attributes + data-*
         FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta'],
         FORBID_ATTR: ['on*'],
       })
