@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+/** S-08: Mask sensitive localStorage keys to prevent JWT/token exposure */
+const SENSITIVE_PATTERNS = ['auth-token', 'api_key', 'access_token', 'refresh_token', 'apikey']
+
+function maskValue(key: string, value: string): string {
+  const isSensitive = SENSITIVE_PATTERNS.some(p => key.toLowerCase().includes(p))
+  if (isSensitive && value.length > 10) {
+    return value.slice(0, 10) + '***[MASKED]'
+  }
+  return value.slice(0, 300)
+}
+
 const rows = ref<string[]>([])
 const raw = ref('')
 
@@ -10,7 +21,7 @@ onMounted(() => {
     const k = localStorage.key(i)
     if (!k) continue
     const v = localStorage.getItem(k) || ''
-    result.push(`${k} = ${v.slice(0, 300)}`)
+    result.push(`${k} = ${maskValue(k, v)}`)
   }
   rows.value = result
 
@@ -18,7 +29,7 @@ onMounted(() => {
   const backupKeys = Object.keys(localStorage).filter(k => k.includes('backup') || k.includes('migrat'))
   const rawObj: Record<string, string> = {}
   for (const k of backupKeys) {
-    rawObj[k] = localStorage.getItem(k) || ''
+    rawObj[k] = maskValue(k, localStorage.getItem(k) || '')
   }
   raw.value = JSON.stringify(rawObj, null, 2)
 })

@@ -11,6 +11,7 @@ type SyncMessage =
   | { type: 'todos-updated'; source: string }
   | { type: 'growth-updated'; source: string }
   | { type: 'reports-updated'; source: string }
+  | { type: 'logout'; source: string }
 
 const CHANNEL_NAME = 'cleannotes-sync'
 const SOURCE_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`

@@ -19,6 +19,21 @@ function buildHeaders(): Record<string, string> {
 
 let currentUserId = ''
 
+// S-12: Safe URL-encoded user ID for PostgREST query params
+function uidParam(): string {
+  return encodeURIComponent(currentUserId)
+}
+
+// S-17: Safe JSON parse with fallback for malformed data
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  if (typeof value !== 'string') return (value as T) ?? fallback
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return fallback
+  }
+}
+
 // ---- camelCase ↔ snake_case helpers ----
 
 function taskToRow(t: Task) {
@@ -51,7 +66,8 @@ function rowToTask(r: Record<string, unknown>): Task {
     dueDate: (r.due_date as string) ?? null,
     startDate: (r.start_date as string) ?? null,
     startTime: (r.start_time as string) ?? null,
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    // S-17: Safe JSON parse with fallback
+    tags: safeJsonParse(r.tags, []),
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     completedAt: (r.completed_at as string) ?? null,
@@ -90,7 +106,7 @@ function rowToDeletedTask(r: Record<string, unknown>): DeletedTask {
     dueDate: (r.due_date as string) ?? null,
     startDate: (r.start_date as string) ?? null,
     startTime: (r.start_time as string) ?? null,
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    tags: safeJsonParse(r.tags, []),
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     completedAt: (r.completed_at as string) ?? null,
@@ -113,7 +129,7 @@ function rowToTimerConfig(r: Record<string, unknown>): TimerConfig {
   return {
     workStart: r.work_start as string,
     workEnd: r.work_end as string,
-    workDays: typeof r.work_days === 'string' ? JSON.parse(r.work_days) : (r.work_days as number[]),
+    workDays: safeJsonParse(r.work_days, [1, 2, 3, 4, 5]),
   }
 }
 
@@ -176,7 +192,9 @@ async function request(
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase ${res.status}: ${text}`)
+    // S-13: Sanitize error message — truncate and strip potential sensitive data
+    const sanitized = text.slice(0, 200).replace(/[<>"']/g, '')
+    throw new Error(`Supabase ${res.status}: ${sanitized}`)
   }
   if (res.status === 204) return null
   return res.json()
@@ -193,7 +211,7 @@ export const supabaseAdapter: StorageAdapter = {
   // ========== Tasks ==========
 
   async getTasks(since?: string): Promise<Task[]> {
-    let query = `?user_id=eq.${currentUserId}&order=created_at.asc`
+    let query = `?user_id=eq.${uidParam()}&order=created_at.asc`
     if (since) {
       query += `&updated_at=gt.${encodeURIComponent(since)}`
     }
@@ -208,7 +226,7 @@ export const supabaseAdapter: StorageAdapter = {
     if (tasks.length === 0) {
       // 仍需清空云端数据（用户可能删除了所有任务）
       await request('cleannote_tasks', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -228,10 +246,20 @@ export const supabaseAdapter: StorageAdapter = {
     })
   },
 
-  /** 单条删除 */
+  /** 单条删除 — S-18: include user_id in DELETE condition for defense in depth */
   async deleteTaskById(id: string): Promise<void> {
     await request('cleannote_tasks', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
+      prefer: 'return=minimal',
+    })
+  },
+
+  /** P-07: Batch delete tasks by IDs — single request instead of N requests */
+  async deleteTasksByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const idList = ids.map(id => encodeURIComponent(id)).join(',')
+    await request('cleannote_tasks', 'DELETE', {
+      query: `?id=in.(${idList})&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
@@ -239,7 +267,7 @@ export const supabaseAdapter: StorageAdapter = {
   // ========== Deleted Tasks ==========
 
   async getDeletedTasks(since?: string): Promise<DeletedTask[]> {
-    let query = `?user_id=eq.${currentUserId}&order=deleted_at.desc`
+    let query = `?user_id=eq.${uidParam()}&order=deleted_at.desc`
     if (since) {
       query += `&updated_at=gt.${encodeURIComponent(since)}`
     }
@@ -252,7 +280,7 @@ export const supabaseAdapter: StorageAdapter = {
   async saveDeletedTasks(tasks: DeletedTask[]): Promise<void> {
     if (tasks.length === 0) {
       await request('cleannote_deleted_tasks', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -273,7 +301,17 @@ export const supabaseAdapter: StorageAdapter = {
 
   async deleteDeletedTaskById(id: string): Promise<void> {
     await request('cleannote_deleted_tasks', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
+      prefer: 'return=minimal',
+    })
+  },
+
+  /** P-07: Batch delete deleted-tasks by IDs — single request instead of N requests */
+  async deleteDeletedTasksByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const idList = ids.map(id => encodeURIComponent(id)).join(',')
+    await request('cleannote_deleted_tasks', 'DELETE', {
+      query: `?id=in.(${idList})&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
@@ -282,7 +320,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getTimerConfig(): Promise<TimerConfig | null> {
     const rows = (await request('cleannote_timer_config', 'GET', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
     })) as Record<string, unknown>[]
     return rows.length > 0 ? rowToTimerConfig(rows[0]) : null
   },
@@ -298,7 +336,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getAiMessages(): Promise<AiMessage[]> {
     const rows = (await request('cleannote_ai_messages', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=timestamp.asc`,
+      query: `?user_id=eq.${uidParam()}&order=timestamp.asc`,
     })) as Record<string, unknown>[]
     return rows.map(rowToAiMsg)
   },
@@ -306,7 +344,7 @@ export const supabaseAdapter: StorageAdapter = {
   async saveAiMessages(messages: AiMessage[]): Promise<void> {
     if (messages.length === 0) {
       await request('cleannote_ai_messages', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -327,14 +365,14 @@ export const supabaseAdapter: StorageAdapter = {
 
   async deleteAiMessageById(id: string): Promise<void> {
     await request('cleannote_ai_messages', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
 
   async deleteAllAiMessages(): Promise<void> {
     await request('cleannote_ai_messages', 'DELETE', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
@@ -343,7 +381,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getAiConfig(): Promise<AiConfig | null> {
     const rows = (await request('cleannote_ai_config', 'GET', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
     })) as Record<string, unknown>[]
     return rows.length > 0 ? rowToAiConfig(rows[0]) : null
   },
@@ -395,7 +433,7 @@ function rowToTodo(r: Record<string, unknown>): TodoItem {
 
 export async function supabaseGetTodos(since?: string): Promise<TodoItem[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${currentUserId}&order=created_at.asc`
+  let query = `?user_id=eq.${uidParam()}&order=created_at.asc`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
@@ -416,7 +454,7 @@ export async function supabaseUpsertTodo(todo: TodoItem): Promise<void> {
 export async function supabaseDeleteTodoById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_todos', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
 }
@@ -456,7 +494,7 @@ export interface GrowthCloudData {
 export async function supabaseGetGrowth(): Promise<GrowthCloudData | null> {
   if (!currentUserId) return null
   const rows = (await request('cleannote_growth', 'GET', {
-    query: `?user_id=eq.${currentUserId}`,
+    query: `?user_id=eq.${uidParam()}`,
   })) as Record<string, unknown>[]
   if (rows.length === 0) return null
   const r = rows[0]
@@ -505,7 +543,7 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
     id: r.id as string,
     title: r.title as string,
     content: (r.content as string) ?? '',
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    tags: safeJsonParse(r.tags, []),
     pinned: (r.pinned as boolean) ?? false,
     icon: (r.icon as string) || '',
     sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0,
@@ -518,7 +556,7 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
 
 export async function supabaseGetMemos(since?: string): Promise<MemoItem[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${currentUserId}&order=created_at.desc`
+  let query = `?user_id=eq.${uidParam()}&order=created_at.desc`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
@@ -544,7 +582,7 @@ export async function supabaseUpsertMemo(memo: MemoItem): Promise<void> {
 export async function supabasePatchMemo(id: string, memo: MemoItem): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_memos', 'PATCH', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     body: {
       title: memo.title,
       tags: memo.tags,
@@ -560,7 +598,7 @@ export async function supabasePatchMemo(id: string, memo: MemoItem): Promise<voi
 export async function supabaseDeleteMemoById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_memos', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
 }
@@ -715,7 +753,7 @@ function rowToWeeklyReport(r: Record<string, unknown>): WeeklyReport {
 
 export async function supabaseGetWeeklyReports(since?: string): Promise<WeeklyReport[]> {
   if (!currentUserId) return []
-  let query = `?user_id=eq.${currentUserId}&order=week_start.desc`
+  let query = `?user_id=eq.${uidParam()}&order=week_start.desc`
   if (since) {
     query += `&updated_at=gt.${encodeURIComponent(since)}`
   }
@@ -736,7 +774,7 @@ export async function supabaseUpsertWeeklyReport(report: WeeklyReport): Promise<
 export async function supabaseDeleteWeeklyReportById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_weekly_reports', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
 }

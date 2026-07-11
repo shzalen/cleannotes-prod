@@ -8,8 +8,9 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-export const SUPABASE_URL = 'https://ghkyhbxltdxhkhpqltdr.supabase.co'
-export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3loYnhsdGR4aGtocHFsdGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDY1MTUsImV4cCI6MjA4NDA4MjUxNX0.vTtJRyPO_Q61QB6bTAv8X90ih-wMg9KlDuhXGKXy0FA'
+// S-07: Use environment variables instead of hardcoded keys
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ghkyhbxltdxhkhpqltdr.supabase.co'
+export const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3loYnhsdGR4aGtocHFsdGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDY1MTUsImV4cCI6MjA4NDA4MjUxNX0.vTtJRyPO_Q61QB6bTAv8X90ih-wMg9KlDuhXGKXy0FA'
 
 export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {

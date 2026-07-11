@@ -43,12 +43,22 @@
 ## 性能优化（2026-07-10）
 - **P1.1 初始加载**：vendor-vue 分离 + AppSidebar/XpToast 异步化 + 移除 extensions 强制分块 → 登录页 ~140KB gzip
 - **P1.2 Bundle 拆分**：DOMPurify 经 ConfirmDialog→App.vue 静态链入入口 chunk → 改动态 import，入口 chunk 343KB→318KB（gzip 90KB）
-- **P2.1 增量同步**：`syncState.ts` 管理 lastSyncAt → 各 store `load(force)` 增量获取 + Map 合并；登出 `clearAllLastSyncAt()`
+- **P2.1 增量同步（已废弃）**：纯在线架构无客户端缓存可合并，页面刷新后 Pinia 清空但 lastSyncAt 仍在 localStorage → 数据加载不出来。已移除增量同步，始终全量加载。syncState.ts 文件保留但不再读写。
 - **P2.4 图片迁移**：base64 → Supabase Storage + Canvas 压缩；RLS 迁移到 auth.uid()
 - **P4.4 渐进式渲染**：IntersectionObserver + 哨兵 + 批量递增 50（TaskRightPanel 3 个 v-for + MemoView 列表）
 - **P4.3 写入节流**：task.ts 300ms 防抖 + Map 队列合并 + visibilitychange/登出 flush
 - **P4.2 跨标签页同步**：BroadcastChannel 广播 + 各 store `load(force)` 强制刷新
 - **P1.4/P1.5**：Tiptap 扩展已随 RichTextEditor 懒加载；Mermaid/Mindmap 已有防抖，无需改
+
+## 第二轮安全与性能审计（2026-07-10/11）— 已全部修复
+- **报告位置**：`public/test-reports/v1.3.0-security-perf-audit.html`
+- **发现问题**：37 项（3 严重 / 8 高 / 15 中 / 11 低）+ 18 项已通过 → **全部修复完成**
+- **P0 严重**：跨标签页广播缺失（todo/weeklyReport/growth）、memo DOMParser→正则、dragover 监听器泄漏
+- **P1 安全**：CSP wasm-unsafe-eval、登出清 JWT、AI Key AES-GCM 加密、Supabase 密钥环境变量、Mermaid/setContent DOMPurify、DoubleBracketLinker textContent、跨标签登出同步
+- **P2 中**：Link 协议白名单、DiagView 脱敏、PostgREST encodeURIComponent、错误消息脱敏、RPC 迁移锁、safeJsonParse、DELETE user_id、vite manualChunks（supabase/markdown/lunar）、写入重试队列、批量删除、loadPromise 防竞态、定时器清理、reload 防抖、StatsCards 单遍历
+- **P3 低**：AiChat watch O(1)、AI 消息上限 200、syncState 死代码清理
+- **新建文件**：`src/utils/crypto.ts`（AES-GCM）、`.env`/`.env.example`、`migration-rls-security-audit.sql`（需用户手动执行）
+- **构建**：两次 vite build 通过，prod 仓库已 commit（d9adc21）
 
 ## Supabase Storage
 - Bucket: `cleannote_attachments`（Public），路径 `memo/{userId}/{randomUUID}-{safeName}`

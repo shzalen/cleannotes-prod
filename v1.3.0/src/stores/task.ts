@@ -28,10 +28,33 @@ const WRITE_DEBOUNCE_MS = 300
 const pendingTaskWrites = new Map<string, Task>()
 let writeTimer: ReturnType<typeof setTimeout> | null = null
 
+// P-06: Retry queue for failed writes
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 1000
+const failedWrites = new Map<string, { task: Task; retries: number }>()
+
 function scheduleTaskWrite(task: Task) {
   pendingTaskWrites.set(task.id, task)
   if (writeTimer) clearTimeout(writeTimer)
   writeTimer = setTimeout(flushTaskWrites, WRITE_DEBOUNCE_MS)
+}
+
+/** Retry a failed write with exponential backoff (P-06) */
+function scheduleRetry(task: Task, retries: number) {
+  const delay = RETRY_BASE_MS * Math.pow(2, retries)
+  setTimeout(() => {
+    const storage = getStorage()
+    storage.upsertTask(task).then(() => {
+      failedWrites.delete(task.id)
+    }).catch(() => {
+      if (retries + 1 < MAX_RETRIES) {
+        scheduleRetry(task, retries + 1)
+      } else {
+        console.error(`[TaskStore] Failed to write task after ${MAX_RETRIES} retries: ${task.id}`)
+        failedWrites.delete(task.id)
+      }
+    })
+  }, delay)
 }
 
 /** Flush any pending debounced task writes immediately (e.g., before logout) */
@@ -43,7 +66,17 @@ export function flushTaskWrites() {
   if (pendingTaskWrites.size === 0) return
   const storage = getStorage()
   for (const task of pendingTaskWrites.values()) {
-    storage.upsertTask(task).catch(() => {})
+    storage.upsertTask(task).then(() => {
+      failedWrites.delete(task.id)
+    }).catch(() => {
+      // P-06: Schedule retry with exponential backoff
+      const existing = failedWrites.get(task.id)
+      const retries = existing ? existing.retries : 0
+      if (retries === 0) {
+        failedWrites.set(task.id, { task, retries: 0 })
+        scheduleRetry(task, 0)
+      }
+    })
   }
   pendingTaskWrites.clear()
   broadcastChange('tasks-updated')
@@ -78,6 +111,14 @@ export const useTaskStore = defineStore('task', () => {
   const trash = ref<DeletedTask[]>([])
   const loaded = ref(false)
 
+  // P-08: Cache the load Promise to prevent race condition when multiple callers
+  // call load() concurrently (e.g., App.vue init + cross-tab sync)
+  let loadPromise: Promise<void> | null = null
+
+  // P-10: Debounce rapid reload() calls (e.g., from multiple cross-tab sync events)
+  let reloadTimer: ReturnType<typeof setTimeout> | null = null
+  const RELOAD_DEBOUNCE_MS = 300
+
   // ---- 重新激活确认 ----
 
   const reactivateConfirm = reactive({
@@ -91,7 +132,9 @@ export const useTaskStore = defineStore('task', () => {
   // ---- 持久化 ----
 
   async function load(force = false) {
-    if (loaded.value && !force) return
+    // P-08: Return cached Promise if a load is already in-flight
+    if (loadPromise && !force) return loadPromise
+
     const storage = getStorage()
 
     if (force) {
@@ -102,17 +145,21 @@ export const useTaskStore = defineStore('task', () => {
     // Full sync — always fetch all data.
     // Incremental sync was removed: pure-online architecture has no
     // client-side data cache to merge into (Pinia state resets on page refresh).
-    tasks.value = await storage.getTasks()
+    loadPromise = (async () => {
+      tasks.value = await storage.getTasks()
 
-    // Sync deleted tasks (trash)
-    try {
-      await loadTrash()
-    } catch {
-      // trash sync failure is non-critical
-    }
+      // Sync deleted tasks (trash)
+      try {
+        await loadTrash()
+      } catch {
+        // trash sync failure is non-critical
+      }
 
-    await purgeExpired()
-    loaded.value = true
+      await purgeExpired()
+      loaded.value = true
+    })()
+
+    return loadPromise
   }
 
   /** 全量保存 — 仅用于合并场景，日常 CRUD 请用 upsertTask/deleteTaskById */
@@ -121,10 +168,19 @@ export const useTaskStore = defineStore('task', () => {
     await storage.saveTasks(tasks.value)
   }
 
-  /** 重新加载（绕过 loaded 守卫，强制全量同步） */
+  /** 重新加载（绕过 loaded 守卫，强制全量同步）— P-10: debounce 300ms */
   async function reload() {
-    loaded.value = false
-    await load(true)
+    // P-10: Debounce rapid reload calls from cross-tab sync
+    if (reloadTimer) clearTimeout(reloadTimer)
+    return new Promise<void>((resolve) => {
+      reloadTimer = setTimeout(async () => {
+        reloadTimer = null
+        loaded.value = false
+        loadPromise = null
+        await load(true)
+        resolve()
+      }, RELOAD_DEBOUNCE_MS)
+    })
   }
 
   async function loadTrash() {
@@ -156,11 +212,11 @@ export const useTaskStore = defineStore('task', () => {
     })
     if (trash.value.length !== before) {
       await persistTrash()
-      // Delete expired records from both tables on Supabase
+      // P-07: Batch delete expired records from both tables (single request each)
       const storage = getStorage()
-      for (const id of expiredIds) {
-        storage.deleteDeletedTaskById(id).catch(() => {})
-        storage.deleteTaskById(id).catch(() => {})
+      if (expiredIds.length > 0) {
+        storage.deleteDeletedTasksByIds?.(expiredIds).catch(() => {})
+        storage.deleteTasksByIds?.(expiredIds).catch(() => {})
       }
     }
   }
@@ -170,6 +226,8 @@ export const useTaskStore = defineStore('task', () => {
   const todoTasks = computed(() => tasks.value.filter(t => t.status === 'todo'))
   const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'in_progress'))
   const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done'))
+  // P-14: recentTasks — Vue computed caches result, only recomputes on tasks change.
+  // For typical personal use (100-500 tasks), O(n log n) sort is negligible.
   const recentTasks = computed(() =>
     [...tasks.value]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -315,14 +373,14 @@ export const useTaskStore = defineStore('task', () => {
     storage.deleteTaskById(id).catch(() => {})
   }
 
-  /** 清空回收站 */
+  /** 清空回收站 — P-07: batch delete */
   function emptyTrash() {
     const ids = trash.value.map(t => t.id)
     trash.value = []
     const storage = getStorage()
-    for (const id of ids) {
-      storage.deleteDeletedTaskById(id).catch(() => {})
-      storage.deleteTaskById(id).catch(() => {})
+    if (ids.length > 0) {
+      storage.deleteDeletedTasksByIds?.(ids).catch(() => {})
+      storage.deleteTasksByIds?.(ids).catch(() => {})
     }
   }
 

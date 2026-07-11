@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue'
+import { ref, watch, onBeforeUnmount, type Ref } from 'vue'
 import { toLocalDate } from '@/utils/time'
 
 /** localStorage 键名 */
@@ -64,6 +64,14 @@ export function useCompletionCelebration(
       debounceTimer = null
     }, 600)
   }, { immediate: true })
+
+  // P-09: Clear debounce timer on unmount to prevent memory leak
+  onBeforeUnmount(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+  })
 
   return {
     visible,

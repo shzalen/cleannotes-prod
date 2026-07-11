@@ -10,11 +10,10 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
-/** Strip HTML tags to get plain text for searching */
+/** Strip HTML tags to get plain text for searching (P-01: regex instead of DOMParser) */
 function stripHtml(html: string): string {
   if (!html) return ''
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  return doc.body.textContent || ''
+  return html.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim()
 }
 
 /** Migrate legacy memos that lack sortOrder */

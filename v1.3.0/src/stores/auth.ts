@@ -11,6 +11,7 @@ import {
   resetPassword as authResetPassword,
   onAuthStateChange,
 } from '@/services/auth'
+import { setCachedAccessToken } from '@/services/supabaseClient'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -97,9 +98,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /** 退出登录 — 立即清除用户状态，signOut 后台执行 */
+  /** 退出登录 — 立即清除缓存 token，signOut 后台执行 (S-04) */
   function logout() {
-    authSignOut() // fire and forget — async but don't block UI
+    setCachedAccessToken(null) // 立即清除，不依赖网络请求
+    authSignOut().catch(() => {}) // 后台执行，失败不阻塞
     user.value = null
   }
 

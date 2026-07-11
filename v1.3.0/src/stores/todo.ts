@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { TodoItem } from '@/types'
 import { loadTodos, upsertTodo, deleteTodoById } from '@/services/todoStorage'
 import { toUTCISO } from '@/utils/time'
-import { clearLastSyncAt } from '@/services/syncState'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -30,13 +30,7 @@ export const useTodoStore = defineStore('todo', () => {
   async function load(force = false) {
     if (loaded.value && !force) return
 
-    if (force) {
-      clearLastSyncAt('todos')
-    }
-
     // Full sync — always fetch all data.
-    // Incremental sync was removed: pure-online architecture has no
-    // client-side data cache to merge into (Pinia state resets on page refresh).
     todos.value = await loadTodos()
 
     loaded.value = true
@@ -63,6 +57,7 @@ export const useTodoStore = defineStore('todo', () => {
     }
     todos.value.push(todo)
     upsertTodo(todo)
+    broadcastChange('todos-updated')
     return todo
   }
 
@@ -71,6 +66,7 @@ export const useTodoStore = defineStore('todo', () => {
     if (idx === -1) return
     Object.assign(todos.value[idx], patch, { updatedAt: toUTCISO() })
     upsertTodo(todos.value[idx])
+    broadcastChange('todos-updated')
   }
 
   function removeTodo(id: string) {
@@ -78,6 +74,7 @@ export const useTodoStore = defineStore('todo', () => {
     if (idx === -1) return
     deleteTodoById(id)
     todos.value = todos.value.filter(t => t.id !== id)
+    broadcastChange('todos-updated')
   }
 
   /** 标记待办已转任务（设置 linkedTaskId），从活跃列表隐藏 */
@@ -87,6 +84,7 @@ export const useTodoStore = defineStore('todo', () => {
     todos.value[idx].linkedTaskId = taskId
     todos.value[idx].updatedAt = toUTCISO()
     upsertTodo(todos.value[idx])
+    broadcastChange('todos-updated')
   }
 
   function getTodoById(id: string): TodoItem | undefined {

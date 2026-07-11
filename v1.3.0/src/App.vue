@@ -11,7 +11,7 @@ import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser, isOnline, syncStatus, syncLogs } from '@/services/storage'
 import { flushPendingWrites } from '@/services/memoStorage'
 import { flushTaskWrites } from '@/stores/task'
-import { onCrossTabSync } from '@/services/crossTabSync'
+import { onCrossTabSync, broadcastChange } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { useTheme } from '@/composables/useTheme'
@@ -64,6 +64,11 @@ onMounted(async () => {
         case 'todos-updated': todoStore.load(true).catch(() => {}); break
         case 'growth-updated': growthStore.load(true).catch(() => {}); break
         case 'reports-updated': weeklyReportStore.load(true).catch(() => {}); break
+        case 'logout':
+          // S-14: Another tab logged out — redirect this tab to login too
+          clearAllLastSyncAt()
+          router.push({ name: 'login' })
+          break
       }
     })
 
@@ -92,6 +97,8 @@ async function handleLogout() {
   await flushPendingWrites()
   flushTaskWrites()
   clearAllLastSyncAt()
+  // S-14: Broadcast logout to other tabs before clearing local state
+  broadcastChange('logout')
   auth.logout()
   router.push({ name: 'login' })
 }

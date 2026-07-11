@@ -430,12 +430,10 @@ function formatDate(isoStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** 截取纯文本预览 */
+/** 截取纯文本预览 — S-16: regex instead of innerHTML to avoid XSS/DOM overhead */
 function plainExcerpt(html: string, maxLen: number): string {
   if (!html) return ''
-  const div = document.createElement('div')
-  div.innerHTML = html
-  const text = div.textContent || div.innerText || ''
+  const text = html.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim()
   if (text.length <= maxLen) return text
   return text.slice(0, maxLen) + '…'
 }

@@ -5,6 +5,7 @@
  */
 import { NodeViewWrapper } from '@tiptap/vue-3'
 import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import DOMPurify from 'dompurify'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 // ---- Props from VueNodeViewRenderer ----
@@ -104,7 +105,8 @@ async function renderMermaid(code: string): Promise<string> {
 
   try {
     const { svg } = await mermaid.default.render(id, trimmed)
-    return svg
+    // S-09: Sanitize SVG output with DOMPurify (defense in depth, even with securityLevel: 'sandbox')
+    return DOMPurify.sanitize(svg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['*'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
   } finally {
     // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
     // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容

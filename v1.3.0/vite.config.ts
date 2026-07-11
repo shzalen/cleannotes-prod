@@ -69,6 +69,18 @@ export default defineConfig({
         manualChunks(id) {
           // Split heavy editor dependencies by functional group for finer-grained loading
           if (id.includes('node_modules')) {
+            // Supabase SDK — separate from entry chunk (P-03)
+            if (id.includes('@supabase/supabase-js')) {
+              return 'vendor-supabase'
+            }
+            // Markdown processing libs (P-04)
+            if (id.includes('marked') || id.includes('dompurify')) {
+              return 'vendor-markdown'
+            }
+            // Lunar calendar — heavy dep only used by TaskCalendar (P-05)
+            if (id.includes('lunar-javascript')) {
+              return 'vendor-lunar'
+            }
             // Vue core + Pinia — separate from Tiptap to keep entry chunk lean
             if (
               id.includes('node_modules/vue/') ||

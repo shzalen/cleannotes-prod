@@ -11,7 +11,7 @@ import { toUTCISO, toLocalDate } from '@/utils/time'
 import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
 import { useAiStore } from './ai'
-import { clearLastSyncAt } from '@/services/syncState'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -487,13 +487,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
   async function load(force = false) {
     if (loaded.value && !force) return
 
-    if (force) {
-      clearLastSyncAt('weeklyReports')
-    }
-
     // Full sync — always fetch all data.
-    // Incremental sync was removed: pure-online architecture has no
-    // client-side data cache to merge into (Pinia state resets on page refresh).
     reports.value = await loadWeeklyReports()
 
     loaded.value = true
@@ -541,6 +535,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     }
 
     upsertWeeklyReport(report)
+    broadcastChange('reports-updated')
 
     return report
   }
@@ -599,6 +594,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     })
 
     upsertWeeklyReport(report)
+    broadcastChange('reports-updated')
   }
 
   /** 删除报告 */
@@ -607,6 +603,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     if (idx === -1) return
     reports.value.splice(idx, 1)
     deleteWeeklyReportById(id)
+    broadcastChange('reports-updated')
   }
 
   /** 检查本周是否已生成报告 */

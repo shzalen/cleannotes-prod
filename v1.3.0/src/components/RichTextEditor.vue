@@ -34,6 +34,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import { Color } from '@tiptap/extension-color'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import DOMPurify from 'dompurify'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { compressImage } from '@/utils/imageCompress'
 import { supabaseUploadAttachment, supabaseGetPublicUrl } from '@/services/supabase'
@@ -927,6 +928,14 @@ function applyTurnInto(item: { type: string; level?: number }) {
 }
 
 // ---- Image drag-drop upload ----
+
+/** Prevent default dragover behavior for file drops (P-02: named function for proper cleanup) */
+function handleDragOver(e: DragEvent) {
+  if (e.dataTransfer?.types.includes('Files')) {
+    e.preventDefault()
+  }
+}
+
 async function onEditorDrop(e: DragEvent) {
   if (!editor.value) return
   e.preventDefault()
@@ -1227,7 +1236,7 @@ const editor = useEditor({
       },
     }),
     ImageResize.configure({ inline: false, allowBase64: true }),
-    LinkExtension.configure({ openOnClick: true, HTMLAttributes: { class: 'rte-link' }, validate(url) { return !url.toLowerCase().startsWith('javascript:') } }),
+    LinkExtension.configure({ openOnClick: true, HTMLAttributes: { class: 'rte-link' }, validate(url) { try { const u = new URL(url); return ['http:', 'https:', 'mailto:', 'tel:'].includes(u.protocol) } catch { return false } } }),
     Placeholder.configure({ placeholder: props.placeholder ?? '输入备忘录内容…' }),
     FileAttachment,
     SlashCommand,
@@ -1300,7 +1309,14 @@ watch(
   () => props.modelValue,
   (val) => {
     if (editor.value && editor.value.getHTML() !== val) {
-      editor.value.commands.setContent(val, { emitUpdate: false })
+      // S-10: Sanitize HTML before setContent (defense in depth — ProseMirror schema
+      // already strips unknown elements, but this removes script/event handlers upfront)
+      const sanitized = DOMPurify.sanitize(val, {
+        ADD_ATTR: ['*'],
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta'],
+        FORBID_ATTR: ['on*'],
+      })
+      editor.value.commands.setContent(sanitized, { emitUpdate: false })
     }
   }
 )
@@ -1312,11 +1328,7 @@ onMounted(() => {
   rteWrapperRef.value?.addEventListener('click', handleAttachmentClick)
   rteWrapperRef.value?.addEventListener('click', handleMentionClick)
   rteWrapperRef.value?.addEventListener('drop', onEditorDrop as any)
-  rteWrapperRef.value?.addEventListener('dragover', (e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('Files')) {
-      e.preventDefault()
-    }
-  })
+  rteWrapperRef.value?.addEventListener('dragover', handleDragOver)
   document.addEventListener('mouseup', showBubble)
   document.addEventListener('mousemove', onDocumentMouseMove)
 
@@ -1361,7 +1373,7 @@ onBeforeUnmount(() => {
   rteWrapperRef.value?.removeEventListener('click', handleAttachmentClick)
   rteWrapperRef.value?.removeEventListener('click', handleMentionClick)
   rteWrapperRef.value?.removeEventListener('drop', onEditorDrop as any)
-  rteWrapperRef.value?.removeEventListener('dragover', (e: any) => {})
+  rteWrapperRef.value?.removeEventListener('dragover', handleDragOver)
   rteWrapperRef.value?.removeEventListener('dblclick', handleImageDblClick)
   document.removeEventListener('mouseup', showBubble)
   document.removeEventListener('mousemove', onDocumentMouseMove)

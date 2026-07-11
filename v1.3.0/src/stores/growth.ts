@@ -9,6 +9,7 @@ import {
   loadGrowthFromCloud, flushGrowthToCloud,
 } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -173,6 +174,7 @@ export const useGrowthStore = defineStore('growth', () => {
 
     state.value.lastActiveDate = today
     persistState()
+    broadcastChange('growth-updated')
   }
 
   // ---- XP 计算 ----
@@ -259,6 +261,7 @@ export const useGrowthStore = defineStore('growth', () => {
     }
 
     persistState()
+    broadcastChange('growth-updated')
   }
 
   // ---- 成就检查 ----
@@ -403,6 +406,7 @@ export const useGrowthStore = defineStore('growth', () => {
 
     if (newlyUnlocked.length > 0) {
       persistState()
+      broadcastChange('growth-updated')
     }
 
     return newlyUnlocked

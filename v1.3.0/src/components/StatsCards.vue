@@ -27,11 +27,20 @@ const isTodayTask = (t: { startDate: string | null; createdAt: string; status: s
   return false
 }
 
-// 各统计项独立 computed，便于 watch 增量变化
+// P-11: Single-pass computation — iterate tasks once instead of 4 separate filters
 const todayCount = computed(() => store.tasks.filter(isTodayTask).length)
-const doneCount = computed(() => store.tasks.filter(t => t.status === 'done').length)
-const inProgressCount = computed(() => store.tasks.filter(t => t.status === 'in_progress').length)
-const todoCount = computed(() => store.tasks.filter(t => t.status === 'todo').length)
+const taskCounts = computed(() => {
+  let done = 0, inProgress = 0, todo = 0
+  for (const t of store.tasks) {
+    if (t.status === 'done') done++
+    else if (t.status === 'in_progress') inProgress++
+    else if (t.status === 'todo') todo++
+  }
+  return { done, inProgress, todo }
+})
+const doneCount = computed(() => taskCounts.value.done)
+const inProgressCount = computed(() => taskCounts.value.inProgress)
+const todoCount = computed(() => taskCounts.value.todo)
 
 const stats = computed(() => [
   {

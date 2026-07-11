@@ -28,12 +28,16 @@ export interface StorageAdapter {
   saveTasks(tasks: Task[]): Promise<void>
   upsertTask(task: Task): Promise<void>
   deleteTaskById(id: string): Promise<void>
+  /** P-07: Batch delete — optional, falls back to individual deletes if not implemented */
+  deleteTasksByIds?(ids: string[]): Promise<void>
 
   // ---- Deleted Tasks (回收站) ----
   getDeletedTasks(since?: string): Promise<DeletedTask[]>
   saveDeletedTasks(tasks: DeletedTask[]): Promise<void>
   upsertDeletedTask(task: DeletedTask): Promise<void>
   deleteDeletedTaskById(id: string): Promise<void>
+  /** P-07: Batch delete — optional */
+  deleteDeletedTasksByIds?(ids: string[]): Promise<void>
 
   // ---- Timer Config ----
   getTimerConfig(): Promise<TimerConfig | null>

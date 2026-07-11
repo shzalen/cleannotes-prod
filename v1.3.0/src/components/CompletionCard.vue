@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 
 const props = defineProps<{
   visible: boolean
@@ -196,6 +196,14 @@ function handleClose() {
 function handleBackdrop(e: MouseEvent) {
   if (e.target === e.currentTarget) handleClose()
 }
+
+// P-09: Clear image load timeout on unmount to prevent memory leak
+onBeforeUnmount(() => {
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+    timeoutId = null
+  }
+})
 </script>
 
 <template>

@@ -4,6 +4,8 @@ import type { AiMessage, AiConfig, AiPendingAction } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { getStorage } from '@/services/storage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { encryptString, decryptString } from '@/utils/crypto'
+import { getCurrentUserIdSync } from '@/services/supabaseClient'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -98,7 +100,14 @@ export const useAiStore = defineStore('ai', () => {
     const storage = getStorage()
     messages.value = await storage.getAiMessages()
     const saved = await storage.getAiConfig()
-    if (saved) config.value = saved
+    if (saved) {
+      // S-05: Decrypt API key on load
+      const userId = getCurrentUserIdSync()
+      if (userId && saved.apiKey) {
+        saved.apiKey = await decryptString(saved.apiKey, userId)
+      }
+      config.value = saved
+    }
     loaded.value = true
   }
 
@@ -115,12 +124,20 @@ export const useAiStore = defineStore('ai', () => {
 
   async function persistConfig() {
     const storage = getStorage()
-    await storage.saveAiConfig(config.value)
+    // S-05: Encrypt API key before storing
+    const userId = getCurrentUserIdSync()
+    if (userId && config.value.apiKey) {
+      const encryptedKey = await encryptString(config.value.apiKey, userId)
+      await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
+    } else {
+      await storage.saveAiConfig(config.value)
+    }
   }
 
   function addUserMessage(content: string) {
     const msg: AiMessage = { id: genId(), role: 'user', content, timestamp: toUTCISO() }
     messages.value.push(msg)
+    trimMessages() // P-15: cap at 200 messages
     upsertMessagePersist(msg)
   }
 
@@ -128,7 +145,20 @@ export const useAiStore = defineStore('ai', () => {
     const msg: AiMessage = { id: genId(), role: 'assistant', content, timestamp: toUTCISO() }
     if (pendingAction) msg.pendingAction = pendingAction
     messages.value.push(msg)
+    trimMessages() // P-15: cap at 200 messages
     upsertMessagePersist(msg)
+  }
+
+  /** P-15: Trim message history to prevent unbounded growth */
+  const MAX_AI_MESSAGES = 200
+  function trimMessages() {
+    if (messages.value.length > MAX_AI_MESSAGES) {
+      const removed = messages.value.splice(0, messages.value.length - MAX_AI_MESSAGES)
+      const storage = getStorage()
+      for (const m of removed) {
+        storage.deleteAiMessageById(m.id).catch(() => {})
+      }
+    }
   }
 
   function buildChatUrl(input: string): string {
