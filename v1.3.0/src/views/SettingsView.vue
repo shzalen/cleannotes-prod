@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useAiStore } from '@/stores/ai'
 import { isOnline } from '@/services/storage'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
-import { findUserByPhoneWithCredentials } from '@/services/auth'
 
 const timerStore = useTimerStore()
 const auth = useAuthStore()
@@ -19,17 +18,13 @@ const nicknameEdit = ref('')
 const nicknameSaved = ref(false)
 
 // 密码修改
-const hasPassword = ref(false)
-const pwCurrent = ref('')
 const pwNew = ref('')
 const pwNewConfirm = ref('')
-const showPwCurrent = ref(false)
 const showPwNew = ref(false)
 const pwSaving = ref(false)
 const pwSaved = ref(false)
 const pwError = ref('')
 
-const pwCurrentValid = computed(() => pwCurrent.value.length >= 8 || !hasPassword.value)
 const pwNewValid = computed(() => pwNew.value.length >= 8)
 const pwConfirmValid = computed(() => pwNew.value.length >= 8 && pwNew.value === pwNewConfirm.value)
 
@@ -40,10 +35,13 @@ const aiModel = ref('')
 const aiSaved = ref(false)
 const showApiKey = ref(false)
 
-const displayPhone = computed(() => {
-  const p = auth.user?.phone || ''
-  if (p.length >= 11) return p.slice(0, 3) + '****' + p.slice(7)
-  return p
+const displayEmail = computed(() => {
+  const e = auth.user?.email || ''
+  if (e.length > 6) {
+    const [name, domain] = e.split('@')
+    return name.slice(0, 2) + '***@' + (domain || '')
+  }
+  return e
 })
 
 const maskedApiKey = computed(() => {
@@ -64,32 +62,17 @@ onMounted(async () => {
   aiApiKey.value = aiStore.config.apiKey
   aiModel.value = aiStore.config.model
 
-  // 检查是否已设置密码
-  if (auth.user) {
-    try {
-      const creds = await findUserByPhoneWithCredentials(auth.user.phone)
-      hasPassword.value = !!(creds?.passwordHash && creds?.passwordSalt)
-    } catch { /* 离线时静默 */ }
-  }
+  // 检查是否已设置密码（Supabase Auth 始终有密码，无需检查）
 })
 
 async function handleChangePassword() {
   pwError.value = ''
   pwSaved.value = false
   if (!pwNewValid.value || !pwConfirmValid.value) return
-  if (hasPassword.value && !pwCurrentValid.value) {
-    pwError.value = '请输入当前密码'
-    return
-  }
   pwSaving.value = true
   try {
-    const ok = await auth.changePassword(
-      hasPassword.value ? pwCurrent.value : '',
-      pwNew.value,
-    )
+    const ok = await auth.changePassword(pwNew.value)
     if (ok) {
-      hasPassword.value = true
-      pwCurrent.value = ''
       pwNew.value = ''
       pwNewConfirm.value = ''
       pwSaved.value = true
@@ -153,8 +136,8 @@ async function saveAiConfig() {
             <h3 class="sc-title">账号信息</h3>
             <div class="form-row">
               <div class="form-group">
-                <label>手机号</label>
-                <input :value="displayPhone" type="text" disabled />
+                <label>邮箱</label>
+                <input :value="displayEmail" type="text" disabled />
               </div>
               <div class="form-group">
                 <label>昵称</label>
@@ -170,25 +153,7 @@ async function saveAiConfig() {
 
           <!-- Change Password -->
           <div class="sc-card">
-            <h3 class="sc-title">{{ hasPassword ? '修改密码' : '设置密码' }}</h3>
-            <div class="form-group full" v-if="hasPassword">
-              <label>当前密码</label>
-              <div class="input-with-btn">
-                <input
-                  :type="showPwCurrent ? 'text' : 'password'"
-                  v-model="pwCurrent"
-                  placeholder="请输入当前密码"
-                />
-                <button class="btn-sm-ghost" @click="showPwCurrent = !showPwCurrent" :title="showPwCurrent ? '隐藏' : '显示'">
-                  <svg v-if="!showPwCurrent" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <h3 class="sc-title">修改密码</h3>
             <div class="form-group full">
               <label>新密码</label>
               <div class="input-with-btn">
@@ -218,10 +183,10 @@ async function saveAiConfig() {
             <div v-if="pwError" class="pw-error">{{ pwError }}</div>
             <button
               class="btn-primary"
-              :disabled="pwSaving || !pwNewValid || !pwConfirmValid || (hasPassword && !pwCurrentValid)"
+              :disabled="pwSaving || !pwNewValid || !pwConfirmValid"
               @click="handleChangePassword"
             >
-              {{ pwSaving ? '保存中...' : (pwSaved ? '已保存' : (hasPassword ? '修改密码' : '设置密码')) }}
+              {{ pwSaving ? '保存中...' : (pwSaved ? '已保存' : '修改密码') }}
             </button>
           </div>
 

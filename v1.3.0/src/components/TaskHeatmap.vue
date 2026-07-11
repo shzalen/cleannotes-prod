@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { HeatmapView, HeatmapCell } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
-import { toLocalDate } from '@/utils/time'
 
 const store = useTaskStore()
 const { isDark, isZuru, isTencent } = useTheme()
@@ -11,46 +10,8 @@ const view = ref<HeatmapView>('year')
 
 const viewLabels: Record<HeatmapView, string> = { year: '年度', month: '月度', week: '本周' }
 
-/** 内联热力图数据计算——直接访问 store.tasks 确保响应式依赖追踪 */
-const data = computed(() => {
-  const now = new Date()
-  const cells: HeatmapCell[] = []
-
-  // 统计每日任务归属数：优先 startDate，无则回退 createdAt（与任务列表过滤口径一致）
-  const countMap = new Map<string, number>()
-  for (const t of store.tasks) {
-    const d = (t.startDate || t.createdAt.slice(0, 10))
-    countMap.set(d, (countMap.get(d) ?? 0) + 1)
-  }
-
-  let start: Date
-  if (view.value === 'year') {
-    start = new Date(now.getFullYear(), 0, 1)
-  } else if (view.value === 'month') {
-    start = new Date(now.getFullYear(), now.getMonth(), 1)
-  } else {
-    const day = now.getDay() || 7
-    start = new Date(now)
-    start.setDate(now.getDate() - day + 1)
-  }
-
-  const end = view.value === 'week'
-    ? new Date(start.getTime() + 6 * 86400000)
-    : view.value === 'month'
-      ? new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      : new Date(now.getFullYear(), 11, 31)
-
-  const d = new Date(start)
-  while (d <= end) {
-    const key = toLocalDate(d)
-    const count = countMap.get(key) ?? 0
-    const level: HeatmapCell['level'] = count === 0 ? 0 : count <= 2 ? 1 : count <= 4 ? 2 : count <= 6 ? 3 : 4
-    cells.push({ date: key, count, level })
-    d.setDate(d.getDate() + 1)
-  }
-
-  return cells
-})
+/** DEF-T3 fix: 复用 store.getHeatmapData() */
+const data = computed(() => store.getHeatmapData(view.value))
 
 const colors = computed(() => isDark.value
   ? ['#1a2332', '#1a3a6e', '#2050a8', '#3065cf', '#4d8fff']

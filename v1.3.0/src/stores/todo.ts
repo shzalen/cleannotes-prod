@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TodoItem } from '@/types'
-import { loadTodos, saveTodos, upsertTodo, deleteTodoById, syncTodosFromCloud } from '@/services/todoStorage'
+import { loadTodos, upsertTodo, deleteTodoById } from '@/services/todoStorage'
 import { toUTCISO } from '@/utils/time'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -16,10 +17,8 @@ export const useTodoStore = defineStore('todo', () => {
   const activeTodos = computed(() => {
     const active = todos.value.filter(t => !t.linkedTaskId)
     return active.sort((a, b) => {
-      // 1. importance 降序（5 → 0）
       const iDiff = (b.importance ?? 0) - (a.importance ?? 0)
       if (iDiff !== 0) return iDiff
-      // 2. 同等级中，有日期的排在待安排之前
       const aHasDate = !!(a.estimatedStart || a.estimatedEnd)
       const bHasDate = !!(b.estimatedStart || b.estimatedEnd)
       if (aHasDate && !bHasDate) return -1
@@ -28,15 +27,13 @@ export const useTodoStore = defineStore('todo', () => {
     })
   })
 
-  function load() {
-    if (loaded.value) return
-    todos.value = loadTodos()
+  async function load(force = false) {
+    if (loaded.value && !force) return
+
+    // Full sync — always fetch all data.
+    todos.value = await loadTodos()
+
     loaded.value = true
-    // 后台从云端同步（不阻塞 UI）
-    syncTodosFromCloud().then(() => {
-      // 同步完成后刷新本地数据
-      todos.value = loadTodos()
-    }).catch(() => {})
   }
 
   function addTodo(data: {
@@ -60,6 +57,7 @@ export const useTodoStore = defineStore('todo', () => {
     }
     todos.value.push(todo)
     upsertTodo(todo)
+    broadcastChange('todos-updated')
     return todo
   }
 
@@ -68,14 +66,15 @@ export const useTodoStore = defineStore('todo', () => {
     if (idx === -1) return
     Object.assign(todos.value[idx], patch, { updatedAt: toUTCISO() })
     upsertTodo(todos.value[idx])
+    broadcastChange('todos-updated')
   }
 
   function removeTodo(id: string) {
     const idx = todos.value.findIndex(t => t.id === id)
     if (idx === -1) return
     deleteTodoById(id)
-    // 已转任务的不从内存移除，只标记 linkedTaskId
     todos.value = todos.value.filter(t => t.id !== id)
+    broadcastChange('todos-updated')
   }
 
   /** 标记待办已转任务（设置 linkedTaskId），从活跃列表隐藏 */
@@ -85,6 +84,7 @@ export const useTodoStore = defineStore('todo', () => {
     todos.value[idx].linkedTaskId = taskId
     todos.value[idx].updatedAt = toUTCISO()
     upsertTodo(todos.value[idx])
+    broadcastChange('todos-updated')
   }
 
   function getTodoById(id: string): TodoItem | undefined {

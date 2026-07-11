@@ -34,10 +34,36 @@ import TextAlign from '@tiptap/extension-text-align'
 import { Color } from '@tiptap/extension-color'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import DOMPurify from 'dompurify'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { compressImage } from '@/utils/imageCompress'
+import { supabaseUploadAttachment, supabaseGetPublicUrl } from '@/services/supabase'
 
 /** Max file size for embed: 5MB */
 const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+/** MIME type whitelist for file attachments (S3.3 security fix) */
+const ALLOWED_FILE_MIMES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.md': 'text/markdown',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.zip': 'application/zip',
+  '.rar': 'application/vnd.rar',
+  '.7z': 'application/x-7z-compressed',
+  '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+}
 
 const props = defineProps<{
   modelValue: string
@@ -902,7 +928,15 @@ function applyTurnInto(item: { type: string; level?: number }) {
 }
 
 // ---- Image drag-drop upload ----
-function onEditorDrop(e: DragEvent) {
+
+/** Prevent default dragover behavior for file drops (P-02: named function for proper cleanup) */
+function handleDragOver(e: DragEvent) {
+  if (e.dataTransfer?.types.includes('Files')) {
+    e.preventDefault()
+  }
+}
+
+async function onEditorDrop(e: DragEvent) {
   if (!editor.value) return
   e.preventDefault()
   const files = e.dataTransfer?.files
@@ -911,7 +945,8 @@ function onEditorDrop(e: DragEvent) {
   const imageFiles: File[] = []
   for (let i = 0; i < files.length; i++) {
     const f = files[i]
-    if (f.type.startsWith('image/') && f.size <= MAX_FILE_SIZE) {
+    // R5-S02: Exclude SVG — Canvas compression skips SVG, leaving raw XML inline
+    if (f.type.startsWith('image/') && f.type !== 'image/svg+xml' && f.size <= MAX_FILE_SIZE) {
       imageFiles.push(f)
     }
   }
@@ -921,17 +956,26 @@ function onEditorDrop(e: DragEvent) {
   uploading.value = true
   let loaded = 0
   for (const file of imageFiles) {
-    readFileAsDataUrl(file)
-      .then(dataUrl => {
+    try {
+      // Compress image
+      const compressed = await compressImage(file)
+      const compressedFile = new File([compressed], file.name, { type: compressed.type })
+
+      // Try Supabase Storage; fall back to base64
+      try {
+        const storagePath = await supabaseUploadAttachment(compressedFile)
+        const publicUrl = supabaseGetPublicUrl(storagePath)
+        editor.value?.chain().focus().setImage({ src: publicUrl }).run()
+      } catch {
+        const dataUrl = await readFileAsDataUrl(compressedFile)
         editor.value?.chain().focus().setImage({ src: dataUrl }).run()
-        loaded++
-        if (loaded >= imageFiles.length) uploading.value = false
-      })
-      .catch(err => {
-        console.error('Image drop failed:', err)
-        loaded++
-        if (loaded >= imageFiles.length) uploading.value = false
-      })
+      }
+    } catch (err) {
+      console.error('Image drop failed:', err)
+    } finally {
+      loaded++
+      if (loaded >= imageFiles.length) uploading.value = false
+    }
   }
 }
 
@@ -969,11 +1013,27 @@ function onQuickInsert() {
 
 // ---- File attachment click delegation ----
 function triggerFileDownload(el: HTMLElement) {
-  const dataUrl = el.getAttribute('data-file')
+  const fileUrl = el.getAttribute('data-file')
   const filename = el.getAttribute('data-filename') || 'file'
-  if (!dataUrl || !dataUrl.startsWith('data:')) return
+  if (!fileUrl) return
+
+  // Case 1: Storage URL (http/https) — open in new tab for download
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    const a = document.createElement('a')
+    a.href = fileUrl
+    a.download = filename
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    return
+  }
+
+  // Case 2: base64 data URL — decode to blob
+  if (!fileUrl.startsWith('data:')) return
   try {
-    const [header, b64] = dataUrl.split(',')
+    const [header, b64] = fileUrl.split(',')
     if (!b64) return
     const mimeMatch = header.match(/data:([^;]+)/)
     const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'
@@ -1041,8 +1101,8 @@ async function handleImageUpload(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件')
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    alert('请选择图片文件（不支持 SVG）')
     input.value = ''
     return
   }
@@ -1053,10 +1113,23 @@ async function handleImageUpload(e: Event) {
   }
   uploading.value = true
   try {
-    const dataUrl = await readFileAsDataUrl(file)
-    editor.value?.chain().focus().setImage({ src: dataUrl }).run()
+    // Compress image before upload
+    const compressed = await compressImage(file)
+
+    // Try uploading to Supabase Storage; fall back to base64 on failure
+    try {
+      const storagePath = await supabaseUploadAttachment(
+        new File([compressed], file.name, { type: compressed.type }),
+      )
+      const publicUrl = supabaseGetPublicUrl(storagePath)
+      editor.value?.chain().focus().setImage({ src: publicUrl }).run()
+    } catch {
+      // Network error or not authenticated — fall back to base64
+      const dataUrl = await readFileAsDataUrl(new File([compressed], file.name, { type: compressed.type }))
+      editor.value?.chain().focus().setImage({ src: dataUrl }).run()
+    }
   } catch (err) {
-    console.error('Image embed failed:', err)
+    console.error('Image upload failed:', err)
     alert('图片处理失败，请重试')
   } finally {
     uploading.value = false
@@ -1073,14 +1146,34 @@ async function handleFileUpload(e: Event) {
     input.value = ''
     return
   }
+  // MIME whitelist validation (S3.3)
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase()
+  const allowedExts = Object.keys(ALLOWED_FILE_MIMES)
+  if (!allowedExts.includes(ext)) {
+    alert('不支持上传此类型文件，允许的类型：' + allowedExts.join(', '))
+    input.value = ''
+    return
+  }
   uploading.value = true
   try {
-    const dataUrl = await readFileAsDataUrl(file)
-    editor.value?.chain().focus().insertFileAttachment({
-      file: dataUrl,
-      filename: file.name,
-      displayText: `📎 ${file.name} (${formatFileSize(file.size)})`,
-    }).run()
+    // Try uploading to Supabase Storage; fall back to base64 on failure
+    try {
+      const storagePath = await supabaseUploadAttachment(file)
+      const publicUrl = supabaseGetPublicUrl(storagePath)
+      editor.value?.chain().focus().insertFileAttachment({
+        file: publicUrl,
+        filename: file.name,
+        displayText: `📎 ${file.name} (${formatFileSize(file.size)})`,
+      }).run()
+    } catch {
+      // Network error or not authenticated — fall back to base64
+      const dataUrl = await readFileAsDataUrl(file)
+      editor.value?.chain().focus().insertFileAttachment({
+        file: dataUrl,
+        filename: file.name,
+        displayText: `📎 ${file.name} (${formatFileSize(file.size)})`,
+      }).run()
+    }
   } catch (err) {
     console.error('File embed failed:', err)
     alert('文件处理失败，请重试')
@@ -1145,7 +1238,7 @@ const editor = useEditor({
       },
     }),
     ImageResize.configure({ inline: false, allowBase64: true }),
-    LinkExtension.configure({ openOnClick: true, HTMLAttributes: { class: 'rte-link' } }),
+    LinkExtension.configure({ openOnClick: true, HTMLAttributes: { class: 'rte-link' }, validate(url) { try { const u = new URL(url); return ['http:', 'https:', 'mailto:', 'tel:'].includes(u.protocol) } catch { return false } } }),
     Placeholder.configure({ placeholder: props.placeholder ?? '输入备忘录内容…' }),
     FileAttachment,
     SlashCommand,
@@ -1218,7 +1311,15 @@ watch(
   () => props.modelValue,
   (val) => {
     if (editor.value && editor.value.getHTML() !== val) {
-      editor.value.commands.setContent(val, { emitUpdate: false })
+      // S-10: Sanitize HTML before setContent (defense in depth — ProseMirror schema
+      // already strips unknown elements, but this removes script/event handlers upfront)
+      const sanitized = DOMPurify.sanitize(val, {
+        // R4-S02: Removed overly permissive ADD_ATTR: ['*']
+        // DOMPurify's default allowlist covers standard HTML attributes + data-*
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta'],
+        FORBID_ATTR: ['on*'],
+      })
+      editor.value.commands.setContent(sanitized, { emitUpdate: false })
     }
   }
 )
@@ -1230,11 +1331,7 @@ onMounted(() => {
   rteWrapperRef.value?.addEventListener('click', handleAttachmentClick)
   rteWrapperRef.value?.addEventListener('click', handleMentionClick)
   rteWrapperRef.value?.addEventListener('drop', onEditorDrop as any)
-  rteWrapperRef.value?.addEventListener('dragover', (e: DragEvent) => {
-    if (e.dataTransfer?.types.includes('Files')) {
-      e.preventDefault()
-    }
-  })
+  rteWrapperRef.value?.addEventListener('dragover', handleDragOver)
   document.addEventListener('mouseup', showBubble)
   document.addEventListener('mousemove', onDocumentMouseMove)
 
@@ -1279,7 +1376,7 @@ onBeforeUnmount(() => {
   rteWrapperRef.value?.removeEventListener('click', handleAttachmentClick)
   rteWrapperRef.value?.removeEventListener('click', handleMentionClick)
   rteWrapperRef.value?.removeEventListener('drop', onEditorDrop as any)
-  rteWrapperRef.value?.removeEventListener('dragover', (e: any) => {})
+  rteWrapperRef.value?.removeEventListener('dragover', handleDragOver)
   rteWrapperRef.value?.removeEventListener('dblclick', handleImageDblClick)
   document.removeEventListener('mouseup', showBubble)
   document.removeEventListener('mousemove', onDocumentMouseMove)
@@ -1766,7 +1863,7 @@ onBeforeUnmount(() => {
 
     <!-- Hidden file inputs -->
     <input ref="imageInputRef" type="file" accept="image/*" class="rte-hidden-input" @change="handleImageUpload" />
-    <input ref="fileInputRef" type="file" class="rte-hidden-input" @change="handleFileUpload" />
+    <input ref="fileInputRef" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.json,.xml,.zip,.rar,.7z,.mp3,.mp4,.wav,.flac" class="rte-hidden-input" @change="handleFileUpload" />
   </div>
 </template>
 

@@ -1,23 +1,38 @@
 import type { StorageAdapter } from './storage'
 import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig, TodoItem, MemoItem, WeeklyReport, GrowthState, XpEvent, AchievementRecord } from '@/types'
 import { normalizeTimestamp } from '@/utils/time'
+import { SUPABASE_URL, SUPABASE_KEY, getCachedAccessToken } from './supabaseClient'
 
-export const SUPABASE_URL = 'https://ghkyhbxltdxhkhpqltdr.supabase.co'
-export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3loYnhsdGR4aGtocHFsdGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDY1MTUsImV4cCI6MjA4NDA4MjUxNX0.vTtJRyPO_Q61QB6bTAv8X90ih-wMg9KlDuhXGKXy0FA'
+// Re-export for backward compatibility (hybrid.ts etc.)
+export { SUPABASE_URL, SUPABASE_KEY }
 
 function buildHeaders(): Record<string, string> {
+  const token = getCachedAccessToken()
   return {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    // x-user-id header for RLS policy
-    ...(currentUserId ? { 'x-user-id': currentUserId } : {}),
   }
 }
 
 // ---- Current user context ----
 
 let currentUserId = ''
+
+// S-12: Safe URL-encoded user ID for PostgREST query params
+function uidParam(): string {
+  return encodeURIComponent(currentUserId)
+}
+
+// S-17: Safe JSON parse with fallback for malformed data
+function safeJsonParse<T>(value: unknown, fallback: T): T {
+  if (typeof value !== 'string') return (value as T) ?? fallback
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return fallback
+  }
+}
 
 // ---- camelCase ↔ snake_case helpers ----
 
@@ -51,7 +66,8 @@ function rowToTask(r: Record<string, unknown>): Task {
     dueDate: (r.due_date as string) ?? null,
     startDate: (r.start_date as string) ?? null,
     startTime: (r.start_time as string) ?? null,
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    // S-17: Safe JSON parse with fallback
+    tags: safeJsonParse(r.tags, []),
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     completedAt: (r.completed_at as string) ?? null,
@@ -90,7 +106,7 @@ function rowToDeletedTask(r: Record<string, unknown>): DeletedTask {
     dueDate: (r.due_date as string) ?? null,
     startDate: (r.start_date as string) ?? null,
     startTime: (r.start_time as string) ?? null,
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    tags: safeJsonParse(r.tags, []),
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
     completedAt: (r.completed_at as string) ?? null,
@@ -113,7 +129,7 @@ function rowToTimerConfig(r: Record<string, unknown>): TimerConfig {
   return {
     workStart: r.work_start as string,
     workEnd: r.work_end as string,
-    workDays: typeof r.work_days === 'string' ? JSON.parse(r.work_days) : (r.work_days as number[]),
+    workDays: safeJsonParse(r.work_days, [1, 2, 3, 4, 5]),
   }
 }
 
@@ -176,7 +192,9 @@ async function request(
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase ${res.status}: ${text}`)
+    // S-13: Sanitize error message — truncate and strip potential sensitive data
+    const sanitized = text.slice(0, 200).replace(/[<>"']/g, '')
+    throw new Error(`Supabase ${res.status}: ${sanitized}`)
   }
   if (res.status === 204) return null
   return res.json()
@@ -192,9 +210,13 @@ export const supabaseAdapter: StorageAdapter = {
 
   // ========== Tasks ==========
 
-  async getTasks(): Promise<Task[]> {
+  async getTasks(since?: string): Promise<Task[]> {
+    let query = `?user_id=eq.${uidParam()}&order=created_at.asc&limit=1000`
+    if (since) {
+      query += `&updated_at=gt.${encodeURIComponent(since)}`
+    }
     const rows = (await request('cleannote_tasks', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=created_at.asc`,
+      query,
     })) as Record<string, unknown>[]
     return rows.map(rowToTask)
   },
@@ -204,7 +226,7 @@ export const supabaseAdapter: StorageAdapter = {
     if (tasks.length === 0) {
       // 仍需清空云端数据（用户可能删除了所有任务）
       await request('cleannote_tasks', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -224,19 +246,33 @@ export const supabaseAdapter: StorageAdapter = {
     })
   },
 
-  /** 单条删除 */
+  /** 单条删除 — S-18: include user_id in DELETE condition for defense in depth */
   async deleteTaskById(id: string): Promise<void> {
     await request('cleannote_tasks', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
+      prefer: 'return=minimal',
+    })
+  },
+
+  /** P-07: Batch delete tasks by IDs — single request instead of N requests */
+  async deleteTasksByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const idList = ids.map(id => encodeURIComponent(id)).join(',')
+    await request('cleannote_tasks', 'DELETE', {
+      query: `?id=in.(${idList})&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
 
   // ========== Deleted Tasks ==========
 
-  async getDeletedTasks(): Promise<DeletedTask[]> {
+  async getDeletedTasks(since?: string): Promise<DeletedTask[]> {
+    let query = `?user_id=eq.${uidParam()}&order=deleted_at.desc`
+    if (since) {
+      query += `&updated_at=gt.${encodeURIComponent(since)}`
+    }
     const rows = (await request('cleannote_deleted_tasks', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=deleted_at.desc`,
+      query,
     })) as Record<string, unknown>[]
     return rows.map(rowToDeletedTask)
   },
@@ -244,7 +280,7 @@ export const supabaseAdapter: StorageAdapter = {
   async saveDeletedTasks(tasks: DeletedTask[]): Promise<void> {
     if (tasks.length === 0) {
       await request('cleannote_deleted_tasks', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -265,7 +301,17 @@ export const supabaseAdapter: StorageAdapter = {
 
   async deleteDeletedTaskById(id: string): Promise<void> {
     await request('cleannote_deleted_tasks', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
+      prefer: 'return=minimal',
+    })
+  },
+
+  /** P-07: Batch delete deleted-tasks by IDs — single request instead of N requests */
+  async deleteDeletedTasksByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const idList = ids.map(id => encodeURIComponent(id)).join(',')
+    await request('cleannote_deleted_tasks', 'DELETE', {
+      query: `?id=in.(${idList})&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
@@ -274,7 +320,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getTimerConfig(): Promise<TimerConfig | null> {
     const rows = (await request('cleannote_timer_config', 'GET', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
     })) as Record<string, unknown>[]
     return rows.length > 0 ? rowToTimerConfig(rows[0]) : null
   },
@@ -290,7 +336,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getAiMessages(): Promise<AiMessage[]> {
     const rows = (await request('cleannote_ai_messages', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=timestamp.asc`,
+      query: `?user_id=eq.${uidParam()}&order=timestamp.asc`,
     })) as Record<string, unknown>[]
     return rows.map(rowToAiMsg)
   },
@@ -298,7 +344,7 @@ export const supabaseAdapter: StorageAdapter = {
   async saveAiMessages(messages: AiMessage[]): Promise<void> {
     if (messages.length === 0) {
       await request('cleannote_ai_messages', 'DELETE', {
-        query: `?user_id=eq.${currentUserId}`,
+        query: `?user_id=eq.${uidParam()}`,
         prefer: 'return=minimal',
       })
       return
@@ -319,14 +365,14 @@ export const supabaseAdapter: StorageAdapter = {
 
   async deleteAiMessageById(id: string): Promise<void> {
     await request('cleannote_ai_messages', 'DELETE', {
-      query: `?id=eq.${id}`,
+      query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
 
   async deleteAllAiMessages(): Promise<void> {
     await request('cleannote_ai_messages', 'DELETE', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
       prefer: 'return=minimal',
     })
   },
@@ -335,7 +381,7 @@ export const supabaseAdapter: StorageAdapter = {
 
   async getAiConfig(): Promise<AiConfig | null> {
     const rows = (await request('cleannote_ai_config', 'GET', {
-      query: `?user_id=eq.${currentUserId}`,
+      query: `?user_id=eq.${uidParam()}`,
     })) as Record<string, unknown>[]
     return rows.length > 0 ? rowToAiConfig(rows[0]) : null
   },
@@ -385,10 +431,14 @@ function rowToTodo(r: Record<string, unknown>): TodoItem {
 
 // ---- Todo CRUD ----
 
-export async function supabaseGetTodos(): Promise<TodoItem[]> {
+export async function supabaseGetTodos(since?: string): Promise<TodoItem[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${uidParam()}&order=created_at.asc&limit=500`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_todos', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=created_at.asc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToTodo)
 }
@@ -404,7 +454,7 @@ export async function supabaseUpsertTodo(todo: TodoItem): Promise<void> {
 export async function supabaseDeleteTodoById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_todos', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
 }
@@ -444,7 +494,7 @@ export interface GrowthCloudData {
 export async function supabaseGetGrowth(): Promise<GrowthCloudData | null> {
   if (!currentUserId) return null
   const rows = (await request('cleannote_growth', 'GET', {
-    query: `?user_id=eq.${currentUserId}`,
+    query: `?user_id=eq.${uidParam()}`,
   })) as Record<string, unknown>[]
   if (rows.length === 0) return null
   const r = rows[0]
@@ -493,7 +543,7 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
     id: r.id as string,
     title: r.title as string,
     content: (r.content as string) ?? '',
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags as string[]) ?? [],
+    tags: safeJsonParse(r.tags, []),
     pinned: (r.pinned as boolean) ?? false,
     icon: (r.icon as string) || '',
     sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0,
@@ -504,10 +554,14 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
 
 // ---- Memo CRUD ----
 
-export async function supabaseGetMemos(): Promise<MemoItem[]> {
+export async function supabaseGetMemos(since?: string): Promise<MemoItem[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${uidParam()}&order=created_at.desc&limit=500`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_memos', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=created_at.desc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToMemo)
 }
@@ -520,10 +574,31 @@ export async function supabaseUpsertMemo(memo: MemoItem): Promise<void> {
   })
 }
 
+/**
+ * Partial update via PATCH — sends only metadata fields (title, tags, pinned, icon,
+ * sort_order, updated_at), skipping the potentially large `content` field.
+ * Use when content hasn't changed to avoid re-uploading megabytes of base64 images.
+ */
+export async function supabasePatchMemo(id: string, memo: MemoItem): Promise<void> {
+  if (!currentUserId) return
+  await request('cleannote_memos', 'PATCH', {
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
+    body: {
+      title: memo.title,
+      tags: memo.tags,
+      pinned: memo.pinned,
+      icon: memo.icon,
+      sort_order: memo.sortOrder,
+      updated_at: normalizeTimestamp(memo.updatedAt),
+    },
+    prefer: 'return=minimal',
+  })
+}
+
 export async function supabaseDeleteMemoById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_memos', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
 }
@@ -531,26 +606,44 @@ export async function supabaseDeleteMemoById(id: string): Promise<void> {
 // ================================================================
 // Attachment Storage (Supabase Storage bucket: cleannote_attachments)
 // ================================================================
+// Security note (S2.3): The bucket is public for read access.
+// This is an accepted trade-off for a free-tier personal note app because:
+//   1. File paths contain a random UUID (122 bits entropy) — practically unguessable
+//   2. The app is for personal use, not public content sharing
+//   3. Signed URL migration would require complex content transformation
+//      (image URLs are embedded in memo HTML, and signed URLs expire)
+// To further harden: paths use crypto.randomUUID() instead of predictable timestamps.
 
 const ATTACHMENTS_BUCKET = 'cleannote_attachments'
 
 /**
+ * Generate a random ID for file path entropy.
+ * Uses crypto.randomUUID() when available, falls back to timestamp + random.
+ */
+function generatePathId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
  * Upload a file to Supabase Storage.
- * Returns the storage path (e.g. "memo/abc123-image.png").
+ * Returns the storage path (e.g. "memo/{userId}/{uuid}-{filename}").
  */
 export async function supabaseUploadAttachment(file: File): Promise<string> {
   if (!currentUserId) throw new Error('Not authenticated')
 
-  // Build a unique path: memo/{userId}/{timestamp}-{originalName}
-  const ts = Date.now()
+  // Build a unique, unguessable path: memo/{userId}/{randomUUID}-{originalName}
+  const pathId = generatePathId()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `memo/${currentUserId}/${ts}-${safeName}`
+  const path = `memo/${currentUserId}/${pathId}-${safeName}`
 
   const url = `${SUPABASE_URL}/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`
+  const token = getCachedAccessToken()
   const headers: Record<string, string> = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
-    'x-user-id': currentUserId,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
   }
   // Let fetch set Content-Type from the FormData boundary
   const formData = new FormData()
@@ -564,7 +657,7 @@ export async function supabaseUploadAttachment(file: File): Promise<string> {
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase Storage upload failed (${res.status}): ${text}`)
+    throw new Error(`Supabase Storage upload failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
   }
 
   return path
@@ -572,9 +665,40 @@ export async function supabaseUploadAttachment(file: File): Promise<string> {
 
 /**
  * Get the public URL for a stored attachment.
+ * Note: The bucket is public-read; URLs contain random UUIDs for entropy.
  */
 export function supabaseGetPublicUrl(path: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${ATTACHMENTS_BUCKET}/${path}`
+}
+
+/**
+ * Create a signed URL for a stored attachment (for future private-bucket migration).
+ * Signed URLs expire after the specified duration (default: 1 hour).
+ * Requires the user to be authenticated.
+ */
+export async function supabaseCreateSignedUrl(
+  path: string,
+  expiresIn: number = 3600,
+): Promise<string> {
+  const token = getCachedAccessToken()
+  const url = `${SUPABASE_URL}/storage/v1/object/sign/${ATTACHMENTS_BUCKET}/${path}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ expiresIn }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Supabase signed URL failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
+  }
+  const data = await res.json()
+  return data.signedURL?.startsWith('http')
+    ? data.signedURL
+    : `${SUPABASE_URL}${data.signedURL}`
 }
 
 /**
@@ -582,16 +706,16 @@ export function supabaseGetPublicUrl(path: string): string {
  */
 export async function supabaseDeleteAttachment(path: string): Promise<void> {
   const url = `${SUPABASE_URL}/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`
+  const token = getCachedAccessToken()
   const headers: Record<string, string> = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
-    'x-user-id': currentUserId,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
   }
 
   const res = await fetch(url, { method: 'DELETE', headers })
   if (!res.ok && res.status !== 404) {
     const text = await res.text()
-    console.error(`Supabase Storage delete failed (${res.status}): ${text}`)
+    console.error(`Supabase Storage delete failed (${res.status}): ${text.slice(0, 200).replace(/[<>"']/g, '')}`)
   }
 }
 
@@ -599,8 +723,7 @@ export async function supabaseDeleteAttachment(path: string): Promise<void> {
 // Weekly Report (cleannote_weekly_reports)
 // ================================================================
 
-function weeklyReportToRow(r: WeeklyReport) {
-  return {
+function weeklyReportToRow(r: WeeklyReport) {  return {
     id: r.id,
     user_id: currentUserId,
     week_start: r.weekStart,
@@ -628,10 +751,14 @@ function rowToWeeklyReport(r: Record<string, unknown>): WeeklyReport {
   }
 }
 
-export async function supabaseGetWeeklyReports(): Promise<WeeklyReport[]> {
+export async function supabaseGetWeeklyReports(since?: string): Promise<WeeklyReport[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${uidParam()}&order=week_start.desc&limit=200`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_weekly_reports', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=week_start.desc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToWeeklyReport)
 }
@@ -647,7 +774,61 @@ export async function supabaseUpsertWeeklyReport(report: WeeklyReport): Promise<
 export async function supabaseDeleteWeeklyReportById(id: string): Promise<void> {
   if (!currentUserId) return
   await request('cleannote_weekly_reports', 'DELETE', {
-    query: `?id=eq.${id}`,
+    query: `?id=eq.${encodeURIComponent(id)}&user_id=eq.${uidParam()}`,
     prefer: 'return=minimal',
   })
+}
+
+// ================================================================
+// Server-side XP Verification (S6.1)
+// ================================================================
+
+export interface XpVerificationResult {
+  totalXp: number
+  breakdown: { source: string; xp: number }[]
+  error?: string
+}
+
+/**
+ * Call the server-side XP verification RPC.
+ * Validates that the task is actually completed and calculates XP
+ * using the same formula as the client, but on the server.
+ *
+ * Returns null if the RPC is unavailable (graceful degradation).
+ */
+export async function supabaseVerifyXp(taskId: string): Promise<XpVerificationResult | null> {
+  const token = getCachedAccessToken()
+  if (!token) return null
+
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/rpc/cleannote_calculate_xp`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_task_id: taskId }),
+    })
+
+    if (!res.ok) return null
+
+    const data = await res.json()
+    if (data.error) {
+      console.warn('[XP Verification] Server returned error:', data.error)
+      return null
+    }
+
+    return {
+      totalXp: data.totalXp ?? 0,
+      breakdown: (data.breakdown ?? []).map((b: any) => ({
+        source: b.source,
+        xp: b.xp,
+      })),
+    }
+  } catch {
+    // RPC not deployed or network error — fall back to client-side calculation
+    return null
+  }
 }

@@ -5,13 +5,13 @@ import {
   loadWeeklyReports,
   upsertWeeklyReport,
   deleteWeeklyReportById,
-  syncWeeklyReportsFromCloud,
 } from '@/services/weeklyReportStorage'
 import { getXpEvents, getGrowthState } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
 import { useAiStore } from './ai'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -163,7 +163,8 @@ function generateReportContent(
   tasks: Task[],
   todos: TodoItem[],
   aiSummary?: string,
-  aiSummaryStatus?: 'generating' | 'success' | 'failed' | null
+  aiSummaryStatus?: 'generating' | 'success' | 'failed' | null,
+  aiSummaryError?: string
 ): string {
   // 本周完成的任务
   const completedTasks = tasks
@@ -197,7 +198,7 @@ function generateReportContent(
   if (aiSummaryStatus === 'generating') {
     parts.push(aiSummaryPlaceholder('generating'))
   } else if (aiSummaryStatus === 'failed') {
-    parts.push(aiSummaryPlaceholder('failed'))
+    parts.push(aiSummaryPlaceholder('failed', aiSummaryError))
   } else if (aiSummary) {
     parts.push(aiSummarySection(aiSummary))
   }
@@ -317,7 +318,7 @@ async function callAiForSummary(
   newTodos: TodoItem[],
   weekStart: string,
   weekEnd: string
-): Promise<string | null> {
+): Promise<{ summary: string | null; error?: string }> {
   const aiStore = useAiStore()
 
   // 确保 AI 配置已加载（防御性加载，避免因 App.vue 未初始化导致配置缺失）
@@ -405,26 +406,28 @@ async function callAiForSummary(
     clearTimeout(timeout)
 
     if (!res.ok) {
-      console.warn(`[WeeklyReport] AI API returned HTTP ${res.status}, skipping summary`)
-      return null
+      const errMsg = `HTTP ${res.status}`
+      console.warn(`[WeeklyReport] AI API returned ${errMsg}, skipping summary`)
+      return { summary: null, error: errMsg }
     }
 
     const data = await res.json()
     const content = data.choices?.[0]?.message?.content
     if (!content || typeof content !== 'string') {
       console.warn('[WeeklyReport] AI response has no content, skipping summary')
-      return null
+      return { summary: null, error: 'Empty AI response' }
     }
 
-    return content.trim()
+    return { summary: content.trim() }
   } catch (e) {
-    console.warn('[WeeklyReport] AI summary generation failed:', e instanceof Error ? e.message : e)
-    return null
+    const errMsg = e instanceof Error ? e.message : String(e)
+    console.warn('[WeeklyReport] AI summary generation failed:', errMsg)
+    return { summary: null, error: errMsg }
   }
 }
 
 /** 生成 AI 总结占位 section（generating / failed） */
-function aiSummaryPlaceholder(status: 'generating' | 'failed'): string {
+function aiSummaryPlaceholder(status: 'generating' | 'failed', errorMsg?: string): string {
   if (status === 'generating') {
     return `<div class="report-section report-section-ai ai-status-generating">
   ${sectionHeader('00', 'AI 智能总结')}
@@ -437,14 +440,15 @@ function aiSummaryPlaceholder(status: 'generating' | 'failed'): string {
   </div>
 </div>`
   }
-  // failed
+  // failed — include error details for diagnostics
+  const errorSuffix = errorMsg ? `（${escapeHtml(errorMsg)}）` : ''
   return `<div class="report-section report-section-ai ai-status-failed">
   ${sectionHeader('00', 'AI 智能总结')}
   <div class="ai-summary-content">
     <div class="ai-badge">${AI_ICON}<span>AI</span></div>
     <div class="ai-placeholder ai-placeholder-failed">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ai-failed-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-      <span class="ai-placeholder-text">AI 总结暂不可用</span>
+      <span class="ai-placeholder-text">AI 总结暂不可用${errorSuffix}</span>
     </div>
   </div>
 </div>`
@@ -484,25 +488,24 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     return reports.value.find(r => r.weekStart === weekStart)
   }
 
-  function load() {
-    if (loaded.value) return
-    reports.value = loadWeeklyReports()
+  async function load(force = false) {
+    if (loaded.value && !force) return
+
+    // Full sync — always fetch all data.
+    reports.value = await loadWeeklyReports()
+
     loaded.value = true
-    // 后台从云端同步
-    syncWeeklyReportsFromCloud().then(() => {
-      reports.value = loadWeeklyReports()
-    }).catch(() => {})
   }
 
-  /** Phase 1: 立即生成报告基础内容（AI 占位为 generating），同步返回 */
-  function generateReport(weekStart: string): WeeklyReport {
+  /** Phase 1: 立即生成报告基础内容（AI 占位为 generating） */
+  async function generateReport(weekStart: string): Promise<WeeklyReport> {
     const weekEnd = getSunday(weekStart)
 
     const taskStore = useTaskStore()
     const todoStore = useTodoStore()
 
-    if (!taskStore.loaded) taskStore.load()
-    if (!todoStore.loaded) todoStore.load()
+    if (!taskStore.loaded) await taskStore.load()
+    if (!todoStore.loaded) await todoStore.load()
 
     const tasks = taskStore.tasks
     const todos = todoStore.todos
@@ -536,6 +539,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     }
 
     upsertWeeklyReport(report)
+    broadcastChange('reports-updated')
 
     return report
   }
@@ -550,8 +554,8 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     const taskStore = useTaskStore()
     const todoStore = useTodoStore()
 
-    if (!taskStore.loaded) taskStore.load()
-    if (!todoStore.loaded) todoStore.load()
+    if (!taskStore.loaded) await taskStore.load()
+    if (!todoStore.loaded) await todoStore.load()
 
     const tasks = taskStore.tasks
     const todos = todoStore.todos
@@ -580,20 +584,46 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
       )
 
     // 调用 AI
-    const aiSummary = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)
+    const result = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)
 
     // 更新报告
-    const status: 'success' | 'failed' = aiSummary ? 'success' : 'failed'
-    const newContent = generateReportContent(weekStart, weekEnd, report.summary, tasks, todos, aiSummary ?? undefined, status)
+    const status: 'success' | 'failed' = result.summary ? 'success' : 'failed'
+    const newContent = generateReportContent(
+      weekStart, weekEnd, report.summary, tasks, todos,
+      result.summary ?? undefined, status, result.error
+    )
 
     Object.assign(report, {
       content: newContent,
-      aiSummary: aiSummary || undefined,
+      aiSummary: result.summary || undefined,
       aiSummaryStatus: status,
+      aiSummaryError: result.error || undefined,
       updatedAt: toUTCISO(),
     })
 
     upsertWeeklyReport(report)
+    broadcastChange('reports-updated')
+  }
+
+  /** DEF-05: Retry AI summary generation for a failed report */
+  async function retryAiSummary(weekStart: string): Promise<void> {
+    const report = reports.value.find(r => r.weekStart === weekStart)
+    if (!report || report.aiSummaryStatus !== 'failed') return
+
+    // Reset to generating state so UI shows loading
+    const generatingContent = generateReportContent(
+      weekStart, getSunday(weekStart), report.summary,
+      [], [], undefined, 'generating'
+    )
+    Object.assign(report, {
+      content: generatingContent,
+      aiSummaryStatus: 'generating' as const,
+      aiSummaryError: undefined,
+      updatedAt: toUTCISO(),
+    })
+    upsertWeeklyReport(report)
+
+    return generateAiSummary(weekStart)
   }
 
   /** 删除报告 */
@@ -602,6 +632,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     if (idx === -1) return
     reports.value.splice(idx, 1)
     deleteWeeklyReportById(id)
+    broadcastChange('reports-updated')
   }
 
   /** 检查本周是否已生成报告 */
@@ -617,6 +648,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     load,
     generateReport,
     generateAiSummary,
+    retryAiSummary,
     deleteReport,
     getReportByWeek,
     hasCurrentWeekReport,

@@ -32,7 +32,11 @@ function scrollToBottom() {
 }
 
 // Auto-scroll when messages change (only if already near bottom)
-watch(() => store.messages.map(m => m.content).join(''), async () => {
+// P-13: O(1) watch trigger instead of O(n) map+join on every evaluation
+watch(() => {
+  const msgs = store.messages
+  return msgs.length + (msgs[msgs.length - 1]?.content.length ?? 0)
+}, async () => {
   await nextTick()
   const el = chatContainer.value
   if (!el) return

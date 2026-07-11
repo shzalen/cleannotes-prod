@@ -191,10 +191,19 @@ function renderPanel() {
     el.setAttribute('data-slash-idx', String(idx))
     el.setAttribute('data-rendered-idx', String(renderedCount))
     const active = renderedCount === _selectedIdx
-    el.innerHTML =
-      `<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:6px;font-size:14px;background:var(--color-bg-2,#f3f4f6);margin-right:10px">${item.icon}</span>` +
-      `<span style="font-weight:600;font-size:13px;color:var(--color-text-1,#1f2937);flex:1">${item.label}</span>` +
-      `<span style="font-size:11px;color:var(--color-text-4,#9ca3af);margin-left:12px;white-space:nowrap">${item.desc}</span>`
+    // R2-S05: Use DOM API + textContent instead of innerHTML to prevent XSS
+    const iconSpan = document.createElement('span')
+    iconSpan.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:6px;font-size:14px;background:var(--color-bg-2,#f3f4f6);margin-right:10px'
+    iconSpan.textContent = item.icon
+    const labelSpan = document.createElement('span')
+    labelSpan.style.cssText = 'font-weight:600;font-size:13px;color:var(--color-text-1,#1f2937);flex:1'
+    labelSpan.textContent = item.label
+    const descSpan = document.createElement('span')
+    descSpan.style.cssText = 'font-size:11px;color:var(--color-text-4,#9ca3af);margin-left:12px;white-space:nowrap'
+    descSpan.textContent = item.desc
+    el.appendChild(iconSpan)
+    el.appendChild(labelSpan)
+    el.appendChild(descSpan)
     Object.assign(el.style, {
       display: 'flex',
       alignItems: 'center',

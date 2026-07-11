@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type { Task, TaskPriority, TaskStatus, TodoItem } from '@/types'
 import { useTaskStore } from '@/stores/task'
+import { getCurrentUserIdSync } from '@/services/supabaseClient'
 import { formatDuration } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
 import { toLocalDate } from '@/utils/time'
@@ -277,8 +278,7 @@ let justSaved = false  // 防止 close() 中重复保存
 
 function getDraftKey() {
   try {
-    const sessionRaw = localStorage.getItem('cleannote_session')
-    const userId = sessionRaw ? (JSON.parse(sessionRaw).userId ?? '') : ''
+    const userId = getCurrentUserIdSync()
     return userId ? `cleannotes_${userId}_task_draft` : 'cleannotes_task_draft'
   } catch { return 'cleannotes_task_draft' }
 }
@@ -657,7 +657,7 @@ defineExpose({ openNew, openEdit, openCopy, openFromTodo, close })
           </button>
           <span class="footer-spacer" />
           <button class="btn-cancel" @click="close">取消</button>
-          <button class="btn-save" @click="save">
+          <button class="btn-save" @click="save" :disabled="!title.trim()">
             {{ isNew ? '创建' : '保存' }}
           </button>
         </div>

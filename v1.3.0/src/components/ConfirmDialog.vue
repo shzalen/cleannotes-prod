@@ -2,6 +2,10 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from '@/composables/useTheme'
 
+// Lazy-load DOMPurify to keep it out of the entry chunk
+let dompurifyModule: typeof import('dompurify')['default'] | null = null
+const dompurifyPromise = import('dompurify').then(m => { dompurifyModule = m.default })
+
 const { isDark, isZuru, isTencent } = useTheme()
 
 const props = withDefaults(defineProps<{
@@ -44,6 +48,14 @@ const iconColor = computed(() => ({
   info: isDark.value ? '#60a5fa' : isZuru.value ? '#999999' : isTencent.value ? '#0052D9' : '#3b82f6',
 }))
 
+const sanitizedMessage = computed(() => {
+  const msg = props.message || ''
+  if (!msg) return ''
+  if (dompurifyModule) return dompurifyModule.sanitize(msg)
+  // Fallback: basic HTML escape while DOMPurify loads
+  return msg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+})
+
 const btnClass = {
   danger: 'btn-danger',
   warning: 'btn-warning',
@@ -73,7 +85,7 @@ const btnClass = {
           </svg>
         </div>
         <h4 class="confirm-title">{{ title }}</h4>
-        <p class="confirm-msg" v-html="message"></p>
+        <p class="confirm-msg" v-html="sanitizedMessage"></p>
         <div class="confirm-actions">
           <button class="btn-cancel" @click="emit('cancel')">{{ cancelText }}</button>
           <button :class="['btn-confirm', btnClass[type]]" @click="emit('confirm')">{{ confirmText }}</button>

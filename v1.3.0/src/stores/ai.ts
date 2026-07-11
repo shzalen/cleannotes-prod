@@ -3,8 +3,9 @@ import { ref } from 'vue'
 import type { AiMessage, AiConfig, AiPendingAction } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { getStorage } from '@/services/storage'
-import { localAdapter } from '@/services/local'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { encryptString, decryptString } from '@/utils/crypto'
+import { getCurrentUserIdSync } from '@/services/supabaseClient'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -99,7 +100,14 @@ export const useAiStore = defineStore('ai', () => {
     const storage = getStorage()
     messages.value = await storage.getAiMessages()
     const saved = await storage.getAiConfig()
-    if (saved) config.value = saved
+    if (saved) {
+      // S-05: Decrypt API key on load
+      const userId = getCurrentUserIdSync()
+      if (userId && saved.apiKey) {
+        saved.apiKey = await decryptString(saved.apiKey, userId)
+      }
+      config.value = saved
+    }
     loaded.value = true
   }
 
@@ -116,12 +124,20 @@ export const useAiStore = defineStore('ai', () => {
 
   async function persistConfig() {
     const storage = getStorage()
-    await storage.saveAiConfig(config.value)
+    // S-05: Encrypt API key before storing
+    const userId = getCurrentUserIdSync()
+    if (userId && config.value.apiKey) {
+      const encryptedKey = await encryptString(config.value.apiKey, userId)
+      await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
+    } else {
+      await storage.saveAiConfig(config.value)
+    }
   }
 
   function addUserMessage(content: string) {
     const msg: AiMessage = { id: genId(), role: 'user', content, timestamp: toUTCISO() }
     messages.value.push(msg)
+    trimMessages() // P-15: cap at 200 messages
     upsertMessagePersist(msg)
   }
 
@@ -129,7 +145,20 @@ export const useAiStore = defineStore('ai', () => {
     const msg: AiMessage = { id: genId(), role: 'assistant', content, timestamp: toUTCISO() }
     if (pendingAction) msg.pendingAction = pendingAction
     messages.value.push(msg)
+    trimMessages() // P-15: cap at 200 messages
     upsertMessagePersist(msg)
+  }
+
+  /** P-15: Trim message history to prevent unbounded growth */
+  const MAX_AI_MESSAGES = 200
+  function trimMessages() {
+    if (messages.value.length > MAX_AI_MESSAGES) {
+      const removed = messages.value.splice(0, messages.value.length - MAX_AI_MESSAGES)
+      const storage = getStorage()
+      for (const m of removed) {
+        storage.deleteAiMessageById(m.id).catch(() => {})
+      }
+    }
   }
 
   function buildChatUrl(input: string): string {
@@ -251,7 +280,7 @@ export const useAiStore = defineStore('ai', () => {
         return lines.join('\n')
       }
       case 'update_task': {
-        const task = taskStore.tasks.find(t => t.id.startsWith(args.taskId) || t.id === args.taskId)
+        const task = taskStore.tasks.find(t => t.id === args.taskId)
         if (!task) return `❌ 未找到任务（ID: ${args.taskId}）`
         const patch: Record<string, any> = {}
         if (args.title) patch.title = args.title
@@ -263,7 +292,7 @@ export const useAiStore = defineStore('ai', () => {
         return `✅ 已更新任务「${task.title}」`
       }
       case 'delete_task': {
-        const task = taskStore.tasks.find(t => t.id.startsWith(args.taskId) || t.id === args.taskId)
+        const task = taskStore.tasks.find(t => t.id === args.taskId)
         if (!task) return `❌ 未找到任务（ID: ${args.taskId}）`
         if (task.status === 'done') return `❌ 已完成的任务不允许删除`
         const title = task.title
@@ -656,41 +685,9 @@ export const useAiStore = defineStore('ai', () => {
     storage.deleteAllAiMessages().catch(() => {})
   }
 
-  // ---- 远程变更处理器（仅更新 reactive 状态 + local storage，不写 Supabase） ----
-
-  /** 应用远端新增/更新的 AI 消息 */
-  function applyRemoteAiMessage(remote: AiMessage) {
-    const idx = messages.value.findIndex(m => m.id === remote.id)
-    if (idx === -1) {
-      // 远端新增 → 按时间顺序插入
-      const insertIdx = messages.value.findIndex(m => m.timestamp > remote.timestamp)
-      if (insertIdx === -1) {
-        messages.value.push(remote)
-      } else {
-        messages.value.splice(insertIdx, 0, remote)
-      }
-    } else {
-      // 两端都有 → 比较 timestamp，远端更新则覆盖
-      if (remote.timestamp > messages.value[idx].timestamp) {
-        messages.value[idx] = remote
-      }
-    }
-    localAdapter.saveAiMessages(messages.value).catch(() => {})
-  }
-
-  /** 应用远端删除的 AI 消息 */
-  function applyRemoteAiMessageDelete(msgId: string) {
-    const idx = messages.value.findIndex(m => m.id === msgId)
-    if (idx !== -1) {
-      messages.value.splice(idx, 1)
-      localAdapter.saveAiMessages(messages.value).catch(() => {})
-    }
-  }
-
   return {
     messages, config, loading, extraContext,
     load, send, clearMessages, persistConfig,
     confirmAction, rejectAction, setExtraContext,
-    applyRemoteAiMessage, applyRemoteAiMessageDelete,
   }
 })

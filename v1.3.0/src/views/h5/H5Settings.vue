@@ -11,11 +11,11 @@
     <!-- 用户信息 -->
     <div class="h5-user-card" v-if="auth.user">
       <div class="h5-user-avatar">
-        {{ (auth.user.nickname || auth.user.phone || '?').charAt(0).toUpperCase() }}
+        {{ (auth.user.nickname || auth.user.email || '?').charAt(0).toUpperCase() }}
       </div>
       <div class="h5-user-info">
         <div class="h5-user-name">{{ auth.user.nickname || '未设置昵称' }}</div>
-        <div class="h5-user-phone">{{ auth.user.phone }}</div>
+        <div class="h5-user-phone">{{ auth.user.email }}</div>
       </div>
     </div>
 

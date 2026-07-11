@@ -9,7 +9,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { loadMemos } from '@/services/memoStorage'
+import { useMemoStore } from '@/stores/memo'
 
 // ---- Types -------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ function showPanel(view: EditorView, editor: any, pos: number) {
   _editor = editor
   _view = view
 
-  const memos = loadMemos()
+  const memos = useMemoStore().memos
   const items: MemoItem[] = memos.slice(0, 10)
 
   if (items.length === 0) {
@@ -92,9 +92,15 @@ function showPanel(view: EditorView, editor: any, pos: number) {
     items.forEach((item, idx) => {
       const el = document.createElement('div')
       const active = idx === _selectedIdx
-      el.innerHTML =
-        `<span style="margin-right:8px;font-size:14px">📄</span>` +
-        `<span style="font-size:13px;color:var(--color-text-1,#1f2937);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.title || '无标题'}</span>`
+      // S-11: Use textContent instead of innerHTML to prevent XSS via memo titles
+      const iconEl = document.createElement('span')
+      iconEl.style.cssText = 'margin-right:8px;font-size:14px'
+      iconEl.textContent = '📄'
+      const titleEl = document.createElement('span')
+      titleEl.style.cssText = 'font-size:13px;color:var(--color-text-1,#1f2937);overflow:hidden;text-overflow:ellipsis;white-space:nowrap'
+      titleEl.textContent = item.title || '无标题'
+      el.appendChild(iconEl)
+      el.appendChild(titleEl)
       Object.assign(el.style, {
         display: 'flex',
         alignItems: 'center',

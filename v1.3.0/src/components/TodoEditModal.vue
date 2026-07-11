@@ -2,6 +2,7 @@
 import { ref, watch, nextTick } from 'vue'
 import type { TodoItem } from '@/types'
 import { useTodoStore } from '@/stores/todo'
+import { getCurrentUserIdSync } from '@/services/supabaseClient'
 
 const store = useTodoStore()
 const visible = ref(false)
@@ -27,8 +28,7 @@ let justSaved = false
 
 function getDraftKey() {
   try {
-    const sessionRaw = localStorage.getItem('cleannote_session')
-    const userId = sessionRaw ? (JSON.parse(sessionRaw).userId ?? '') : ''
+    const userId = getCurrentUserIdSync()
     return userId ? `cleannotes_${userId}_todo_draft` : 'cleannotes_todo_draft'
   } catch { return 'cleannotes_todo_draft' }
 }

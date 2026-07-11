@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { useGrowthStore } from '@/stores/growth'
 
 const growth = useGrowthStore()
@@ -19,6 +19,11 @@ watch(() => growth.lastXpToast, (toast) => {
   timeoutId.value = window.setTimeout(() => {
     visible.value = false
   }, 3000)
+})
+
+// P-09: Clear timer on unmount to prevent memory leak
+onBeforeUnmount(() => {
+  if (timeoutId.value) clearTimeout(timeoutId.value)
 })
 
 const sourceLabels: Record<string, string> = {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 import { marked } from 'marked'
@@ -464,6 +464,45 @@ const currentTasks = computed(() => {
   }
 })
 
+// ---- Progressive rendering (virtual scroll alternative) ----
+// Render first N items, load more when scrolling near bottom.
+// Solves DOM node explosion when 500+ tasks exist in "All" view.
+const DISPLAY_BATCH = 50
+const displayLimit = ref(DISPLAY_BATCH)
+const sentinelRef = ref<HTMLElement | null>(null)
+let ioObserver: IntersectionObserver | null = null
+
+const dayTasksDisplay = computed(() => dayTasks.value.slice(0, displayLimit.value))
+const allTasksDisplay = computed(() => allTasks.value.slice(0, displayLimit.value))
+const currentTasksDisplay = computed(() => currentTasks.value.slice(0, displayLimit.value))
+
+function setupObserver() {
+  if (ioObserver) ioObserver.disconnect()
+  ioObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        displayLimit.value += DISPLAY_BATCH
+      }
+    },
+    { rootMargin: '200px' },
+  )
+  if (sentinelRef.value) ioObserver.observe(sentinelRef.value)
+}
+
+// Re-connect observer when sentinel element mounts (view switches)
+watch(sentinelRef, (el) => {
+  if (el) setupObserver()
+})
+
+// Reset limit when view/date/filter changes
+watch([viewMode, () => props.selectedDate, () => props.statusFilter], () => {
+  displayLimit.value = DISPLAY_BATCH
+})
+
+onBeforeUnmount(() => {
+  ioObserver?.disconnect()
+})
+
 const currentStats = computed(() => getStats(currentTasks.value))
 const currentCompletion = computed(() => getCompletion(currentTasks.value))
 const currentDistribution = computed(() => getDistribution(currentTasks.value, viewMode.value))
@@ -588,9 +627,9 @@ function cancelDelete() {
 
 // ---- Status toggle ----
 function cycleStatus(task: Task) {
-  // 未来日期的任务状态锁定为"待办"，不允许切换
-  const today = toLocalDate()
-  if (task.createdAt.slice(0, 10) > today) return
+  // DEF-04 fix: Reuse isFutureTask() for consistent future-task check
+  // (isFutureTask prioritizes task.startDate over task.createdAt)
+  if (isFutureTask(task)) return
   store.requestToggleStatus(task.id)
 }
 
@@ -778,7 +817,7 @@ function saveTimestamps() {
           </div>
           <div v-else class="task-list">
             <div
-              v-for="task in dayTasks"
+              v-for="task in dayTasksDisplay"
               :key="task.id"
               :class="['task-card', { 'task-done': task.status === 'done' }, { 'task-selected': selectedTaskId === task.id }]"
               @click="toggleSelect(task)"
@@ -863,6 +902,7 @@ function saveTimestamps() {
                 </span>
               </div>
             </div>
+            <div v-if="dayTasks.length > displayLimit" ref="sentinelRef" class="rp-sentinel"></div>
           </div>
         </div>
       </template>
@@ -967,7 +1007,7 @@ function saveTimestamps() {
           </div>
           <div v-else class="task-list">
             <div
-              v-for="task in allTasks"
+              v-for="task in allTasksDisplay"
               :key="task.id"
               :class="['task-card', { 'task-done': task.status === 'done' }, { 'task-selected': selectedTaskId === task.id }]"
               @click="toggleSelect(task)"
@@ -1042,6 +1082,7 @@ function saveTimestamps() {
                 </span>
               </div>
             </div>
+            <div v-if="allTasks.length > displayLimit" ref="sentinelRef" class="rp-sentinel"></div>
           </div>
         </div>
       </template>
@@ -1152,7 +1193,7 @@ function saveTimestamps() {
           </div>
           <div v-else class="task-list">
             <div
-              v-for="task in currentTasks"
+              v-for="task in currentTasksDisplay"
               :key="task.id"
               :class="['task-card', { 'task-done': task.status === 'done' }, { 'task-selected': selectedTaskId === task.id }]"
               @click="toggleSelect(task)"
@@ -1226,6 +1267,7 @@ function saveTimestamps() {
                 </span>
               </div>
             </div>
+            <div v-if="currentTasks.length > displayLimit" ref="sentinelRef" class="rp-sentinel"></div>
           </div>
         </div>
       </template>
@@ -1888,6 +1930,12 @@ function saveTimestamps() {
   padding: 32px 0;
   font-size: 13px;
   color: var(--color-text-3);
+}
+
+/* Progressive rendering sentinel */
+.rp-sentinel {
+  height: 1px;
+  width: 100%;
 }
 
 .rp-body {

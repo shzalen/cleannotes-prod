@@ -25,7 +25,7 @@ function buildTime(): string {
 }
 
 export default defineConfig({
-  base: '/',
+  base: './',
   define: {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __BUILD_TIME__: JSON.stringify(buildTime()),
@@ -69,6 +69,26 @@ export default defineConfig({
         manualChunks(id) {
           // Split heavy editor dependencies by functional group for finer-grained loading
           if (id.includes('node_modules')) {
+            // Supabase SDK — separate from entry chunk (P-03)
+            if (id.includes('@supabase/supabase-js')) {
+              return 'vendor-supabase'
+            }
+            // Markdown processing libs (P-04)
+            if (id.includes('marked') || id.includes('dompurify')) {
+              return 'vendor-markdown'
+            }
+            // Lunar calendar — heavy dep only used by TaskCalendar (P-05)
+            if (id.includes('lunar-javascript')) {
+              return 'vendor-lunar'
+            }
+            // Vue core + Pinia — separate from Tiptap to keep entry chunk lean
+            if (
+              id.includes('node_modules/vue/') ||
+              id.includes('node_modules/@vue/') ||
+              id.includes('node_modules/pinia/')
+            ) {
+              return 'vendor-vue'
+            }
             if (id.includes('prosemirror')) {
               return 'vendor-prosemirror'
             }
@@ -87,22 +107,17 @@ export default defineConfig({
               return 'vendor-tiptap-task'
             }
             if (
-              id.includes('@tiptap/extension-mention') ||
-              id.includes('@tiptap/suggestion')
-            ) {
-              return 'vendor-tiptap-mention'
-            }
-            if (
               id.includes('@tiptap') ||
               id.includes('tiptap-extension-resize-image')
             ) {
               return 'vendor-tiptap-core'
             }
           }
-          // Isolate custom extensions to avoid bloating individual views
-          if (id.includes('/src/extensions/')) {
-            return 'vendor-tiptap-custom'
-          }
+          // NOTE: src/extensions/ files are NOT force-chunked — they import from
+          // @/stores/memo which lives in the entry chunk. Forcing them into a
+          // separate chunk creates a circular dependency that Rollup resolves by
+          // pulling Tiptap into the entry chunk. Letting them bundle naturally
+          // with RichTextEditor (lazy-loaded) avoids this entirely.
         },
       },
     },

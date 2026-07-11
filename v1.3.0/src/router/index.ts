@@ -56,7 +56,6 @@ const router = createRouter({
       path: '/__diag',
       name: 'diag',
       component: () => import('@/views/DiagView.vue'),
-      meta: { public: true },
     },
     // ==================== H5 移动端 ====================
     {

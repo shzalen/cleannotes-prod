@@ -6,9 +6,10 @@ import {
   appendXpEvent, getXpEvents,
   unlockAchievement, getAchievementRecords, isAchievementUnlocked,
   setFlag, getAndClearFlag,
-  syncGrowthFromCloud, flushGrowthToCloud,
+  loadGrowthFromCloud, flushGrowthToCloud,
 } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
+import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -96,10 +97,13 @@ export const useGrowthStore = defineStore('growth', () => {
     return needed > 0 ? Math.min(state.value.xp / needed, 1) : 0
   })
 
-  /** 随机选取当日寄语 */
+  /** DEF-A4 fix: 每日寄语索引在 refreshDailyState 中一次性决定，避免 computed 重算时随机变化 */
+  const dailyMessageIndex = ref(0)
+
+  /** 随机选取当日寄语（仅在 refreshDailyState 时重新选取） */
   const dailyMessage = computed(() => {
     const msgs = DAILY_MESSAGES[state.value.dailyState]
-    return msgs[Math.floor(Math.random() * msgs.length)]
+    return msgs[dailyMessageIndex.value % msgs.length]
   })
 
   /** 已解锁的成就定义列表 */
@@ -122,20 +126,15 @@ export const useGrowthStore = defineStore('growth', () => {
 
   // ---- 初始化与日状态更新 ----
 
-  function load() {
-    if (loaded.value) return
+  async function load(force = false) {
+    if (loaded.value && !force) return
+    // 从 Supabase 加载到内存缓存
+    await loadGrowthFromCloud()
     state.value = getGrowthState()
     xpEvents.value = getXpEvents()
     unlockedAchievements.value = getAchievementRecords()
     refreshDailyState()
     loaded.value = true
-    // 后台从云端同步（不阻塞 UI）
-    syncGrowthFromCloud().then(() => {
-      // 同步完成后刷新本地数据
-      state.value = getGrowthState()
-      xpEvents.value = getXpEvents()
-      unlockedAchievements.value = getAchievementRecords()
-    }).catch(() => {})
   }
 
   /** 每日首次打开时刷新日状态 */
@@ -177,7 +176,11 @@ export const useGrowthStore = defineStore('growth', () => {
     }
 
     state.value.lastActiveDate = today
+    // DEF-A4: Pick a random daily message index once per day
+    const msgs = DAILY_MESSAGES[state.value.dailyState]
+    dailyMessageIndex.value = msgs.length > 0 ? Math.floor(Math.random() * msgs.length) : 0
     persistState()
+    broadcastChange('growth-updated')
   }
 
   // ---- XP 计算 ----
@@ -264,6 +267,7 @@ export const useGrowthStore = defineStore('growth', () => {
     }
 
     persistState()
+    broadcastChange('growth-updated')
   }
 
   // ---- 成就检查 ----
@@ -408,6 +412,7 @@ export const useGrowthStore = defineStore('growth', () => {
 
     if (newlyUnlocked.length > 0) {
       persistState()
+      broadcastChange('growth-updated')
     }
 
     return newlyUnlocked

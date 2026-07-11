@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, reactive, computed } from 'vue'
 import type { Task, TaskStatus, TaskPriority, DeletedTask, HeatmapCell, HeatmapView } from '@/types'
 import { getStorage } from '@/services/storage'
-import { localAdapter } from '@/services/local'
-import { addTombstones, getTombstones, removeTombstones } from '@/services/hybrid'
-import { toUTCISO, toLocalDate, normalizeTimestamp } from '@/utils/time'
+import { toUTCISO, toLocalDate } from '@/utils/time'
+import { broadcastChange } from '@/services/crossTabSync'
+import { clearLastSyncAt } from '@/services/syncState'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -19,6 +19,89 @@ let onTaskDoneCallback: ((task: Task) => void) | null = null
 /** 设置任务完成时的 XP 计算回调 */
 export function setOnTaskDone(cb: (task: Task) => void) {
   onTaskDoneCallback = cb
+}
+
+/** R3-P07: Clear task done callback (call on logout to prevent stale references) */
+export function clearOnTaskDone() {
+  onTaskDoneCallback = null
+}
+
+// ---- Debounced task writes (P4.3) ----
+// UI updates are synchronous (Pinia); Supabase writes are debounced 300ms
+// to coalesce rapid status toggles / edits into a single HTTP request.
+const WRITE_DEBOUNCE_MS = 300
+const pendingTaskWrites = new Map<string, Task>()
+let writeTimer: ReturnType<typeof setTimeout> | null = null
+
+// P-06: Retry queue for failed writes
+const MAX_RETRIES = 3
+const RETRY_BASE_MS = 1000
+const failedWrites = new Map<string, { task: Task; retries: number }>()
+
+function scheduleTaskWrite(task: Task) {
+  pendingTaskWrites.set(task.id, task)
+  if (writeTimer) clearTimeout(writeTimer)
+  writeTimer = setTimeout(flushTaskWrites, WRITE_DEBOUNCE_MS)
+}
+
+/** Retry a failed write with exponential backoff (P-06) */
+function scheduleRetry(task: Task, retries: number) {
+  const delay = RETRY_BASE_MS * Math.pow(2, retries)
+  setTimeout(() => {
+    const storage = getStorage()
+    storage.upsertTask(task).then(() => {
+      failedWrites.delete(task.id)
+    }).catch(() => {
+      if (retries + 1 < MAX_RETRIES) {
+        scheduleRetry(task, retries + 1)
+      } else {
+        console.error(`[TaskStore] Failed to write task after ${MAX_RETRIES} retries: ${task.id}`)
+        failedWrites.delete(task.id)
+      }
+    })
+  }, delay)
+}
+
+/** Flush any pending debounced task writes immediately (e.g., before logout) */
+export function flushTaskWrites() {
+  if (writeTimer) {
+    clearTimeout(writeTimer)
+    writeTimer = null
+  }
+  if (pendingTaskWrites.size === 0) return
+  const storage = getStorage()
+  for (const task of pendingTaskWrites.values()) {
+    storage.upsertTask(task).then(() => {
+      failedWrites.delete(task.id)
+    }).catch(() => {
+      // P-06: Schedule retry with exponential backoff
+      const existing = failedWrites.get(task.id)
+      const retries = existing ? existing.retries : 0
+      if (retries === 0) {
+        failedWrites.set(task.id, { task, retries: 0 })
+        scheduleRetry(task, 0)
+      }
+    })
+  }
+  pendingTaskWrites.clear()
+  broadcastChange('tasks-updated')
+}
+
+// Flush on page hide (user switches tab / minimizes)
+// R4-P02: Use named function so it can be explicitly removed
+function onTaskVisibilityChange() {
+  if (document.hidden) flushTaskWrites()
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', onTaskVisibilityChange)
+}
+
+/** R4-P02: Remove module-level visibilitychange listener (call on logout) */
+export function cleanupTaskListeners() {
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', onTaskVisibilityChange)
+  }
 }
 
 /** 格式化执行耗时 */
@@ -43,6 +126,14 @@ export const useTaskStore = defineStore('task', () => {
   const trash = ref<DeletedTask[]>([])
   const loaded = ref(false)
 
+  // P-08: Cache the load Promise to prevent race condition when multiple callers
+  // call load() concurrently (e.g., App.vue init + cross-tab sync)
+  let loadPromise: Promise<void> | null = null
+
+  // P-10: Debounce rapid reload() calls (e.g., from multiple cross-tab sync events)
+  let reloadTimer: ReturnType<typeof setTimeout> | null = null
+  const RELOAD_DEBOUNCE_MS = 300
+
   // ---- 重新激活确认 ----
 
   const reactivateConfirm = reactive({
@@ -55,13 +146,39 @@ export const useTaskStore = defineStore('task', () => {
 
   // ---- 持久化 ----
 
-  async function load() {
-    if (loaded.value) return
+  async function load(force = false) {
+    // P-08: Return cached Promise if a load is already in-flight
+    if (loadPromise && !force) return loadPromise
+
     const storage = getStorage()
-    tasks.value = await storage.getTasks()
-    await loadTrash()
-    await purgeExpired()
-    loaded.value = true
+
+    if (force) {
+      clearLastSyncAt('tasks')
+      clearLastSyncAt('deletedTasks')
+    }
+
+    // Full sync — always fetch all data.
+    // Incremental sync was removed: pure-online architecture has no
+    // client-side data cache to merge into (Pinia state resets on page refresh).
+    loadPromise = (async () => {
+      tasks.value = await storage.getTasks()
+
+      // Sync deleted tasks (trash)
+      try {
+        await loadTrash()
+      } catch {
+        // trash sync failure is non-critical
+      }
+
+      await purgeExpired()
+      loaded.value = true
+    })().catch((err) => {
+      // R5-P03: Reset loadPromise on failure so subsequent load() can retry
+      loadPromise = null
+      throw err
+    })
+
+    return loadPromise
   }
 
   /** 全量保存 — 仅用于合并场景，日常 CRUD 请用 upsertTask/deleteTaskById */
@@ -70,36 +187,34 @@ export const useTaskStore = defineStore('task', () => {
     await storage.saveTasks(tasks.value)
   }
 
-  /** 重新加载（绕过 loaded 守卫，用于 mergeFromCloud 后刷新 UI） */
+  /** 重新加载（绕过 loaded 守卫，强制全量同步）— P-10: debounce 300ms */
   async function reload() {
-    loaded.value = false
-    await load()
+    // P-10: Debounce rapid reload calls from cross-tab sync
+    if (reloadTimer) clearTimeout(reloadTimer)
+    return new Promise<void>((resolve) => {
+      reloadTimer = setTimeout(async () => {
+        reloadTimer = null
+        loaded.value = false
+        loadPromise = null
+        await load(true)
+        resolve()
+      }, RELOAD_DEBOUNCE_MS)
+    })
   }
 
   async function loadTrash() {
     try {
       const storage = getStorage()
-      const allDeleted = await storage.getDeletedTasks()
-      // Filter out permanently deleted (tombstoned) items from the trash display
-      const tombstones = getTombstones()
-      trash.value = allDeleted.filter(t => !tombstones.has(t.id))
+      trash.value = await storage.getDeletedTasks()
     } catch {
       trash.value = []
     }
   }
 
-  /** 全量保存回收站 — 仅用于合并场景 */
+  /** 全量保存回收站 */
   async function persistTrash() {
-    try {
-      const storage = getStorage()
-      await storage.saveDeletedTasks(trash.value)
-    } catch {
-      // 回退到 localStorage 以保证数据不丢失
-      const sessionRaw = localStorage.getItem('cleannote_session')
-      const userId = sessionRaw ? (JSON.parse(sessionRaw).userId ?? '') : ''
-      const key = userId ? `cleannotes_${userId}_deleted_tasks` : 'cleannotes_deleted_tasks'
-      localStorage.setItem(key, JSON.stringify(trash.value))
-    }
+    const storage = getStorage()
+    await storage.saveDeletedTasks(trash.value)
   }
 
   /** 清除回收站中超过 7 天的项目 */
@@ -116,14 +231,11 @@ export const useTaskStore = defineStore('task', () => {
     })
     if (trash.value.length !== before) {
       await persistTrash()
-      // Record tombstones so these tasks can never be restored via sync
-      addTombstones(expiredIds)
-      // Delete expired records from both tables on Supabase
+      // P-07: Batch delete expired records from both tables (single request each)
       const storage = getStorage()
-      for (const id of expiredIds) {
-        storage.deleteDeletedTaskById(id).catch(() => {})
-        // Defensive: also ensure the task is removed from cleannote_tasks
-        storage.deleteTaskById(id).catch(() => {})
+      if (expiredIds.length > 0) {
+        storage.deleteDeletedTasksByIds?.(expiredIds).catch(() => {})
+        storage.deleteTasksByIds?.(expiredIds).catch(() => {})
       }
     }
   }
@@ -133,6 +245,8 @@ export const useTaskStore = defineStore('task', () => {
   const todoTasks = computed(() => tasks.value.filter(t => t.status === 'todo'))
   const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'in_progress'))
   const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done'))
+  // P-14: recentTasks — Vue computed caches result, only recomputes on tasks change.
+  // For typical personal use (100-500 tasks), O(n log n) sort is negligible.
   const recentTasks = computed(() =>
     [...tasks.value]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -169,9 +283,9 @@ export const useTaskStore = defineStore('task', () => {
       inProgressAt: null,
     }
     tasks.value.push(task)
-    // 单条 upsert，不再全量保存
     const storage = getStorage()
     storage.upsertTask(task).catch(() => {})
+    broadcastChange('tasks-updated')
     return task
   }
 
@@ -181,20 +295,19 @@ export const useTaskStore = defineStore('task', () => {
     const wasDone = tasks.value[idx].status === 'done'
     const now = toUTCISO()
     Object.assign(tasks.value[idx], patch, { updatedAt: now })
-    // 状态变为"进行中"时记录实际开始时间（仅在用户未显式传入 inProgressAt 时自动填充）
     if (patch.status === 'in_progress' && !('inProgressAt' in patch)) {
       tasks.value[idx].inProgressAt = now
     }
-    // 状态变为"已完成"时记录完成时间（仅在用户未显式传入 completedAt 时自动填充）
     if (patch.status === 'done' && !('completedAt' in patch) && !tasks.value[idx].completedAt) {
       tasks.value[idx].completedAt = now
     }
-    // 单条 upsert
     const storage = getStorage()
-    storage.upsertTask(tasks.value[idx]).catch(() => {})
-    // 触发 XP 计算：从未完成 → 完成
+    scheduleTaskWrite(tasks.value[idx])
     if (patch.status === 'done' && !wasDone && onTaskDoneCallback) {
-      onTaskDoneCallback(tasks.value[idx])
+      // R5-P02: Catch async rejection to prevent unhandled promise rejection
+      Promise.resolve(onTaskDoneCallback(tasks.value[idx])).catch((err) => {
+        console.error('[task] onTaskDone callback failed:', err)
+      })
     }
   }
 
@@ -202,7 +315,7 @@ export const useTaskStore = defineStore('task', () => {
   function deleteTask(id: string) {
     const task = tasks.value.find(t => t.id === id)
     if (!task) return
-    if (task.status === 'done') return // 已完成不允许删除
+    if (task.status === 'done') return
 
     const deletedTask: DeletedTask = {
       ...task,
@@ -214,9 +327,9 @@ export const useTaskStore = defineStore('task', () => {
       await storage.upsertDeletedTask(deletedTask).catch(() => {})
     })()
     tasks.value = tasks.value.filter(t => t.id !== id)
-    // 单条删除 + 单条 upsert deleted task
     const storage = getStorage()
     storage.deleteTaskById(id).catch(() => {})
+    broadcastChange('tasks-updated')
   }
 
   function toggleStatus(id: string) {
@@ -226,25 +339,21 @@ export const useTaskStore = defineStore('task', () => {
     updateTask(id, { status: next[task.status] })
   }
 
-  /** 带确认入口的状态切换 — 已完成任务激活为待办时需确认 */
   function requestToggleStatus(id: string) {
     const task = tasks.value.find(t => t.id === id)
     if (!task) return
-    // 已完成 → 待办：弹出确认
     if (task.status === 'done') {
       reactivateConfirm.taskId = id
       reactivateConfirm.taskTitle = task.title
       reactivateConfirm.visible = true
       return
     }
-    // 其他状态切换：直接执行
     toggleStatus(id)
   }
 
   function confirmReactivate() {
     if (reactivateConfirm.taskId) {
       if (reactivateConfirm.extraPatch) {
-        // 有额外 patch（来自小时钟弹窗）：直接以指定状态+时间一起更新
         updateTask(reactivateConfirm.taskId, reactivateConfirm.extraPatch as any)
       } else {
         toggleStatus(reactivateConfirm.taskId)
@@ -272,41 +381,29 @@ export const useTaskStore = defineStore('task', () => {
     const { deletedAt: _, ...taskData } = trash.value[idx]
     const task: Task = { ...taskData }
     tasks.value.unshift(task)
-    // 从回收站删除 + 在任务表新增
     const storage = getStorage()
     storage.upsertTask(task).catch(() => {})
     storage.deleteDeletedTaskById(id).catch(() => {})
     trash.value.splice(idx, 1)
-    // Remove from tombstones since the task is being restored
-    removeTombstones([id])
   }
 
   /** 从回收站永久删除 */
   function permanentDelete(id: string) {
     trash.value = trash.value.filter(t => t.id !== id)
     const storage = getStorage()
-    // Delete the deleted_task record
     storage.deleteDeletedTaskById(id).catch(() => {})
-    // Defensive: also ensure the task is removed from cleannote_tasks on Supabase
-    // This handles the case where the original deleteTaskById failed silently
     storage.deleteTaskById(id).catch(() => {})
-    // Record tombstone so this task can never be restored via sync
-    addTombstones([id])
   }
 
-  /** 清空回收站 */
+  /** 清空回收站 — P-07: batch delete */
   function emptyTrash() {
     const ids = trash.value.map(t => t.id)
     trash.value = []
     const storage = getStorage()
-    for (const id of ids) {
-      // Delete the deleted_task record
-      storage.deleteDeletedTaskById(id).catch(() => {})
-      // Defensive: also ensure the task is removed from cleannote_tasks on Supabase
-      storage.deleteTaskById(id).catch(() => {})
+    if (ids.length > 0) {
+      storage.deleteDeletedTasksByIds?.(ids).catch(() => {})
+      storage.deleteTasksByIds?.(ids).catch(() => {})
     }
-    // Record tombstones so these tasks can never be restored via sync
-    addTombstones(ids)
   }
 
   /** 计算回收站中某任务剩余天数 */
@@ -315,61 +412,6 @@ export const useTaskStore = defineStore('task', () => {
     const deletedTime = new Date(deletedAt).getTime()
     const expireMs = TRASH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
     return Math.max(0, Math.ceil((expireMs - (now - deletedTime)) / (24 * 60 * 60 * 1000)))
-  }
-
-  // ---- 远程变更处理器（仅更新 reactive 状态 + local storage，不写 Supabase） ----
-
-  /** 应用远端新增/更新的任务 */
-  function applyRemoteTask(remote: Task) {
-    // Don't restore permanently deleted (tombstoned) tasks
-    const tombstones = getTombstones()
-    if (tombstones.has(remote.id)) return
-    const idx = tasks.value.findIndex(t => t.id === remote.id)
-    if (idx === -1) {
-      // 远端新增，本地不存在 → 加入列表
-      tasks.value.push(remote)
-    } else {
-      // 两端都有 → 比较 updatedAt，远端更新则覆盖
-      if (remote.updatedAt > tasks.value[idx].updatedAt) {
-        tasks.value[idx] = remote
-      }
-    }
-    // 只写 local storage
-    localAdapter.saveTasks(tasks.value).catch(() => {})
-  }
-
-  /** 应用远端删除的任务（从主列表移除） */
-  function applyRemoteTaskDelete(taskId: string) {
-    const idx = tasks.value.findIndex(t => t.id === taskId)
-    if (idx !== -1) {
-      tasks.value.splice(idx, 1)
-      localAdapter.saveTasks(tasks.value).catch(() => {})
-    }
-  }
-
-  /** 应用远端新增/更新的回收站任务 */
-  function applyRemoteDeletedTask(remote: DeletedTask) {
-    // Don't restore permanently deleted (tombstoned) items to the trash display
-    const tombstones = getTombstones()
-    if (tombstones.has(remote.id)) return
-    const idx = trash.value.findIndex(t => t.id === remote.id)
-    if (idx === -1) {
-      trash.value.unshift(remote)
-    } else {
-      if (remote.deletedAt > trash.value[idx].deletedAt) {
-        trash.value[idx] = remote
-      }
-    }
-    localAdapter.saveDeletedTasks(trash.value).catch(() => {})
-  }
-
-  /** 应用远端永久删除的回收站任务 */
-  function applyRemoteDeletedTaskDelete(taskId: string) {
-    const idx = trash.value.findIndex(t => t.id === taskId)
-    if (idx !== -1) {
-      trash.value.splice(idx, 1)
-      localAdapter.saveDeletedTasks(trash.value).catch(() => {})
-    }
   }
 
   // ---- 热力图 ----
@@ -420,7 +462,6 @@ export const useTaskStore = defineStore('task', () => {
     addTask, updateTask, deleteTask, toggleStatus,
     requestToggleStatus, confirmReactivate, cancelReactivate,
     restoreTask, permanentDelete, emptyTrash, getRemainingDays, purgeExpired,
-    applyRemoteTask, applyRemoteTaskDelete, applyRemoteDeletedTask, applyRemoteDeletedTaskDelete,
     getHeatmapData,
   }
 })

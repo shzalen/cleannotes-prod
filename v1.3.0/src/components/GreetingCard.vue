@@ -17,7 +17,7 @@ onUnmounted(() => {
 })
 
 const username = computed(() => {
-  return auth.user?.nickname || auth.user?.phone?.slice(-4) || '用户'
+  return auth.user?.nickname || auth.user?.email?.split('@')[0] || '用户'
 })
 
 // 根据时段生成问候语

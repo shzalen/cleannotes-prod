@@ -5,7 +5,7 @@
  * - 单记录操作：CRUD 通过 upsertTask/deleteTaskById 等方法，不再全量替换
  * - 云端合并：登录时从 Supabase 拉取数据，与本地合并后再加载
  * - 脏标记：单记录粒度，记录需要重试的 upsert/delete 操作
- * - RLS：所有请求带 x-user-id header
+ * - RLS：所有请求带 JWT Bearer token (auth.uid())
  */
 
 import { ref } from 'vue'
@@ -14,7 +14,7 @@ import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig } from '@/type
 import { supabaseAdapter } from './supabase'
 import { localAdapter } from './local'
 import { setSyncLogUserId, appendSyncLog } from './syncLog'
-import { SUPABASE_URL, SUPABASE_KEY } from './supabase'
+import { SUPABASE_URL, SUPABASE_KEY, getCachedAccessToken } from './supabaseClient'
 import { toUTCISO } from '@/utils/time'
 
 // ---- Reactive state ----
@@ -191,9 +191,10 @@ async function checkSupabaseHealth(): Promise<boolean> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
     // PostgREST 不支持对 /rest/v1/ 根路径发 HEAD 请求，改用 limit=0 的 GET
+    const token = getCachedAccessToken()
     const res = await fetch(`${SUPABASE_URL}/rest/v1/cleannote_tasks?limit=0`, {
       method: 'GET',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'x-user-id': currentUserId },
+      headers: { apikey: SUPABASE_KEY, Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}` },
       signal: controller.signal,
     })
     clearTimeout(timeout)
@@ -258,8 +259,8 @@ async function syncDirtyOps(): Promise<void> {
         }
         syncedIndices.push(i)
       } catch {
-        // Individual op failed, skip and keep in queue for next retry
-        break // Stop on first failure — likely a connectivity issue
+        // Skip failed op and continue with remaining ops (was: break)
+        continue
       }
     }
 
@@ -271,6 +272,8 @@ async function syncDirtyOps(): Promise<void> {
 }
 
 async function healthCheckLoop() {
+  // Skip health check when tab is not visible to save resources
+  if (document.hidden) return
   const wasOnline = isOnline.value
   const reachable = await checkSupabaseHealth()
   isOnline.value = reachable
