@@ -19,7 +19,7 @@
 -- );
 
 -- 2. RLS Policy — 允许已认证用户上传自己的文件
--- (通过 x-user-id header 识别用户)
+-- (通过 JWT auth.uid() 识别用户)
 
 -- 允许用户读取公开文件（public bucket 默认允许）
 CREATE POLICY "Allow public read on cleannote_attachments"
@@ -32,7 +32,7 @@ ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'cleannote_attachments'
   AND (storage.foldername(name))[1] = 'memo'
-  AND (storage.foldername(name))[2] = (current_setting('request.headers')::json->>'x-user-id')
+  AND (storage.foldername(name))[2] = auth.uid()::text
 );
 
 -- 允许用户删除自己的文件
@@ -40,5 +40,5 @@ CREATE POLICY "Allow user delete own attachments"
 ON storage.objects FOR DELETE
 USING (
   bucket_id = 'cleannote_attachments'
-  AND (storage.foldername(name))[2] = (current_setting('request.headers')::json->>'x-user-id')
+  AND (storage.foldername(name))[2] = auth.uid()::text
 );

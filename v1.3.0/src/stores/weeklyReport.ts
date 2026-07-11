@@ -5,13 +5,13 @@ import {
   loadWeeklyReports,
   upsertWeeklyReport,
   deleteWeeklyReportById,
-  syncWeeklyReportsFromCloud,
 } from '@/services/weeklyReportStorage'
 import { getXpEvents, getGrowthState } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
 import { useAiStore } from './ai'
+import { clearLastSyncAt } from '@/services/syncState'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -484,25 +484,30 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     return reports.value.find(r => r.weekStart === weekStart)
   }
 
-  function load() {
-    if (loaded.value) return
-    reports.value = loadWeeklyReports()
+  async function load(force = false) {
+    if (loaded.value && !force) return
+
+    if (force) {
+      clearLastSyncAt('weeklyReports')
+    }
+
+    // Full sync — always fetch all data.
+    // Incremental sync was removed: pure-online architecture has no
+    // client-side data cache to merge into (Pinia state resets on page refresh).
+    reports.value = await loadWeeklyReports()
+
     loaded.value = true
-    // 后台从云端同步
-    syncWeeklyReportsFromCloud().then(() => {
-      reports.value = loadWeeklyReports()
-    }).catch(() => {})
   }
 
-  /** Phase 1: 立即生成报告基础内容（AI 占位为 generating），同步返回 */
-  function generateReport(weekStart: string): WeeklyReport {
+  /** Phase 1: 立即生成报告基础内容（AI 占位为 generating） */
+  async function generateReport(weekStart: string): Promise<WeeklyReport> {
     const weekEnd = getSunday(weekStart)
 
     const taskStore = useTaskStore()
     const todoStore = useTodoStore()
 
-    if (!taskStore.loaded) taskStore.load()
-    if (!todoStore.loaded) todoStore.load()
+    if (!taskStore.loaded) await taskStore.load()
+    if (!todoStore.loaded) await todoStore.load()
 
     const tasks = taskStore.tasks
     const todos = todoStore.todos
@@ -550,8 +555,8 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     const taskStore = useTaskStore()
     const todoStore = useTodoStore()
 
-    if (!taskStore.loaded) taskStore.load()
-    if (!todoStore.loaded) todoStore.load()
+    if (!taskStore.loaded) await taskStore.load()
+    if (!todoStore.loaded) await todoStore.load()
 
     const tasks = taskStore.tasks
     const todos = todoStore.todos

@@ -3,18 +3,10 @@ export type TaskPriority = 'low' | 'medium' | 'high'
 
 export interface User {
   id: string
-  phone: string
+  email: string
   nickname: string
   createdAt: string
   lastLoginAt: string
-}
-
-export interface Session {
-  userId: string
-  phone: string
-  nickname: string
-  loginAt: number      // Unix timestamp ms
-  expiresAt: number    // Unix timestamp ms
 }
 
 export interface Task {

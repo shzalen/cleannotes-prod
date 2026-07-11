@@ -6,7 +6,7 @@ import {
   appendXpEvent, getXpEvents,
   unlockAchievement, getAchievementRecords, isAchievementUnlocked,
   setFlag, getAndClearFlag,
-  syncGrowthFromCloud, flushGrowthToCloud,
+  loadGrowthFromCloud, flushGrowthToCloud,
 } from '@/services/growthStorage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 
@@ -122,20 +122,15 @@ export const useGrowthStore = defineStore('growth', () => {
 
   // ---- 初始化与日状态更新 ----
 
-  function load() {
-    if (loaded.value) return
+  async function load(force = false) {
+    if (loaded.value && !force) return
+    // 从 Supabase 加载到内存缓存
+    await loadGrowthFromCloud()
     state.value = getGrowthState()
     xpEvents.value = getXpEvents()
     unlockedAchievements.value = getAchievementRecords()
     refreshDailyState()
     loaded.value = true
-    // 后台从云端同步（不阻塞 UI）
-    syncGrowthFromCloud().then(() => {
-      // 同步完成后刷新本地数据
-      state.value = getGrowthState()
-      xpEvents.value = getXpEvents()
-      unlockedAchievements.value = getAchievementRecords()
-    }).catch(() => {})
   }
 
   /** 每日首次打开时刷新日状态 */

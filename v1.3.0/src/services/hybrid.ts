@@ -14,7 +14,7 @@ import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig } from '@/type
 import { supabaseAdapter } from './supabase'
 import { localAdapter } from './local'
 import { setSyncLogUserId, appendSyncLog } from './syncLog'
-import { SUPABASE_URL, SUPABASE_KEY } from './supabase'
+import { SUPABASE_URL, SUPABASE_KEY, getCachedAccessToken } from './supabaseClient'
 import { toUTCISO } from '@/utils/time'
 
 // ---- Reactive state ----
@@ -191,9 +191,10 @@ async function checkSupabaseHealth(): Promise<boolean> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
     // PostgREST 不支持对 /rest/v1/ 根路径发 HEAD 请求，改用 limit=0 的 GET
+    const token = getCachedAccessToken()
     const res = await fetch(`${SUPABASE_URL}/rest/v1/cleannote_tasks?limit=0`, {
       method: 'GET',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'x-user-id': currentUserId },
+      headers: { apikey: SUPABASE_KEY, Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}` },
       signal: controller.signal,
     })
     clearTimeout(timeout)
@@ -258,8 +259,8 @@ async function syncDirtyOps(): Promise<void> {
         }
         syncedIndices.push(i)
       } catch {
-        // Individual op failed, skip and keep in queue for next retry
-        break // Stop on first failure — likely a connectivity issue
+        // Skip failed op and continue with remaining ops (was: break)
+        continue
       }
     }
 
@@ -271,6 +272,8 @@ async function syncDirtyOps(): Promise<void> {
 }
 
 async function healthCheckLoop() {
+  // Skip health check when tab is not visible to save resources
+  if (document.hidden) return
   const wasOnline = isOnline.value
   const reachable = await checkSupabaseHealth()
   isOnline.value = reachable

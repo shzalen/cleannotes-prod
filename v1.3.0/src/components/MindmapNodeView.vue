@@ -199,9 +199,11 @@ async function getMarkmapModules() {
 }
 
 async function renderInline() {
-  const code = props.node.attrs.code || ''
-  if (!code.trim() || !svgEl.value) return
+  const rawCode = props.node.attrs.code || ''
+  if (!rawCode.trim() || !svgEl.value) return
 
+  // Strip HTML tags to prevent SVG injection — mindmap uses markdown syntax only
+  const code = rawCode.replace(/<[^>]*>/g, '')
   renderError.value = ''
   loading.value = true
   try {
@@ -235,10 +237,12 @@ async function renderInline() {
 
 async function renderPreview(code: string) {
   if (!previewSvgEl.value || !code.trim()) return
+  // Strip HTML tags to prevent SVG injection
+  const sanitizedCode = code.replace(/<[^>]*>/g, '')
   try {
     const { Transformer, Markmap } = await getMarkmapModules()
     const transformer = new Transformer()
-    const { root } = transformer.transform(code)
+    const { root } = transformer.transform(sanitizedCode)
 
     if (previewMm) {
       previewMm.setData(root)

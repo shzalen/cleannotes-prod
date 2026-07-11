@@ -5,7 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { switchUser } from '@/services/storage'
 import { stopAllSync } from '@/composables/useSync'
 import { marked } from 'marked'
-import type { SyncLogEntry } from '@/services/hybrid'
+import DOMPurify from 'dompurify'
+import type { SyncLogEntry } from '@/services/storage'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import TestReportModal from '@/components/TestReportModal.vue'
 import SyncLogModal from '@/components/SyncLogModal.vue'
@@ -69,7 +70,7 @@ async function showReadme() {
     try {
       const res = await fetch('/readme.txt')
       const md = await res.text()
-      readmeHtml.value = await marked.parse(md)
+      readmeHtml.value = DOMPurify.sanitize(await marked.parse(md))
     } catch {
       readmeHtml.value = '<p>无法加载 README</p>'
     }
@@ -96,13 +97,16 @@ const statusLabel = computed(() => {
 })
 
 const displayName = computed(() => {
-  return auth.user?.nickname || auth.user?.phone?.slice(-4) || '用户'
+  return auth.user?.nickname || auth.user?.email?.split('@')[0] || '用户'
 })
 
-const displayPhone = computed(() => {
-  const p = auth.user?.phone || ''
-  if (p.length >= 11) return p.slice(0, 3) + '****' + p.slice(7)
-  return p
+const displayEmail = computed(() => {
+  const e = auth.user?.email || ''
+  if (e.length > 6) {
+    const [name, domain] = e.split('@')
+    return name.slice(0, 2) + '***@' + (domain || '')
+  }
+  return e
 })
 
 function navigate(path: string) {
@@ -143,7 +147,7 @@ function confirmLogout() {
       <div class="user-avatar">{{ displayName.charAt(0) }}</div>
       <div class="user-info">
         <div class="user-name">{{ displayName }}</div>
-        <div class="user-phone">{{ displayPhone }}</div>
+        <div class="user-phone">{{ displayEmail }}</div>
       </div>
       <button class="logout-btn" title="退出登录" @click="handleLogout">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

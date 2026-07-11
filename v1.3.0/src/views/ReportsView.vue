@@ -4,6 +4,7 @@ import { useWeeklyReportStore, getMonday, getSunday, getWeekLabel, getWeekNumber
 import { toLocalDate } from '@/utils/time'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import ReportPoster from '@/components/ReportPoster.vue'
+import DOMPurify from 'dompurify'
 
 const store = useWeeklyReportStore()
 
@@ -61,9 +62,9 @@ function selectReport(weekStart: string) {
 
 const generating = ref(false)
 
-function handleGenerate() {
+async function handleGenerate() {
   // Phase 1: 立即生成报告（带 AI generating 占位）
-  const report = store.generateReport(pickerWeekStart.value)
+  const report = await store.generateReport(pickerWeekStart.value)
   selectedWeekStart.value = report.weekStart
 
   // Phase 2: 后台异步调用 AI 并更新
@@ -302,7 +303,7 @@ function reportDateRange(weekStart: string): string {
 
         <!-- Scrollable content -->
         <div class="detail-content">
-          <div class="content-inner" v-html="selectedReport.content"></div>
+          <div class="content-inner" v-html="DOMPurify.sanitize(selectedReport.content)"></div>
 
           <!-- Report Footer -->
           <div class="detail-footer">

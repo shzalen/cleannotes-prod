@@ -9,7 +9,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { loadMemos } from '@/services/memoStorage'
+import { useMemoStore } from '@/stores/memo'
 
 // ---- Types -------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ function showPanel(view: EditorView, editor: any, pos: number) {
   _editor = editor
   _view = view
 
-  const memos = loadMemos()
+  const memos = useMemoStore().memos
   const items: MemoItem[] = memos.slice(0, 10)
 
   if (items.length === 0) {

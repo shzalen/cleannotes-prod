@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import type { AiMessage, AiConfig, AiPendingAction } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { getStorage } from '@/services/storage'
-import { localAdapter } from '@/services/local'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 
 function genId(): string {
@@ -656,41 +655,9 @@ export const useAiStore = defineStore('ai', () => {
     storage.deleteAllAiMessages().catch(() => {})
   }
 
-  // ---- 远程变更处理器（仅更新 reactive 状态 + local storage，不写 Supabase） ----
-
-  /** 应用远端新增/更新的 AI 消息 */
-  function applyRemoteAiMessage(remote: AiMessage) {
-    const idx = messages.value.findIndex(m => m.id === remote.id)
-    if (idx === -1) {
-      // 远端新增 → 按时间顺序插入
-      const insertIdx = messages.value.findIndex(m => m.timestamp > remote.timestamp)
-      if (insertIdx === -1) {
-        messages.value.push(remote)
-      } else {
-        messages.value.splice(insertIdx, 0, remote)
-      }
-    } else {
-      // 两端都有 → 比较 timestamp，远端更新则覆盖
-      if (remote.timestamp > messages.value[idx].timestamp) {
-        messages.value[idx] = remote
-      }
-    }
-    localAdapter.saveAiMessages(messages.value).catch(() => {})
-  }
-
-  /** 应用远端删除的 AI 消息 */
-  function applyRemoteAiMessageDelete(msgId: string) {
-    const idx = messages.value.findIndex(m => m.id === msgId)
-    if (idx !== -1) {
-      messages.value.splice(idx, 1)
-      localAdapter.saveAiMessages(messages.value).catch(() => {})
-    }
-  }
-
   return {
     messages, config, loading, extraContext,
     load, send, clearMessages, persistConfig,
     confirmAction, rejectAction, setExtraContext,
-    applyRemoteAiMessage, applyRemoteAiMessageDelete,
   }
 })

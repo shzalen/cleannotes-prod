@@ -104,6 +104,39 @@ watch([editTitle, editContent, editTags, editIcon], () => {
 // Flush before leaving
 onBeforeUnmount(() => {
   flushAutoSave()
+  memoIoObserver?.disconnect()
+})
+
+// ---- Progressive rendering for memo list ----
+const MEMO_DISPLAY_BATCH = 50
+const memoDisplayLimit = ref(MEMO_DISPLAY_BATCH)
+const memoSentinelRef = ref<HTMLElement | null>(null)
+let memoIoObserver: IntersectionObserver | null = null
+
+const normalMemosDisplay = computed(() =>
+  store.normalMemos.slice(0, memoDisplayLimit.value),
+)
+
+function setupMemoObserver() {
+  if (memoIoObserver) memoIoObserver.disconnect()
+  memoIoObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) {
+        memoDisplayLimit.value += MEMO_DISPLAY_BATCH
+      }
+    },
+    { rootMargin: '200px' },
+  )
+  if (memoSentinelRef.value) memoIoObserver.observe(memoSentinelRef.value)
+}
+
+watch(memoSentinelRef, (el) => {
+  if (el) setupMemoObserver()
+})
+
+// Reset limit when search/filter changes
+watch([() => store.searchQuery, () => store.activeTag], () => {
+  memoDisplayLimit.value = MEMO_DISPLAY_BATCH
 })
 
 // ---- Actions ----
@@ -683,7 +716,7 @@ onBeforeUnmount(() => {
         <template v-if="store.normalMemos.length > 0">
           <div v-if="store.pinnedMemos.length > 0" class="list-section-label">全部备忘</div>
           <div
-            v-for="memo in store.normalMemos"
+            v-for="memo in normalMemosDisplay"
             :key="memo.id"
             :class="[
               'memo-list-item',
@@ -732,6 +765,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
+          <div v-if="store.normalMemos.length > memoDisplayLimit" ref="memoSentinelRef" class="memo-sentinel"></div>
         </template>
       </div>
     </aside>
@@ -1206,6 +1240,11 @@ export default { name: 'MemoView' }
 .list-empty {
   text-align: center;
   padding: 32px 12px;
+}
+
+.memo-sentinel {
+  height: 1px;
+  width: 100%;
 }
 
 .empty-text {

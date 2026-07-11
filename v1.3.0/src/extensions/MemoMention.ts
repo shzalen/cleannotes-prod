@@ -1,7 +1,7 @@
 import { Mention } from '@tiptap/extension-mention'
 import { PluginKey } from '@tiptap/pm/state'
 import type { SuggestionProps } from '@tiptap/suggestion'
-import { loadMemos } from '@/services/memoStorage'
+import { useMemoStore } from '@/stores/memo'
 
 export const memoMentionPluginKey = new PluginKey('memoMention')
 
@@ -366,7 +366,7 @@ export function buildMemoMention(): ReturnType<typeof Mention.configure> {
         return textBefore === '[['
       },
       items: ({ query }): MemoSuggestionItem[] => {
-        const memos = loadMemos()
+        const memos = useMemoStore().memos
         const q = query.toLowerCase().trim()
         return memos
           .filter((m) => !q || m.title.toLowerCase().includes(q))

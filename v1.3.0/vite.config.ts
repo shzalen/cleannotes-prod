@@ -69,6 +69,14 @@ export default defineConfig({
         manualChunks(id) {
           // Split heavy editor dependencies by functional group for finer-grained loading
           if (id.includes('node_modules')) {
+            // Vue core + Pinia — separate from Tiptap to keep entry chunk lean
+            if (
+              id.includes('node_modules/vue/') ||
+              id.includes('node_modules/@vue/') ||
+              id.includes('node_modules/pinia/')
+            ) {
+              return 'vendor-vue'
+            }
             if (id.includes('prosemirror')) {
               return 'vendor-prosemirror'
             }
@@ -99,10 +107,11 @@ export default defineConfig({
               return 'vendor-tiptap-core'
             }
           }
-          // Isolate custom extensions to avoid bloating individual views
-          if (id.includes('/src/extensions/')) {
-            return 'vendor-tiptap-custom'
-          }
+          // NOTE: src/extensions/ files are NOT force-chunked — they import from
+          // @/stores/memo which lives in the entry chunk. Forcing them into a
+          // separate chunk creates a circular dependency that Rollup resolves by
+          // pulling Tiptap into the entry chunk. Letting them bundle naturally
+          // with RichTextEditor (lazy-loaded) avoids this entirely.
         },
       },
     },

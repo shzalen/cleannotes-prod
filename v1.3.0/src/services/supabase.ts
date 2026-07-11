@@ -1,17 +1,17 @@
 import type { StorageAdapter } from './storage'
 import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig, TodoItem, MemoItem, WeeklyReport, GrowthState, XpEvent, AchievementRecord } from '@/types'
 import { normalizeTimestamp } from '@/utils/time'
+import { SUPABASE_URL, SUPABASE_KEY, getCachedAccessToken } from './supabaseClient'
 
-export const SUPABASE_URL = 'https://ghkyhbxltdxhkhpqltdr.supabase.co'
-export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdoa3loYnhsdGR4aGtocHFsdGRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDY1MTUsImV4cCI6MjA4NDA4MjUxNX0.vTtJRyPO_Q61QB6bTAv8X90ih-wMg9KlDuhXGKXy0FA'
+// Re-export for backward compatibility (hybrid.ts etc.)
+export { SUPABASE_URL, SUPABASE_KEY }
 
 function buildHeaders(): Record<string, string> {
+  const token = getCachedAccessToken()
   return {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    // x-user-id header for RLS policy
-    ...(currentUserId ? { 'x-user-id': currentUserId } : {}),
   }
 }
 
@@ -192,9 +192,13 @@ export const supabaseAdapter: StorageAdapter = {
 
   // ========== Tasks ==========
 
-  async getTasks(): Promise<Task[]> {
+  async getTasks(since?: string): Promise<Task[]> {
+    let query = `?user_id=eq.${currentUserId}&order=created_at.asc`
+    if (since) {
+      query += `&updated_at=gt.${encodeURIComponent(since)}`
+    }
     const rows = (await request('cleannote_tasks', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=created_at.asc`,
+      query,
     })) as Record<string, unknown>[]
     return rows.map(rowToTask)
   },
@@ -234,9 +238,13 @@ export const supabaseAdapter: StorageAdapter = {
 
   // ========== Deleted Tasks ==========
 
-  async getDeletedTasks(): Promise<DeletedTask[]> {
+  async getDeletedTasks(since?: string): Promise<DeletedTask[]> {
+    let query = `?user_id=eq.${currentUserId}&order=deleted_at.desc`
+    if (since) {
+      query += `&updated_at=gt.${encodeURIComponent(since)}`
+    }
     const rows = (await request('cleannote_deleted_tasks', 'GET', {
-      query: `?user_id=eq.${currentUserId}&order=deleted_at.desc`,
+      query,
     })) as Record<string, unknown>[]
     return rows.map(rowToDeletedTask)
   },
@@ -385,10 +393,14 @@ function rowToTodo(r: Record<string, unknown>): TodoItem {
 
 // ---- Todo CRUD ----
 
-export async function supabaseGetTodos(): Promise<TodoItem[]> {
+export async function supabaseGetTodos(since?: string): Promise<TodoItem[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${currentUserId}&order=created_at.asc`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_todos', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=created_at.asc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToTodo)
 }
@@ -504,10 +516,14 @@ function rowToMemo(r: Record<string, unknown>): MemoItem {
 
 // ---- Memo CRUD ----
 
-export async function supabaseGetMemos(): Promise<MemoItem[]> {
+export async function supabaseGetMemos(since?: string): Promise<MemoItem[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${currentUserId}&order=created_at.desc`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_memos', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=created_at.desc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToMemo)
 }
@@ -517,6 +533,27 @@ export async function supabaseUpsertMemo(memo: MemoItem): Promise<void> {
   await request('cleannote_memos', 'POST', {
     body: memoToRow(memo),
     prefer: 'return=minimal,resolution=merge-duplicates',
+  })
+}
+
+/**
+ * Partial update via PATCH — sends only metadata fields (title, tags, pinned, icon,
+ * sort_order, updated_at), skipping the potentially large `content` field.
+ * Use when content hasn't changed to avoid re-uploading megabytes of base64 images.
+ */
+export async function supabasePatchMemo(id: string, memo: MemoItem): Promise<void> {
+  if (!currentUserId) return
+  await request('cleannote_memos', 'PATCH', {
+    query: `?id=eq.${id}`,
+    body: {
+      title: memo.title,
+      tags: memo.tags,
+      pinned: memo.pinned,
+      icon: memo.icon,
+      sort_order: memo.sortOrder,
+      updated_at: normalizeTimestamp(memo.updatedAt),
+    },
+    prefer: 'return=minimal',
   })
 }
 
@@ -531,26 +568,44 @@ export async function supabaseDeleteMemoById(id: string): Promise<void> {
 // ================================================================
 // Attachment Storage (Supabase Storage bucket: cleannote_attachments)
 // ================================================================
+// Security note (S2.3): The bucket is public for read access.
+// This is an accepted trade-off for a free-tier personal note app because:
+//   1. File paths contain a random UUID (122 bits entropy) — practically unguessable
+//   2. The app is for personal use, not public content sharing
+//   3. Signed URL migration would require complex content transformation
+//      (image URLs are embedded in memo HTML, and signed URLs expire)
+// To further harden: paths use crypto.randomUUID() instead of predictable timestamps.
 
 const ATTACHMENTS_BUCKET = 'cleannote_attachments'
 
 /**
+ * Generate a random ID for file path entropy.
+ * Uses crypto.randomUUID() when available, falls back to timestamp + random.
+ */
+function generatePathId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
  * Upload a file to Supabase Storage.
- * Returns the storage path (e.g. "memo/abc123-image.png").
+ * Returns the storage path (e.g. "memo/{userId}/{uuid}-{filename}").
  */
 export async function supabaseUploadAttachment(file: File): Promise<string> {
   if (!currentUserId) throw new Error('Not authenticated')
 
-  // Build a unique path: memo/{userId}/{timestamp}-{originalName}
-  const ts = Date.now()
+  // Build a unique, unguessable path: memo/{userId}/{randomUUID}-{originalName}
+  const pathId = generatePathId()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `memo/${currentUserId}/${ts}-${safeName}`
+  const path = `memo/${currentUserId}/${pathId}-${safeName}`
 
   const url = `${SUPABASE_URL}/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`
+  const token = getCachedAccessToken()
   const headers: Record<string, string> = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
-    'x-user-id': currentUserId,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
   }
   // Let fetch set Content-Type from the FormData boundary
   const formData = new FormData()
@@ -572,9 +627,40 @@ export async function supabaseUploadAttachment(file: File): Promise<string> {
 
 /**
  * Get the public URL for a stored attachment.
+ * Note: The bucket is public-read; URLs contain random UUIDs for entropy.
  */
 export function supabaseGetPublicUrl(path: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${ATTACHMENTS_BUCKET}/${path}`
+}
+
+/**
+ * Create a signed URL for a stored attachment (for future private-bucket migration).
+ * Signed URLs expire after the specified duration (default: 1 hour).
+ * Requires the user to be authenticated.
+ */
+export async function supabaseCreateSignedUrl(
+  path: string,
+  expiresIn: number = 3600,
+): Promise<string> {
+  const token = getCachedAccessToken()
+  const url = `${SUPABASE_URL}/storage/v1/object/sign/${ATTACHMENTS_BUCKET}/${path}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ expiresIn }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Supabase signed URL failed (${res.status}): ${text}`)
+  }
+  const data = await res.json()
+  return data.signedURL?.startsWith('http')
+    ? data.signedURL
+    : `${SUPABASE_URL}${data.signedURL}`
 }
 
 /**
@@ -582,10 +668,10 @@ export function supabaseGetPublicUrl(path: string): string {
  */
 export async function supabaseDeleteAttachment(path: string): Promise<void> {
   const url = `${SUPABASE_URL}/storage/v1/object/${ATTACHMENTS_BUCKET}/${path}`
+  const token = getCachedAccessToken()
   const headers: Record<string, string> = {
     apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
-    'x-user-id': currentUserId,
+    Authorization: token ? `Bearer ${token}` : `Bearer ${SUPABASE_KEY}`,
   }
 
   const res = await fetch(url, { method: 'DELETE', headers })
@@ -599,8 +685,7 @@ export async function supabaseDeleteAttachment(path: string): Promise<void> {
 // Weekly Report (cleannote_weekly_reports)
 // ================================================================
 
-function weeklyReportToRow(r: WeeklyReport) {
-  return {
+function weeklyReportToRow(r: WeeklyReport) {  return {
     id: r.id,
     user_id: currentUserId,
     week_start: r.weekStart,
@@ -628,10 +713,14 @@ function rowToWeeklyReport(r: Record<string, unknown>): WeeklyReport {
   }
 }
 
-export async function supabaseGetWeeklyReports(): Promise<WeeklyReport[]> {
+export async function supabaseGetWeeklyReports(since?: string): Promise<WeeklyReport[]> {
   if (!currentUserId) return []
+  let query = `?user_id=eq.${currentUserId}&order=week_start.desc`
+  if (since) {
+    query += `&updated_at=gt.${encodeURIComponent(since)}`
+  }
   const rows = (await request('cleannote_weekly_reports', 'GET', {
-    query: `?user_id=eq.${currentUserId}&order=week_start.desc`,
+    query,
   })) as Record<string, unknown>[]
   return rows.map(rowToWeeklyReport)
 }
@@ -650,4 +739,58 @@ export async function supabaseDeleteWeeklyReportById(id: string): Promise<void> 
     query: `?id=eq.${id}`,
     prefer: 'return=minimal',
   })
+}
+
+// ================================================================
+// Server-side XP Verification (S6.1)
+// ================================================================
+
+export interface XpVerificationResult {
+  totalXp: number
+  breakdown: { source: string; xp: number }[]
+  error?: string
+}
+
+/**
+ * Call the server-side XP verification RPC.
+ * Validates that the task is actually completed and calculates XP
+ * using the same formula as the client, but on the server.
+ *
+ * Returns null if the RPC is unavailable (graceful degradation).
+ */
+export async function supabaseVerifyXp(taskId: string): Promise<XpVerificationResult | null> {
+  const token = getCachedAccessToken()
+  if (!token) return null
+
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/rpc/cleannote_calculate_xp`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ p_task_id: taskId }),
+    })
+
+    if (!res.ok) return null
+
+    const data = await res.json()
+    if (data.error) {
+      console.warn('[XP Verification] Server returned error:', data.error)
+      return null
+    }
+
+    return {
+      totalXp: data.totalXp ?? 0,
+      breakdown: (data.breakdown ?? []).map((b: any) => ({
+        source: b.source,
+        xp: b.xp,
+      })),
+    }
+  } catch {
+    // RPC not deployed or network error — fall back to client-side calculation
+    return null
+  }
 }

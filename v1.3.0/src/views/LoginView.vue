@@ -3,45 +3,114 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useGrowthStore } from '@/stores/growth'
 import { switchUser } from '@/services/storage'
-import { mergeFromCloud } from '@/services/hybrid'
 import { useTaskStore } from '@/stores/task'
+import { useTodoStore } from '@/stores/todo'
+import { useMemoStore } from '@/stores/memo'
+import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
+import { migrateOldUser } from '@/services/migration'
 import { useRouter } from 'vue-router'
 import { isMobileDevice } from '@/utils/device'
 
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const growthStore = useGrowthStore()
+const todoStore = useTodoStore()
+const memoStore = useMemoStore()
+const weeklyReportStore = useWeeklyReportStore()
 const router = useRouter()
 
-// ---- 密码登录（手机号为账号） ----
-const phone = ref('')
+// ---- 邮箱认证 ----
+const email = ref('')
 const pw = ref('')
 const pwConfirm = ref('')
+const nickname = ref('')
 const showPw = ref(false)
-const pwStep = ref<'input' | 'setup'>('input') // input: 输入密码；setup: 首次设置密码（含确认）
+const mode = ref<'login' | 'register' | 'migrate'>('login')
+const migratePhone = ref('')
+const migrateMsg = ref('')
+const migrating = ref(false)
 
-const phoneValid = computed(() => /^1[3-9]\d{9}$/.test(phone.value))
+const phoneValid = computed(() => /^1\d{10}$/.test(migratePhone.value))
+const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value))
 const pwValid = computed(() => pw.value.length >= 8)
-const pwConfirmValid = computed(() => pwConfirm.value.length >= 8 && pwConfirm.value === pw.value)
+const pwConfirmValid = computed(() => pwConfirm.value === pw.value && pwConfirm.value.length >= 8)
 
-async function handlePasswordSubmit() {
-  if (!phoneValid.value || !pwValid.value || auth.loading) return
-  const res = await auth.submitPassword(phone.value, pw.value)
-  if (auth.error) return
-  if (res === 'needSetup') {
-    pwStep.value = 'setup'
-    pwConfirm.value = ''
-    return
+async function handleSubmit() {
+  if (!emailValid.value || !pwValid.value || auth.loading) return
+  if (mode.value === 'register' && !pwConfirmValid.value) return
+
+  if (mode.value === 'login') {
+    const ok = await auth.signIn(email.value, pw.value)
+    if (ok) onLoginSuccess()
+  } else if (mode.value === 'register') {
+    const ok = await auth.signUp(email.value, pw.value, nickname.value || undefined)
+    if (ok) onLoginSuccess()
   }
-  onLoginSuccess()
 }
 
-async function handlePasswordSetup() {
-  if (!phoneValid.value || !pwValid.value || !pwConfirmValid.value || auth.loading) return
-  const res = await auth.submitPassword(phone.value, pw.value, pwConfirm.value)
-  if (auth.error) return
-  onLoginSuccess()
+async function handleMigrate() {
+  if (!phoneValid.value || !emailValid.value || !pwValid.value || !pwConfirmValid.value || migrating.value) return
+  migrating.value = true
+  migrateMsg.value = ''
+  try {
+    const result = await migrateOldUser(
+      migratePhone.value,
+      email.value,
+      pw.value,
+      nickname.value || undefined,
+    )
+    if (result.success && result.user) {
+      // 迁移成功，设置 auth store 并加载
+      auth.user = result.user
+      migrateMsg.value = result.oldNickname
+        ? `迁移成功！已继承旧账号数据，昵称：${result.oldNickname}`
+        : '迁移成功！已继承旧账号数据'
+      onLoginSuccess()
+    } else if (result.needsVerification) {
+      migrateMsg.value = result.error || '请先验证邮箱'
+    } else {
+      migrateMsg.value = result.error || '迁移失败'
+    }
+  } catch (e) {
+    migrateMsg.value = e instanceof Error ? e.message : '迁移失败，请重试'
+  } finally {
+    migrating.value = false
+  }
+}
+
+function switchMode() {
+  if (mode.value === 'login') mode.value = 'register'
+  else if (mode.value === 'register') mode.value = 'login'
+  pw.value = ''
+  pwConfirm.value = ''
+  auth.error = ''
+  migrateMsg.value = ''
+}
+
+function enterMigrateMode() {
+  mode.value = 'migrate'
+  pw.value = ''
+  pwConfirm.value = ''
+  auth.error = ''
+  migrateMsg.value = ''
+}
+
+function exitMigrateMode() {
+  mode.value = 'login'
+  migratePhone.value = ''
+  pw.value = ''
+  pwConfirm.value = ''
+  auth.error = ''
+  migrateMsg.value = ''
+}
+
+async function handleForgotPassword() {
+  if (!emailValid.value) {
+    auth.error = '请先输入邮箱地址'
+    return
+  }
+  await auth.sendPasswordReset(email.value)
 }
 
 // ---- Clock widget ----
@@ -66,38 +135,53 @@ onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer)
 })
 
+/** 清除旧 localStorage 数据（保留主题和设备偏好，Supabase auth token 由 SDK 管理） */
+function clearOldLocalStorage() {
+  const PRESERVE = new Set(['cleannotes_theme', 'cleannotes_force_pc'])
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key) continue
+    if ((key.startsWith('cleannotes_') || key.startsWith('cleannote_')) && !PRESERVE.has(key)) {
+      keysToRemove.push(key)
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k))
+}
+
 /** 处理登录/注册成功后的数据加载和跳转 */
 async function onLoginSuccess() {
+  // 清除旧 localStorage 数据，以数据库为准
+  clearOldLocalStorage()
   switchUser(auth.userId)
-  // ① 立即加载本地数据到 store（同步，极快）
-  taskStore.load()
-  growthStore.load()
-  // ② 注册成长系统回调
+  // 从 Supabase 加载数据
+  await Promise.all([
+    taskStore.load(),
+    growthStore.load(),
+    todoStore.load(),
+    memoStore.load(),
+    weeklyReportStore.load(),
+  ])
+  // 注册成长系统回调
   useGrowthIntegration()
-  // ③ 等待响应式更新完成，再跳转（避免 beforeEach 守卫中 isAuthenticated 尚未更新）
+  // 等待响应式更新完成，再跳转
   await nextTick()
   try {
-    // H5 重定向：未登录访问 H5 页面 → 登录后跳回
     const h5Redirect = sessionStorage.getItem('h5_redirect')
     if (h5Redirect) {
       sessionStorage.removeItem('h5_redirect')
       await router.push(h5Redirect)
     } else if (isMobileDevice()) {
-      // 移动端自动进入 H5
       await router.push('/h5/tasks')
     } else {
       await router.push({ name: 'home' })
     }
   } catch (e: any) {
-    // 重复导航（已在首页）不属于错误，忽略
     if (e?.code !== 'NAVIGATION_DUPLICATE') {
       console.warn('[login] push failed, fallback to reload:', e)
-      // 兜底：直接修改 URL 并刷新
       window.location.href = '/'
     }
   }
-  // ④ 后台异步合并云端数据（不阻塞页面渲染）
-  mergeFromCloud()
 }
 
 </script>
@@ -150,22 +234,115 @@ async function onLoginSuccess() {
     <!-- Right panel: Login form -->
     <div class="login-right">
       <div class="form-card">
-        <h2 class="form-title">欢迎回来</h2>
-        <p class="form-desc">使用手机号和密码登录</p>
+        <h2 class="form-title">
+          {{ mode === 'login' ? '欢迎回来' : mode === 'register' ? '创建账户' : '旧用户迁移' }}
+        </h2>
+        <p class="form-desc">
+          {{ mode === 'login' ? '使用邮箱和密码登录' : mode === 'register' ? '使用邮箱注册新账户' : '输入旧手机号和新邮箱，迁移历史数据' }}
+        </p>
 
-        <!-- 密码登录 -->
-        <div class="form-body">
+        <!-- 旧用户迁移模式 -->
+        <div v-if="mode === 'migrate'" class="form-body">
             <div class="input-field">
               <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
               </svg>
               <input
-                v-model="phone"
+                v-model="migratePhone"
                 type="tel"
                 maxlength="11"
-                placeholder="请输入手机号"
+                placeholder="旧账号手机号"
                 class="field-input"
-                @keyup.enter="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+                @keyup.enter="handleMigrate()"
+              />
+            </div>
+
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <input
+                v-model="email"
+                type="email"
+                maxlength="64"
+                placeholder="新邮箱地址"
+                class="field-input"
+                @keyup.enter="handleMigrate()"
+              />
+            </div>
+
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input
+                v-model="pw"
+                :type="showPw ? 'text' : 'password'"
+                maxlength="64"
+                placeholder="新密码（至少8位）"
+                class="field-input has-toggle"
+                @keyup.enter="handleMigrate()"
+              />
+              <button type="button" class="pw-toggle" :title="showPw ? '隐藏' : '显示'" @click="showPw = !showPw">
+                <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <input
+                v-model="pwConfirm"
+                :type="showPw ? 'text' : 'password'"
+                maxlength="64"
+                placeholder="确认新密码"
+                class="field-input has-toggle"
+                @keyup.enter="handleMigrate()"
+              />
+            </div>
+
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input
+                v-model="nickname"
+                type="text"
+                maxlength="20"
+                placeholder="新昵称（可选，默认继承旧昵称）"
+                class="field-input"
+                @keyup.enter="handleMigrate()"
+              />
+            </div>
+
+            <button
+              class="btn-submit"
+              :disabled="!phoneValid || !emailValid || !pwValid || !pwConfirmValid || migrating"
+              @click="handleMigrate()"
+            >
+              {{ migrating ? '迁移中...' : '迁移数据' }}
+            </button>
+
+            <div class="form-actions">
+              <span class="form-link" @click="exitMigrateMode">返回登录</span>
+            </div>
+          </div>
+
+        <!-- 登录/注册模式 -->
+        <div v-else class="form-body">
+            <div class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <input
+                v-model="email"
+                type="email"
+                maxlength="64"
+                placeholder="请输入邮箱地址"
+                class="field-input"
+                @keyup.enter="handleSubmit()"
               />
             </div>
 
@@ -179,7 +356,7 @@ async function onLoginSuccess() {
                 maxlength="64"
                 placeholder="请输入密码（至少8位）"
                 class="field-input has-toggle"
-                @keyup.enter="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+                @keyup.enter="handleSubmit()"
               />
               <button
                 type="button"
@@ -196,7 +373,8 @@ async function onLoginSuccess() {
               </button>
             </div>
 
-            <div v-if="pwStep === 'setup'" class="input-field">
+            <!-- 注册模式：确认密码 + 昵称 -->
+            <div v-if="mode === 'register'" class="input-field">
               <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
@@ -206,26 +384,56 @@ async function onLoginSuccess() {
                 maxlength="64"
                 placeholder="请再次输入密码"
                 class="field-input has-toggle"
-                @keyup.enter="handlePasswordSetup()"
+                @keyup.enter="handleSubmit()"
+              />
+            </div>
+
+            <div v-if="mode === 'register'" class="input-field">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <input
+                v-model="nickname"
+                type="text"
+                maxlength="20"
+                placeholder="昵称（可选，默认用邮箱前缀）"
+                class="field-input"
+                @keyup.enter="handleSubmit()"
               />
             </div>
 
             <button
               class="btn-submit"
-              :disabled="(pwStep === 'input'
-                ? (!phoneValid || !pwValid)
-                : (!phoneValid || !pwValid || !pwConfirmValid)) || auth.loading"
-              @click="pwStep === 'input' ? handlePasswordSubmit() : handlePasswordSetup()"
+              :disabled="(mode === 'login'
+                ? (!emailValid || !pwValid)
+                : (!emailValid || !pwValid || !pwConfirmValid)) || auth.loading"
+              @click="handleSubmit()"
             >
-              {{ auth.loading ? '处理中...' : (pwStep === 'input' ? '登录' : '设置并登录') }}
+              {{ auth.loading ? '处理中...' : (mode === 'login' ? '登录' : '注册') }}
             </button>
 
-            <p class="form-foot" v-if="pwStep === 'input'">手机号 + 密码登录，新用户将自动注册</p>
-            <p class="form-foot" v-else>首次登录，请设置你的登录密码</p>
+            <div class="form-actions">
+              <span class="form-link" @click="switchMode">
+                {{ mode === 'login' ? '没有账户？去注册' : '已有账户？去登录' }}
+              </span>
+              <span v-if="mode === 'login'" class="form-link muted" @click="handleForgotPassword">忘记密码？</span>
+            </div>
           </div>
 
-        <!-- Error -->
-        <div v-if="auth.error" class="form-error">{{ auth.error }}</div>
+        <!-- Error / Verification notice -->
+        <div v-if="auth.error" :class="['form-msg', auth.needsVerification ? 'form-msg-info' : 'form-error']">
+          {{ auth.error }}
+        </div>
+
+        <!-- Migration message -->
+        <div v-if="migrateMsg" :class="['form-msg', migrating ? 'form-msg-info' : (migrateMsg.includes('成功') ? 'form-msg-info' : 'form-error')]">
+          {{ migrateMsg }}
+        </div>
+
+        <!-- Migration entry link (only on login mode) -->
+        <div v-if="mode === 'login'" class="migrate-entry" @click="enterMigrateMode">
+          旧用户数据迁移
+        </div>
       </div>
     </div>
   </div>
@@ -521,14 +729,30 @@ export default { name: 'LoginView' }
   cursor: not-allowed;
 }
 
-.form-foot {
-  font-size: 12px;
-  color: var(--color-text-4);
-  text-align: center;
-  margin: 0;
+/* Form actions (links) */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
 }
 
-/* Error */
+.form-link {
+  font-size: 13px;
+  color: var(--color-success-text);
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.form-link:hover {
+  opacity: 0.8;
+}
+
+.form-link.muted {
+  color: var(--color-text-3);
+}
+
+/* Error / Info messages */
 .form-error {
   margin-top: 12px;
   padding: 10px 14px;
@@ -538,6 +762,34 @@ export default { name: 'LoginView' }
   font-size: 13px;
   color: var(--color-danger-text);
   text-align: center;
+}
+
+.form-msg-info {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--color-success-text);
+  text-align: center;
+}
+
+/* Migration entry link */
+.migrate-entry {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-4);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.migrate-entry:hover {
+  color: var(--color-text-2);
+  background: color-mix(in srgb, var(--color-surface) 50%, transparent);
 }
 
 /* ---- Responsive ---- */

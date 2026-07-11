@@ -1,194 +1,149 @@
 /**
- * Auth Service — 手机号注册/登录 + 7天会话管理
+ * Auth Service — Supabase Auth 邮箱认证
  *
- * 流程：输入手机号 → 生成6位验证码（MVP阶段展示在界面上，后续接SMS）→ 验证 → 登录
- * 会话：存储在 localStorage，7天有效
+ * 认证方式：邮箱 + 密码（Supabase Auth SDK 管理 JWT + 自动刷新）
+ * 用户信息：nickname 存储在 auth.users.user_metadata 中
  */
 
-import { SUPABASE_URL, SUPABASE_KEY } from './supabase'
-import type { User, Session } from '@/types'
-import { toUTCISO } from '@/utils/time'
+import { supabaseClient, setCachedAccessToken } from './supabaseClient'
+import type { User } from '@/types'
 
-const SESSION_KEY = 'cleannote_session'
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000 // 7 days in ms
+// ---- Supabase Auth 用户映射 ----
 
-const headers: Record<string, string> = {
-  apikey: SUPABASE_KEY,
-  Authorization: `Bearer ${SUPABASE_KEY}`,
-  'Content-Type': 'application/json',
-}
-
-// ---- Session management ----
-
-export function getSession(): Session | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const session: Session = JSON.parse(raw)
-    if (Date.now() > session.expiresAt) {
-      localStorage.removeItem(SESSION_KEY)
-      return null
-    }
-    return session
-  } catch {
-    return null
-  }
-}
-
-export function saveSession(user: User): void {
-  const now = Date.now()
-  const session: Session = {
-    userId: user.id,
-    phone: user.phone,
-    nickname: user.nickname,
-    loginAt: now,
-    expiresAt: now + SESSION_DURATION,
-  }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-}
-
-export function clearSession(): void {
-  localStorage.removeItem(SESSION_KEY)
-}
-
-export function isSessionValid(): boolean {
-  return getSession() !== null
-}
-
-// ---- Supabase user operations ----
-
-async function request(
-  table: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-  options?: {
-    body?: unknown
-    query?: string
-    prefer?: string
-    userId?: string
-  }
-): Promise<unknown> {
-  const url = `${SUPABASE_URL}/rest/v1/${table}${options?.query ? options.query : ''}`
-  const h: Record<string, string> = { ...headers }
-  if (options?.prefer) h['Prefer'] = options.prefer
-  if (options?.userId) h['x-user-id'] = options.userId
-
-  const res = await fetch(url, {
-    method,
-    headers: h,
-    body: options?.body ? JSON.stringify(options.body) : undefined,
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Supabase ${res.status}: ${text}`)
-  }
-  if (res.status === 204) return null
-  return res.json()
-}
-
-function rowToUser(r: Record<string, unknown>): User {
+function mapAuthUser(authUser: import('@supabase/supabase-js').User): User {
   return {
-    id: r.id as string,
-    phone: r.phone as string,
-    nickname: (r.nickname as string) || '',
-    createdAt: r.created_at as string,
-    lastLoginAt: r.last_login_at as string,
+    id: authUser.id,
+    email: authUser.email ?? '',
+    nickname: (authUser.user_metadata?.nickname as string) ?? authUser.email?.split('@')[0] ?? '用户',
+    createdAt: authUser.created_at ?? '',
+    lastLoginAt: authUser.last_sign_in_at ?? '',
   }
 }
 
-export interface UserCredentials {
-  user: User
-  /** PBKDF2 派生哈希（base64），NULL 表示尚未设置密码（遗留账号） */
-  passwordHash: string | null
-  /** 随机盐（base64），NULL 表示尚未设置密码 */
-  passwordSalt: string | null
+// ---- 认证操作 ----
+
+/**
+ * 邮箱密码注册
+ * @returns 'success' | 'needsVerification' | 'error'
+ */
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  nickname?: string,
+): Promise<{ status: 'success' | 'needsVerification' | 'error'; error?: string }> {
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        nickname: nickname || email.split('@')[0],
+      },
+    },
+  })
+
+  if (error) {
+    return { status: 'error', error: error.message }
+  }
+
+  // 如果需要邮箱验证，session 会是 null
+  if (!data.session) {
+    return { status: 'needsVerification' }
+  }
+
+  // 注册成功并自动登录
+  setCachedAccessToken(data.session.access_token)
+  return { status: 'success' }
 }
 
 /**
- * 查找手机号对应的用户，并一并返回密码凭据。
- * 与 findUserByPhone 区别：此处额外返回 password_hash / password_salt，
- * 供客户端在本地校验密码（密码明文永不发送至服务端）。
+ * 邮箱密码登录
  */
-export async function findUserByPhoneWithCredentials(phone: string): Promise<UserCredentials | null> {
-  const rows = (await request('cleannote_users', 'GET', {
-    query: `?phone=eq.${encodeURIComponent(phone)}&limit=1`,
-  })) as Record<string, unknown>[]
-  if (rows.length === 0) return null
-  const r = rows[0]
-  return {
-    user: rowToUser(r),
-    passwordHash: (r.password_hash as string) || null,
-    passwordSalt: (r.password_salt as string) || null,
+export async function signInWithEmail(
+  email: string,
+  password: string,
+): Promise<{ status: 'success' | 'error'; error?: string }> {
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) {
+    return { status: 'error', error: error.message }
   }
+
+  setCachedAccessToken(data.session?.access_token ?? null)
+  return { status: 'success' }
 }
 
-/** 查找手机号对应的用户 */
-export async function findUserByPhone(phone: string): Promise<User | null> {
-  const rows = (await request('cleannote_users', 'GET', {
-    query: `?phone=eq.${encodeURIComponent(phone)}&limit=1`,
-  })) as Record<string, unknown>[]
-  return rows.length > 0 ? rowToUser(rows[0]) : null
+/**
+ * 退出登录
+ */
+export async function signOut(): Promise<void> {
+  await supabaseClient.auth.signOut()
+  setCachedAccessToken(null)
 }
 
-/** 注册新用户（可选携带密码哈希，用于密码登录注册） */
-export async function registerUser(
-  phone: string,
-  nickname?: string,
-  passwordHash?: string,
-  passwordSalt?: string,
-): Promise<User> {
-  const id = crypto.randomUUID()
-  const now = toUTCISO()
-  const body: Record<string, unknown> = {
-    id,
-    phone,
-    nickname: nickname || `用户${phone.slice(-4)}`,
-    created_at: now,
-    last_login_at: now,
+/**
+ * 获取当前会话用户（从 Supabase 缓存恢复）
+ */
+export async function getCurrentUser(): Promise<User | null> {
+  const { data: { session } } = await supabaseClient.auth.getSession()
+  if (!session?.user) return null
+
+  setCachedAccessToken(session.access_token)
+  return mapAuthUser(session.user)
+}
+
+/**
+ * 修改密码（需已登录，Supabase Auth 服务端校验）
+ */
+export async function updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabaseClient.auth.updateUser({
+    password: newPassword,
+  })
+
+  if (error) {
+    return { success: false, error: error.message }
   }
-  if (passwordHash && passwordSalt) {
-    body.password_hash = passwordHash
-    body.password_salt = passwordSalt
+  return { success: true }
+}
+
+/**
+ * 修改昵称（存入 user_metadata）
+ */
+export async function updateNickname(nickname: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabaseClient.auth.updateUser({
+    data: { nickname },
+  })
+
+  if (error) {
+    return { success: false, error: error.message }
   }
-  await request('cleannote_users', 'POST', {
-    body,
-    prefer: 'return=representation',
-    userId: id,
-  })
-  return rowToUser(body as Record<string, unknown>)
+  return { success: true }
 }
 
-/** 为用户设置/更新密码（仅写入哈希与盐，明文不落库） */
-export async function setPassword(
-  userId: string,
-  passwordHash: string,
-  passwordSalt: string,
-): Promise<void> {
-  await request('cleannote_users', 'PATCH', {
-    query: `?id=eq.${userId}`,
-    body: { password_hash: passwordHash, password_salt: passwordSalt },
-    userId,
-  })
+/**
+ * 发送密码重置邮件
+ */
+export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email)
+  if (error) {
+    return { success: false, error: error.message }
+  }
+  return { success: true }
 }
 
-/** 更新最后登录时间 */
-export async function updateLastLogin(userId: string): Promise<void> {
-  await request('cleannote_users', 'PATCH', {
-    query: `?id=eq.${userId}`,
-    body: { last_login_at: toUTCISO() },
-    userId,
+/**
+ * 监听认证状态变化（token 刷新、登录、退出等）
+ */
+export function onAuthStateChange(
+  callback: (user: User | null) => void,
+): () => void {
+  const { data } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+    setCachedAccessToken(session?.access_token ?? null)
+    callback(session?.user ? mapAuthUser(session.user) : null)
   })
-}
 
-/** 更新用户昵称 */
-export async function updateNickname(userId: string, nickname: string): Promise<void> {
-  await request('cleannote_users', 'PATCH', {
-    query: `?id=eq.${userId}`,
-    body: { nickname },
-    userId,
-  })
-}
-
-/** 生成6位验证码 */
-export function generateVerifyCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  // 返回取消订阅函数
+  return () => data.subscription.unsubscribe()
 }

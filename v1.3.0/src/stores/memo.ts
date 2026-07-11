@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { MemoItem } from '@/types'
-import { loadMemos, upsertMemo, deleteMemoById, syncMemosFromCloud, saveMemos } from '@/services/memoStorage'
+import { loadMemos, upsertMemo, deleteMemoById } from '@/services/memoStorage'
 import { toUTCISO } from '@/utils/time'
+import { broadcastChange } from '@/services/crossTabSync'
+import { clearLastSyncAt } from '@/services/syncState'
 
 function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -11,15 +13,13 @@ function genId(): string {
 /** Strip HTML tags to get plain text for searching */
 function stripHtml(html: string): string {
   if (!html) return ''
-  const div = document.createElement('div')
-  div.innerHTML = html
-  return div.textContent || div.innerText || ''
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  return doc.body.textContent || ''
 }
 
 /** Migrate legacy memos that lack sortOrder */
 function migrateSortOrder(memos: MemoItem[]): boolean {
   let changed = false
-  // Sort by updatedAt desc then assign descending sortOrder (newest first gets smallest order)
   const sorted = [...memos].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   const map = new Map(sorted.map((m, i) => [m.id, i * 1000]))
   for (const m of memos) {
@@ -35,12 +35,9 @@ export const useMemoStore = defineStore('memo', () => {
   const memos = ref<MemoItem[]>([])
   const loaded = ref(false)
 
-  /** 搜索关键词 */
   const searchQuery = ref('')
-  /** 当前选中的标签筛选（空=全部） */
   const activeTag = ref('')
 
-  /** 先按搜索词过滤，再按标签过滤 */
   const filteredMemos = computed(() => {
     let list = memos.value
     const q = searchQuery.value.trim().toLowerCase()
@@ -57,21 +54,18 @@ export const useMemoStore = defineStore('memo', () => {
     return list
   })
 
-  /** 置顶 memo，按 sortOrder 升序 */
   const pinnedMemos = computed(() =>
     filteredMemos.value
       .filter(m => m.pinned)
       .sort((a, b) => a.sortOrder - b.sortOrder || b.updatedAt.localeCompare(a.updatedAt))
   )
 
-  /** 普通 memo，按 sortOrder 升序 */
   const normalMemos = computed(() =>
     filteredMemos.value
       .filter(m => !m.pinned)
       .sort((a, b) => a.sortOrder - b.sortOrder || b.updatedAt.localeCompare(a.updatedAt))
   )
 
-  /** 所有标签（去重排序） */
   const allTags = computed(() => {
     const set = new Set<string>()
     for (const m of memos.value) {
@@ -80,20 +74,21 @@ export const useMemoStore = defineStore('memo', () => {
     return [...set].sort()
   })
 
-  function load() {
-    if (loaded.value) return
-    const data = loadMemos()
-    if (migrateSortOrder(data)) {
-      saveMemos(data)
+  async function load(force = false) {
+    if (loaded.value && !force) return
+
+    if (force) {
+      clearLastSyncAt('memos')
     }
+
+    // Full sync — always fetch all data.
+    // Incremental sync was removed: pure-online architecture has no
+    // client-side data cache to merge into (Pinia state resets on page refresh).
+    const data = await loadMemos()
+    migrateSortOrder(data)
     memos.value = data
+
     loaded.value = true
-    // 后台从云端同步
-    syncMemosFromCloud().then(() => {
-      const fresh = loadMemos()
-      migrateSortOrder(fresh)
-      memos.value = fresh
-    }).catch(() => {})
   }
 
   function addMemo(data: {
@@ -122,6 +117,7 @@ export const useMemoStore = defineStore('memo', () => {
     }
     memos.value.push(memo)
     upsertMemo(memo)
+    broadcastChange('memos-updated')
     return memo
   }
 
@@ -130,6 +126,7 @@ export const useMemoStore = defineStore('memo', () => {
     if (idx === -1) return
     Object.assign(memos.value[idx], patch, { updatedAt: toUTCISO() })
     upsertMemo(memos.value[idx])
+    broadcastChange('memos-updated')
   }
 
   function togglePin(id: string) {
@@ -148,13 +145,9 @@ export const useMemoStore = defineStore('memo', () => {
   function removeMemo(id: string) {
     memos.value = memos.value.filter(m => m.id !== id)
     deleteMemoById(id)
+    broadcastChange('memos-updated')
   }
 
-  /**
-   * Reorder a memo within its pinned/normal group.
-   * @param id memo id to move
-   * @param targetIndex desired index in the sorted list (0-based)
-   */
   function reorderMemo(id: string, targetIndex: number) {
     const target = memos.value.find(m => m.id === id)
     if (!target) return
@@ -164,12 +157,10 @@ export const useMemoStore = defineStore('memo', () => {
     const currentIndex = group.indexOf(id)
     if (currentIndex === -1 || currentIndex === targetIndex) return
 
-    // Build new ordered list of ids
     const reordered = [...group]
     reordered.splice(currentIndex, 1)
     reordered.splice(targetIndex, 0, id)
 
-    // Reassign sortOrder with stride 1000 to reduce cascading updates
     for (let i = 0; i < reordered.length; i++) {
       const memo = memos.value.find(m => m.id === reordered[i])
       if (memo && memo.sortOrder !== i * 1000) {

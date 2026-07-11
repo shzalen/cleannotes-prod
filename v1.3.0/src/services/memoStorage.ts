@@ -1,92 +1,157 @@
 /**
- * Memo Storage — 离线优先（localStorage + Supabase 同步）
+ * Memo Storage — 纯在线模式 + 写入优化
  *
- * 写操作：先写 localStorage（同步成功），再异步写 Supabase
- * 读操作：从 localStorage 读取
- * 同步：login 后从 Supabase 拉取云端数据合并到本地
+ * 读操作：直接从 Supabase 获取
+ * 写操作：fire-and-forget 异步写入 Supabase，附带两项优化：
+ *
+ * 1. **Content-aware writes** — 追踪上次成功写入的 content，当 content 未变化时
+ *    使用 PATCH（仅发送 title/tags/pinned/icon 等元数据，跳过可能数 MB 的
+ *    base64 图片数据），大幅减少网络传输量。
+ *
+ * 2. **Retry queue** — 写入失败时自动入队，在网络恢复 / 标签页重新可见 /
+ *    定时器触发时重试，避免静默丢数据。
  */
 
 import type { MemoItem } from '@/types'
-import { supabaseGetMemos, supabaseUpsertMemo, supabaseDeleteMemoById } from './supabase'
+import { supabaseGetMemos, supabaseUpsertMemo, supabasePatchMemo, supabaseDeleteMemoById } from './supabase'
 
 let currentUserId = ''
 
-function prefix(): string {
-  return currentUserId ? `cleannotes_${currentUserId}_memos` : `cleannotes_memos`
+// ---- Content tracking ----
+// Records the content string last successfully written to Supabase per memo.
+// When a new write arrives with the same content, we use PATCH instead of
+// full upsert to avoid re-sending potentially megabytes of base64 images.
+const lastWrittenContent = new Map<string, string>()
+
+// ---- Retry queue ----
+interface PendingWrite {
+  memo: MemoItem
+  retryCount: number
+}
+const pendingWrites = new Map<string, PendingWrite>()
+
+// ---- Retry triggers ----
+let listenersInitialized = false
+
+function initRetryListeners() {
+  if (listenersInitialized) return
+  listenersInitialized = true
+
+  // Network recovered → flush immediately
+  window.addEventListener('online', () => {
+    flushPendingWrites()
+  })
+
+  // Tab becomes visible → flush (covers laptop wake, returning to tab)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && pendingWrites.size > 0) {
+      flushPendingWrites()
+    }
+  })
+
+  // Periodic safety net — every 30s
+  setInterval(() => {
+    if (pendingWrites.size > 0) {
+      flushPendingWrites()
+    }
+  }, 30_000)
 }
 
-function readMemos(): MemoItem[] {
-  try {
-    const raw = localStorage.getItem(prefix())
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+// ---- Internal write helpers ----
+
+/** Full upsert (includes content). Used when content changed or first write. */
+function doFullUpsert(memo: MemoItem): void {
+  supabaseUpsertMemo(memo)
+    .then(() => {
+      lastWrittenContent.set(memo.id, memo.content)
+      pendingWrites.delete(memo.id)
+    })
+    .catch(() => {
+      pendingWrites.set(memo.id, { memo, retryCount: 0 })
+    })
 }
 
-function writeMemos(memos: MemoItem[]): void {
-  localStorage.setItem(prefix(), JSON.stringify(memos))
+/** Partial PATCH (skips content). Used when only metadata changed. */
+function doPatch(memo: MemoItem): void {
+  supabasePatchMemo(memo.id, memo)
+    .then(() => {
+      // Content didn't change, so lastWrittenContent is still valid
+      pendingWrites.delete(memo.id)
+    })
+    .catch(() => {
+      // On PATCH failure, fall back to full upsert in retry queue
+      pendingWrites.set(memo.id, { memo, retryCount: 0 })
+    })
 }
 
 // ---- Public API ----
 
 export function setMemoUserId(userId: string) {
   currentUserId = userId
+  pendingWrites.clear()
+  lastWrittenContent.clear()
+  initRetryListeners()
 }
 
-/** 从 localStorage 加载 */
-export function loadMemos(): MemoItem[] {
-  return readMemos()
-}
-
-/** 全量保存到本地 */
-export function saveMemos(memos: MemoItem[]): void {
-  writeMemos(memos)
-}
-
-/** 单条 upsert（本地 + 后台云端） */
-export function upsertMemo(memo: MemoItem): void {
-  const memos = readMemos()
-  const idx = memos.findIndex(m => m.id === memo.id)
-  if (idx === -1) {
-    memos.push(memo)
-  } else {
-    memos[idx] = memo
+/** 从 Supabase 加载，同时初始化 content 追踪 */
+export async function loadMemos(since?: string): Promise<MemoItem[]> {
+  if (!currentUserId) return []
+  const memos = await supabaseGetMemos(since)
+  for (const m of memos) {
+    lastWrittenContent.set(m.id, m.content)
   }
-  writeMemos(memos)
-
-  // 后台异步同步到 Supabase
-  supabaseUpsertMemo(memo).catch(() => {})
+  return memos
 }
 
-/** 单条删除（本地 + 后台云端） */
-export function deleteMemoById(id: string): void {
-  const memos = readMemos().filter(m => m.id !== id)
-  writeMemos(memos)
+/**
+ * Upsert a memo with content-aware write strategy.
+ *
+ * - If content hasn't changed since last successful write → PATCH (small payload)
+ * - If content changed or is a new memo → full upsert
+ *
+ * Failed writes are automatically queued for retry.
+ */
+export function upsertMemo(memo: MemoItem): void {
+  const lastContent = lastWrittenContent.get(memo.id)
 
-  // 后台异步同步到 Supabase
+  if (lastContent !== undefined && lastContent === memo.content) {
+    // Content unchanged — PATCH metadata only
+    doPatch(memo)
+  } else {
+    // Content changed or first write — full upsert
+    doFullUpsert(memo)
+  }
+}
+
+/** 单条删除（fire-and-forget 云端写入） */
+export function deleteMemoById(id: string): void {
+  lastWrittenContent.delete(id)
+  pendingWrites.delete(id)
   supabaseDeleteMemoById(id).catch(() => {})
 }
 
-/** 从 Supabase 拉取并合并到本地（login 时调用） */
-export async function syncMemosFromCloud(): Promise<void> {
-  try {
-    const cloudData = await supabaseGetMemos()
-    if (cloudData.length === 0) return
+/**
+ * Flush all pending writes (retry failed writes).
+ * Called automatically on online/visibilitychange/interval.
+ * Can also be called manually (e.g., before page unload).
+ */
+export async function flushPendingWrites(): Promise<void> {
+  if (pendingWrites.size === 0) return
 
-    const local = readMemos()
-    const localMap = new Map(local.map(m => [m.id, m]))
-
-    // 云端数据覆盖本地（updatedAt 更新者胜出）
-    for (const cloud of cloudData) {
-      const localItem = localMap.get(cloud.id)
-      if (!localItem || cloud.updatedAt >= localItem.updatedAt) {
-        localMap.set(cloud.id, cloud)
-      }
+  const entries = [...pendingWrites.entries()]
+  for (const [id, { memo }] of entries) {
+    try {
+      await supabaseUpsertMemo(memo)
+      lastWrittenContent.set(id, memo.content)
+      pendingWrites.delete(id)
+    } catch {
+      const entry = pendingWrites.get(id)
+      if (entry) entry.retryCount++
     }
-
-    writeMemos(Array.from(localMap.values()))
-  } catch {
-    // 静默失败，留待下次同步
   }
+}
+
+/** Returns true if there are failed writes waiting to be retried */
+export function hasPendingWrites(): boolean {
+  return pendingWrites.size > 0
 }

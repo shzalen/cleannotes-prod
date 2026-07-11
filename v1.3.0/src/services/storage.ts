@@ -1,26 +1,36 @@
 import type { Task, DeletedTask, TimerConfig, AiMessage, AiConfig } from '@/types'
-import { hybridAdapter } from './hybrid'
+import { supabaseAdapter } from './supabase'
 import { setGrowthUserId } from './growthStorage'
 import { setTodoUserId } from './todoStorage'
 import { setMemoUserId } from './memoStorage'
 import { setWeeklyReportUserId } from './weeklyReportStorage'
+import { ref } from 'vue'
 
-export { isOnline, syncStatus } from './hybrid'
+// ---- Reactive state (stubs — pure online mode, no offline sync) ----
+
+export const isOnline = ref(true)
+export const syncStatus = ref<'idle' | 'syncing' | 'error'>('idle')
+
+export interface SyncLogEntry {
+  id: number
+  time: string
+  status: 'success' | 'error' | 'idle'
+  message: string
+}
+
+export const syncLogs = ref<SyncLogEntry[]>([])
 
 export interface StorageAdapter {
   setUserId(userId: string): void
 
   // ---- Tasks ----
-  getTasks(): Promise<Task[]>
-  /** 全量保存（仅用于初始同步/合并场景，日常 CRUD 用 upsertTask/deleteTaskById） */
+  getTasks(since?: string): Promise<Task[]>
   saveTasks(tasks: Task[]): Promise<void>
-  /** 单条 upsert：新增或更新，以 id 为主键 */
   upsertTask(task: Task): Promise<void>
-  /** 单条删除 */
   deleteTaskById(id: string): Promise<void>
 
   // ---- Deleted Tasks (回收站) ----
-  getDeletedTasks(): Promise<DeletedTask[]>
+  getDeletedTasks(since?: string): Promise<DeletedTask[]>
   saveDeletedTasks(tasks: DeletedTask[]): Promise<void>
   upsertDeletedTask(task: DeletedTask): Promise<void>
   deleteDeletedTaskById(id: string): Promise<void>
@@ -34,7 +44,6 @@ export interface StorageAdapter {
   saveAiMessages(messages: AiMessage[]): Promise<void>
   upsertAiMessage(msg: AiMessage): Promise<void>
   deleteAiMessageById(id: string): Promise<void>
-  /** 删除该用户所有 AI 消息 */
   deleteAllAiMessages(): Promise<void>
 
   // ---- AI Config ----
@@ -42,7 +51,7 @@ export interface StorageAdapter {
   saveAiConfig(config: AiConfig): Promise<void>
 }
 
-let currentAdapter: StorageAdapter = hybridAdapter
+let currentAdapter: StorageAdapter = supabaseAdapter
 
 export function getStorage(): StorageAdapter {
   return currentAdapter
@@ -52,7 +61,7 @@ export function setStorage(adapter: StorageAdapter) {
   currentAdapter = adapter
 }
 
-/** 切换用户后调用：更新适配器的 userId，清除脏数据 */
+/** 切换用户后调用：更新适配器的 userId */
 export function switchUser(userId: string) {
   currentAdapter.setUserId(userId)
   setGrowthUserId(userId)
