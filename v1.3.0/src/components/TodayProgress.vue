@@ -138,6 +138,10 @@ function showDetail(task: Task) {
   detailModalRef.value?.open(task)
 }
 
+function openEdit(task: Task) {
+  modalRef.value?.openEdit(task)
+}
+
 function cycleStatus(task: Task) {
   if (isFutureTask(task)) return
   store.requestToggleStatus(task.id)
@@ -216,10 +220,21 @@ function isTimeReached(task: Task) {
           </div>
         </div>
         <span
-          v-if="task.status !== 'done'"
           :class="['timeline-status', task.status, { locked: isFutureTask(task) }]"
+          :title="isFutureTask(task) ? '未到开始日期，暂不可更新进度' : '点击更新进度'"
           @click="!isFutureTask(task) && cycleStatus(task)"
         >{{ statusLabel[task.status] }}</span>
+        <button
+          class="timeline-edit"
+          type="button"
+          title="编辑任务"
+          @click.stop="openEdit(task)"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
       </div>
     </div>
     <div v-else class="today-empty">今日暂无任务</div>
@@ -501,36 +516,69 @@ function isTimeReached(task: Task) {
   color: var(--color-success);
 }
 
-/* 状态按钮 */
+/* 状态胶囊（进度控件） */
 .timeline-status {
   font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
   flex-shrink: 0;
   cursor: pointer;
-  transition: opacity 0.12s;
+  border: 1px solid transparent;
+  user-select: none;
+  white-space: nowrap;
+  transition: filter 0.12s, opacity 0.12s;
 }
 
-.timeline-status:hover { opacity: 0.7; }
+.timeline-status:hover { filter: brightness(0.95); }
 
 .timeline-status.todo {
   background: var(--color-bg-2);
   color: var(--color-text-2);
+  border-color: var(--color-border);
 }
 
 .timeline-status.in_progress {
-  background: var(--color-warning-light);
+  background: color-mix(in srgb, var(--color-warning-text) 14%, var(--color-surface));
   color: var(--color-warning-text);
+  border-color: color-mix(in srgb, var(--color-warning-text) 35%, transparent);
+}
+
+.timeline-status.done {
+  background: color-mix(in srgb, var(--color-success-text) 14%, var(--color-surface));
+  color: var(--color-success-text);
+  border-color: color-mix(in srgb, var(--color-success-text) 35%, transparent);
 }
 
 .timeline-status.locked {
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: 0.45;
 }
 
 .timeline-status.locked:hover {
-  opacity: 0.4;
+  filter: none;
+}
+
+/* 编辑按钮 */
+.timeline-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.timeline-edit:hover {
+  background: var(--color-bg-4);
+  color: var(--color-primary);
 }
 
 .today-empty {

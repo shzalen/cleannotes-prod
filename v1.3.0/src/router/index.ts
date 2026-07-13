@@ -104,13 +104,20 @@ const router = createRouter({
 })
 
 // Navigation guard: check auth + device auto-redirect
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
   const isH5 = to.path.startsWith('/h5')
 
   // 用户主动进入 H5 → 清除 force_pc，恢复自动检测
   if (isH5) {
     clearForcePC()
+  }
+
+  // 关键修复：在评估受保护路由前，先确保会话已从 Supabase 恢复。
+  // 否则刷新瞬间 auth.isAuthenticated 仍为 false，会把已登录用户误判为未登录，
+  // 重定向到 login，最终被 App.vue 推回首页，导致刷新后丢失当前页面。
+  if (!auth.initialized) {
+    await auth.init()
   }
 
   // Public routes don't need auth

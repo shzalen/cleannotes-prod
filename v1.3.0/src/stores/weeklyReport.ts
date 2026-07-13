@@ -289,7 +289,7 @@ async function callAiForSummary(
   // 检查 AI 配置是否可用
   if (!aiStore.config.apiUrl || !aiStore.config.apiKey) {
     console.log('[WeeklyReport] AI config not available, skipping summary')
-    return null
+    return { summary: null, error: 'AI 未配置（请先在设置中填写 API 地址和密钥）' }
   }
 
   // 构建 prompt
@@ -446,6 +446,14 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     reports.value = await loadWeeklyReports()
 
     loaded.value = true
+
+    // 自愈：恢复任何残留的 'generating' 报告（例如修复前会话崩溃留下的），
+    // 自动重跑 AI 总结，避免永久显示「生成中」转圈。
+    for (const r of reports.value) {
+      if (r.aiSummaryStatus === 'generating') {
+        generateAiSummary(r.weekStart)
+      }
+    }
   }
 
   /** Phase 1: 立即生成报告基础内容（AI 占位为 generating） */
@@ -495,60 +503,79 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     return report
   }
 
+  /** In-flight guard: prevents genuine concurrent re-entry, keyed by weekStart.
+   *  NOTE: 'generating' is a *placeholder* status set by Phase 1 — it must NOT
+   *  be treated as an in-flight signal, otherwise Phase 2 never runs (Bug A). */
+  const generatingInFlight = new Set<string>()
+
   /** Phase 2: 异步调用 AI 并更新报告内容 */
   async function generateAiSummary(weekStart: string): Promise<void> {
     const report = reports.value.find(r => r.weekStart === weekStart)
     if (!report) return
 
-    // P1-03: Guard against concurrent generation
-    if (report.aiSummaryStatus === 'generating') return
+    // P1-03: Guard against concurrent generation — only block true re-entry.
+    if (generatingInFlight.has(weekStart)) return
+    generatingInFlight.add(weekStart)
 
-    const weekEnd = getSunday(weekStart)
+    try {
+      const weekEnd = getSunday(weekStart)
 
-    const taskStore = useTaskStore()
-    const todoStore = useTodoStore()
+      const taskStore = useTaskStore()
+      const todoStore = useTodoStore()
 
-    if (!taskStore.loaded) await taskStore.load()
-    if (!todoStore.loaded) await todoStore.load()
+      if (!taskStore.loaded) await taskStore.load()
+      if (!todoStore.loaded) await todoStore.load()
 
-    const tasks = taskStore.tasks
-    const todos = todoStore.todos
+      const tasks = taskStore.tasks
+      const todos = todoStore.todos
 
-    const completedTasks = tasks
-      .filter(t =>
-        t.status === 'done' && isInWeek(t.completedAt, weekStart, weekEnd)
+      const completedTasks = tasks
+        .filter(t =>
+          t.status === 'done' && isInWeek(t.completedAt, weekStart, weekEnd)
+        )
+        .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
+
+      const pendingTasks = tasks
+        .filter(t => t.status !== 'done')
+        .sort((a, b) => {
+          if (a.dueDate && !b.dueDate) return -1
+          if (!a.dueDate && b.dueDate) return 1
+          if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate)
+          return 0
+        })
+
+      const newTodos = todos
+        .filter(t => isInWeek(t.createdAt, weekStart, weekEnd))
+
+      // 调用 AI
+      const result = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)
+
+      // 更新报告
+      const status: 'success' | 'failed' = result.summary ? 'success' : 'failed'
+      const newContent = generateReportContent(
+        weekStart, weekEnd, report.summary, tasks, todos,
+        result.summary ?? undefined, status, result.error
       )
-      .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
 
-    const pendingTasks = tasks
-      .filter(t => t.status !== 'done')
-      .sort((a, b) => {
-        if (a.dueDate && !b.dueDate) return -1
-        if (!a.dueDate && b.dueDate) return 1
-        if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate)
-        return 0
+      Object.assign(report, {
+        content: newContent,
+        aiSummary: result.summary || undefined,
+        aiSummaryStatus: status,
+        aiSummaryError: result.error || undefined,
+        updatedAt: toUTCISO(),
       })
-
-    const newTodos = todos
-      .filter(t => isInWeek(t.createdAt, weekStart, weekEnd))
-
-    // 调用 AI
-    const result = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)
-
-    // 更新报告
-    const status: 'success' | 'failed' = result.summary ? 'success' : 'failed'
-    const newContent = generateReportContent(
-      weekStart, weekEnd, report.summary, tasks, todos,
-      result.summary ?? undefined, status, result.error
-    )
-
-    Object.assign(report, {
-      content: newContent,
-      aiSummary: result.summary || undefined,
-      aiSummaryStatus: status,
-      aiSummaryError: result.error || undefined,
-      updatedAt: toUTCISO(),
-    })
+    } catch (e) {
+      // 任何意外错误都落入 failed 状态，避免永久卡在 generating
+      const errMsg = e instanceof Error ? e.message : String(e)
+      console.error('[WeeklyReport] AI summary generation crashed:', errMsg)
+      Object.assign(report, {
+        aiSummaryStatus: 'failed' as const,
+        aiSummaryError: errMsg,
+        updatedAt: toUTCISO(),
+      })
+    } finally {
+      generatingInFlight.delete(weekStart)
+    }
 
     upsertWeeklyReport(report)
     broadcastChange('reports-updated')
