@@ -12,8 +12,10 @@ import { useTaskStore, formatDuration } from './task'
 import { useTodoStore } from './todo'
 import { useAiStore } from './ai'
 import { broadcastChange } from '@/services/crossTabSync'
+import { buildChatUrl, escapeHtml, getISOWeekNumber } from '@/utils/ai'
 
 function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
@@ -42,33 +44,23 @@ export function getSunday(mondayStr: string): string {
 /** 获取周的显示标签 */
 export function getWeekLabel(weekStart: string): string {
   const weekEnd = getSunday(weekStart)
-  const [sy, sm, sd] = weekStart.split('-').map(Number)
-  const [ey, em, ed] = weekEnd.split('-').map(Number)
-
-  // 计算第几周
-  const startOfYear = new Date(sy, 0, 1)
-  const weekMonday = new Date(weekStart + 'T00:00:00')
-  const weekNum = Math.ceil(
-    ((weekMonday.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
-
+  const [, sm, sd] = weekStart.split('-').map(Number)
+  const [, em, ed] = weekEnd.split('-').map(Number)
+  const weekNum = getISOWeekNumber(weekStart)
   return `第${weekNum}周 (${sm}/${sd} - ${em}/${ed})`
 }
 
-/** 获取周数（仅数字） */
+/** 获取周数（仅数字，ISO 8601） */
 export function getWeekNumber(weekStart: string): number {
-  const [sy] = weekStart.split('-').map(Number)
-  const startOfYear = new Date(sy, 0, 1)
-  const weekMonday = new Date(weekStart + 'T00:00:00')
-  return Math.ceil(
-    ((weekMonday.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
+  return getISOWeekNumber(weekStart)
 }
 
-/** 判断日期是否在指定周范围内 */
+/** 判断日期/时间戳是否在指定周范围内 (P2-08: timezone-safe comparison) */
 function isInWeek(dateStr: string | null, weekStart: string, weekEnd: string): boolean {
   if (!dateStr) return false
-  return dateStr >= weekStart && dateStr <= weekEnd
+  // For ISO timestamps (length > 10), convert to local date for timezone-safe comparison
+  const dateOnly = dateStr.length > 10 ? toLocalDate(new Date(dateStr)) : dateStr
+  return dateOnly >= weekStart && dateOnly <= weekEnd
 }
 
 /** 生成周报摘要数据 */
@@ -78,27 +70,19 @@ function buildSummary(
   weekStart: string,
   weekEnd: string
 ): WeeklyReportSummary {
-  const tasksCreated = tasks.filter(t =>
-    t.createdAt >= weekStart + 'T00:00:00' && t.createdAt <= weekEnd + 'T23:59:59'
-  ).length
+  // P2-08: Use isInWeek for timezone-safe date comparison
+  const tasksCreated = tasks.filter(t => isInWeek(t.createdAt, weekStart, weekEnd)).length
 
   const tasksCompleted = tasks.filter(t =>
-    t.status === 'done' && t.completedAt &&
-    t.completedAt >= weekStart + 'T00:00:00' &&
-    t.completedAt <= weekEnd + 'T23:59:59'
+    t.status === 'done' && isInWeek(t.completedAt, weekStart, weekEnd)
   ).length
 
-  const todosCreated = todos.filter(t =>
-    t.createdAt >= weekStart + 'T00:00:00' && t.createdAt <= weekEnd + 'T23:59:59'
-  ).length
+  const todosCreated = todos.filter(t => isInWeek(t.createdAt, weekStart, weekEnd)).length
 
   // XP 获得量：从 XP 事件中筛选本周的
   const xpEvents: XpEvent[] = getXpEvents()
   const totalXpGained = xpEvents
-    .filter(e =>
-      e.createdAt >= weekStart + 'T00:00:00' &&
-      e.createdAt <= weekEnd + 'T23:59:59'
-    )
+    .filter(e => isInWeek(e.createdAt, weekStart, weekEnd))
     .reduce((sum, e) => sum + e.xp, 0)
 
   // 完成率：本周完成任务数 / max(本周新增任务数, 本周完成任务数)
@@ -169,18 +153,13 @@ function generateReportContent(
   // 本周完成的任务
   const completedTasks = tasks
     .filter(t =>
-      t.status === 'done' && t.completedAt &&
-      t.completedAt >= weekStart + 'T00:00:00' &&
-      t.completedAt <= weekEnd + 'T23:59:59'
+      t.status === 'done' && isInWeek(t.completedAt, weekStart, weekEnd)
     )
     .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
 
   // 本周创建的待办
   const newTodos = todos
-    .filter(t =>
-      t.createdAt >= weekStart + 'T00:00:00' &&
-      t.createdAt <= weekEnd + 'T23:59:59'
-    )
+    .filter(t => isInWeek(t.createdAt, weekStart, weekEnd))
 
   // 未完成的任务（下周待办）
   const pendingTasks = tasks
@@ -286,16 +265,6 @@ function generateReportContent(
   return parts.join('\n')
 }
 
-/** HTML 转义，防止用户输入的标题中包含特殊字符 */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
 /** 格式化 ISO 时间戳为本地 YYYY-MM-DD HH:MM */
 function formatReportDateTime(iso: string): string {
   const d = new Date(iso)
@@ -367,19 +336,8 @@ async function callAiForSummary(
     }
   }
 
-  // 构建 API URL
-  const input = aiStore.config.apiUrl.trim()
-  let apiUrl: string
-  if (input.includes('/chat/completions')) {
-    apiUrl = input
-  } else {
-    const base = input.replace(/\/+$/, '')
-    if (base.endsWith('/v1')) {
-      apiUrl = base + '/chat/completions'
-    } else {
-      apiUrl = base + '/v1/chat/completions'
-    }
-  }
+  // 构建 API URL (P2-10: 使用共享工具函数)
+  const apiUrl = buildChatUrl(aiStore.config.apiUrl)
 
   try {
     const controller = new AbortController()
@@ -549,6 +507,9 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
     const report = reports.value.find(r => r.weekStart === weekStart)
     if (!report) return
 
+    // P1-03: Guard against concurrent generation
+    if (report.aiSummaryStatus === 'generating') return
+
     const weekEnd = getSunday(weekStart)
 
     const taskStore = useTaskStore()
@@ -562,9 +523,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
 
     const completedTasks = tasks
       .filter(t =>
-        t.status === 'done' && t.completedAt &&
-        t.completedAt >= weekStart + 'T00:00:00' &&
-        t.completedAt <= weekEnd + 'T23:59:59'
+        t.status === 'done' && isInWeek(t.completedAt, weekStart, weekEnd)
       )
       .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
 
@@ -578,10 +537,7 @@ export const useWeeklyReportStore = defineStore('weeklyReport', () => {
       })
 
     const newTodos = todos
-      .filter(t =>
-        t.createdAt >= weekStart + 'T00:00:00' &&
-        t.createdAt <= weekEnd + 'T23:59:59'
-      )
+      .filter(t => isInWeek(t.createdAt, weekStart, weekEnd))
 
     // 调用 AI
     const result = await callAiForSummary(report.summary, completedTasks, pendingTasks, newTodos, weekStart, weekEnd)

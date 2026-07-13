@@ -31,6 +31,9 @@ export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 let cachedAccessToken: string | null = null
 
+// P1-07: Cache userId from auth state changes instead of parsing localStorage
+let cachedUserId: string = ''
+
 export function setCachedAccessToken(token: string | null) {
   cachedAccessToken = token
 }
@@ -39,19 +42,27 @@ export function getCachedAccessToken(): string | null {
   return cachedAccessToken
 }
 
+/** P1-07: Cache user ID when auth state changes (called from auth store) */
+export function setCachedUserId(userId: string) {
+  cachedUserId = userId
+}
+
 /**
- * 同步获取当前登录用户 ID（从 Supabase localStorage 读取）
- * 用于 localStorage key 前缀等场景，不依赖 Pinia
- * R3-S01: Derive storage key from SUPABASE_URL instead of hardcoding project ID
+ * 同步获取当前登录用户 ID
+ * P1-07: Prefer cached value set by auth state listener.
+ * Falls back to Supabase localStorage key if cache is not yet populated.
  */
 export function getCurrentUserIdSync(): string {
+  if (cachedUserId) return cachedUserId
   try {
-    // Extract project ref from URL: https://ghkyhbxltdxhkhpqltdr.supabase.co → ghkyhbxltdxhkhpqltdr
+    // Fallback: read from Supabase localStorage key
     const projectRef = SUPABASE_URL.replace(/^https?:\/\//, '').split('.')[0]
     const raw = localStorage.getItem(`sb-${projectRef}-auth-token`)
     if (!raw) return ''
     const session = JSON.parse(raw)
-    return session?.user?.id ?? ''
+    const userId = session?.user?.id ?? ''
+    if (userId) cachedUserId = userId // populate cache for future calls
+    return userId
   } catch {
     return ''
   }

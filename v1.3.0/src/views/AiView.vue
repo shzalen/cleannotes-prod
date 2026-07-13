@@ -15,7 +15,7 @@ function handleQueryParams() {
 
   const taskId = route.query.taskId as string
   if (taskId) {
-    const task = taskStore.tasks.find(t => t.id.startsWith(taskId) || t.id === taskId)
+    const task = taskStore.tasks.find(t => t.id === taskId)
     if (task) {
       const context = `【当前分析任务】
 标题：${task.title}
@@ -35,9 +35,8 @@ function handleQueryParams() {
   }
 }
 
-onMounted(() => {
-  store.load()
-  taskStore.load()
+onMounted(async () => {
+  await Promise.all([store.load(), taskStore.load()])
   handleQueryParams()
 })
 

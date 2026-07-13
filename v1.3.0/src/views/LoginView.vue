@@ -7,6 +7,7 @@ import { useTaskStore } from '@/stores/task'
 import { useTodoStore } from '@/stores/todo'
 import { useMemoStore } from '@/stores/memo'
 import { useWeeklyReportStore } from '@/stores/weeklyReport'
+import { useAiStore } from '@/stores/ai'
 import { useGrowthIntegration } from '@/composables/useGrowthIntegration'
 import { migrateOldUser } from '@/services/migration'
 import { useRouter } from 'vue-router'
@@ -18,6 +19,7 @@ const growthStore = useGrowthStore()
 const todoStore = useTodoStore()
 const memoStore = useMemoStore()
 const weeklyReportStore = useWeeklyReportStore()
+const aiStore = useAiStore()
 const router = useRouter()
 
 // ---- 邮箱认证 ----
@@ -155,12 +157,14 @@ async function onLoginSuccess() {
   clearOldLocalStorage()
   switchUser(auth.userId)
   // R3-P02: Force reload all stores to prevent cross-user data residue
+  // P1-06: Include aiStore.load(true) so AI config is ready immediately after login
   await Promise.all([
     taskStore.load(true),
     growthStore.load(true),
     todoStore.load(true),
     memoStore.load(true),
     weeklyReportStore.load(true),
+    aiStore.load(true),
   ])
   // 注册成长系统回调
   useGrowthIntegration()

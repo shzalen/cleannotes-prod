@@ -34,11 +34,13 @@ async function deriveKey(userId: string): Promise<CryptoKey> {
 
 /**
  * Encrypt a plaintext string. Returns 'enc:' + base64(iv + ciphertext).
- * If encryption fails, returns the original plaintext (graceful degradation).
+ * P0-05: If encryption fails, throws an error to prevent plaintext storage.
  */
 export async function encryptString(plain: string, userId: string): Promise<string> {
   if (!plain || !userId) return plain
-  if (!crypto?.subtle) return plain // Web Crypto not available
+  if (!crypto?.subtle) {
+    throw new Error('Web Crypto API not available — cannot encrypt API key. Please use a secure browser context (HTTPS).')
+  }
   try {
     const key = await deriveKey(userId)
     const iv = crypto.getRandomValues(new Uint8Array(12))
@@ -52,8 +54,8 @@ export async function encryptString(plain: string, userId: string): Promise<stri
     combined.set(iv)
     combined.set(new Uint8Array(encrypted), iv.length)
     return 'enc:' + btoa(String.fromCharCode(...combined))
-  } catch {
-    return plain
+  } catch (e) {
+    throw new Error('Encryption failed: ' + (e instanceof Error ? e.message : String(e)))
   }
 }
 
