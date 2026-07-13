@@ -39,7 +39,8 @@ async function deriveKey(userId: string): Promise<CryptoKey> {
 export async function encryptString(plain: string, userId: string): Promise<string> {
   if (!plain || !userId) return plain
   if (!crypto?.subtle) {
-    throw new Error('Web Crypto API not available — cannot encrypt API key. Please use a secure browser context (HTTPS).')
+    const ctx = typeof window !== 'undefined' ? window.isSecureContext : 'unknown'
+    throw new Error(`Web Crypto API 不可用（isSecureContext=${ctx}）。需要 HTTPS 或 localhost 环境。`)
   }
   try {
     const key = await deriveKey(userId)
