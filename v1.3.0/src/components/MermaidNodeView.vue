@@ -105,8 +105,18 @@ async function renderMermaid(code: string): Promise<string> {
 
   try {
     const { svg } = await mermaid.default.render(id, trimmed)
+
+    // strict 模式下 mermaid 可能缺少文本样式，注入内联样式兜底
+    const isDark = getMermaidTheme() === 'dark'
+    const textFill = isDark ? '#e8e8e8' : '#333333'
+    const edgeLabelFill = isDark ? '#cccccc' : '#555555'
+    const styledSvg = svg.replace(
+      /<\/svg>\s*$/,
+      `<style>/* mermaid text visibility fix */text,tspan{fill:${textFill}!important}.edgeLabel,.edgeLabel text{fill:${edgeLabelFill}!important}</style></svg>`
+    )
+
     // S-09: Sanitize SVG output with DOMPurify (defense in depth, even with securityLevel: 'sandbox')
-    return DOMPurify.sanitize(svg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['*'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
+    return DOMPurify.sanitize(styledSvg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['*'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
   } finally {
     // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
     // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容
@@ -530,6 +540,11 @@ onBeforeUnmount(() => {
   max-width: 100%;
   height: auto;
 }
+/* strict 模式下 mermaid 文本可能丢失颜色，兜底 */
+.rte-mermaid-preview :deep(svg text),
+.rte-mermaid-preview :deep(svg tspan) {
+  fill: var(--color-text-1, #333333);
+}
 
 /* ---- Loading ---- */
 .rte-mermaid-loading {
@@ -716,6 +731,11 @@ onBeforeUnmount(() => {
 .rte-mermaid-modal-preview :deep(svg) {
   max-width: 100%;
   height: auto;
+}
+/* strict 模式下 mermaid 文本可能丢失颜色，兜底 */
+.rte-mermaid-modal-preview :deep(svg text),
+.rte-mermaid-modal-preview :deep(svg tspan) {
+  fill: var(--color-text-1, #333333);
 }
 
 /* Modal footer */
