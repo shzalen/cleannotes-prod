@@ -6,6 +6,7 @@ import type { Task, TaskPriority } from '@/types'
 import { toLocalDate } from '@/utils/time'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
+import TaskProgressModal from '@/components/TaskProgressModal.vue'
 
 const { isDark, isZuru, isTencent } = useTheme()
 const store = useTaskStore()
@@ -134,6 +135,9 @@ const modalRef = ref<InstanceType<typeof TaskEditModal> | null>(null)
 // ---- TaskDetailModal ----
 const detailModalRef = ref<InstanceType<typeof TaskDetailModal> | null>(null)
 
+// ---- TaskProgressModal ----
+const progressModalRef = ref<InstanceType<typeof TaskProgressModal> | null>(null)
+
 function showDetail(task: Task) {
   detailModalRef.value?.open(task)
 }
@@ -142,9 +146,10 @@ function openEdit(task: Task) {
   modalRef.value?.openEdit(task)
 }
 
-function cycleStatus(task: Task) {
+/** 点击小圆点/状态徽标：弹出进度更新弹窗（默认下一状态 + 实际开始时间默认当前时间） */
+function openProgress(task: Task) {
   if (isFutureTask(task)) return
-  store.requestToggleStatus(task.id)
+  progressModalRef.value?.open(task)
 }
 
 function isFutureTask(task: Task) {
@@ -191,7 +196,7 @@ function isTimeReached(task: Task) {
         <div
           class="timeline-dot"
           :class="[task.status, { clickable: task.status !== 'done' && !isFutureTask(task), 'is-due': isTimeReached(task) && task.status !== 'todo', 'is-due-urgent': isTimeReached(task) && task.status === 'todo' }]"
-          @click="task.status !== 'done' && !isFutureTask(task) && cycleStatus(task)"
+          @click="task.status !== 'done' && !isFutureTask(task) && openProgress(task)"
         />
         <span class="timeline-time" :class="task.status">
           {{ timeLabel(task) }}
@@ -220,27 +225,17 @@ function isTimeReached(task: Task) {
           </div>
         </div>
         <span
+          v-if="task.status !== 'done'"
           :class="['timeline-status', task.status, { locked: isFutureTask(task) }]"
-          :title="isFutureTask(task) ? '未到开始日期，暂不可更新进度' : '点击更新进度'"
-          @click="!isFutureTask(task) && cycleStatus(task)"
+          @click="!isFutureTask(task) && openProgress(task)"
         >{{ statusLabel[task.status] }}</span>
-        <button
-          class="timeline-edit"
-          type="button"
-          title="编辑任务"
-          @click.stop="openEdit(task)"
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 20h9" />
-            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-          </svg>
-        </button>
       </div>
     </div>
     <div v-else class="today-empty">今日暂无任务</div>
 
     <TaskEditModal ref="modalRef" />
-    <TaskDetailModal ref="detailModalRef" />
+    <TaskDetailModal ref="detailModalRef" @edit="openEdit" />
+    <TaskProgressModal ref="progressModalRef" />
   </div>
 </template>
 
@@ -516,69 +511,36 @@ function isTimeReached(task: Task) {
   color: var(--color-success);
 }
 
-/* 状态胶囊（进度控件） */
+/* 状态按钮 */
 .timeline-status {
   font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
   flex-shrink: 0;
   cursor: pointer;
-  border: 1px solid transparent;
-  user-select: none;
-  white-space: nowrap;
-  transition: filter 0.12s, opacity 0.12s;
+  transition: opacity 0.12s;
 }
 
-.timeline-status:hover { filter: brightness(0.95); }
+.timeline-status:hover { opacity: 0.7; }
 
 .timeline-status.todo {
   background: var(--color-bg-2);
   color: var(--color-text-2);
-  border-color: var(--color-border);
 }
 
 .timeline-status.in_progress {
-  background: color-mix(in srgb, var(--color-warning-text) 14%, var(--color-surface));
+  background: var(--color-warning-light);
   color: var(--color-warning-text);
-  border-color: color-mix(in srgb, var(--color-warning-text) 35%, transparent);
-}
-
-.timeline-status.done {
-  background: color-mix(in srgb, var(--color-success-text) 14%, var(--color-surface));
-  color: var(--color-success-text);
-  border-color: color-mix(in srgb, var(--color-success-text) 35%, transparent);
 }
 
 .timeline-status.locked {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .timeline-status.locked:hover {
-  filter: none;
-}
-
-/* 编辑按钮 */
-.timeline-edit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-3);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-}
-
-.timeline-edit:hover {
-  background: var(--color-bg-4);
-  color: var(--color-primary);
+  opacity: 0.4;
 }
 
 .today-empty {

@@ -1277,7 +1277,7 @@ function saveTimestamps() {
     <TaskEditModal ref="modalRef" />
 
     <!-- TaskDetailModal -->
-    <TaskDetailModal ref="detailModalRef" />
+    <TaskDetailModal ref="detailModalRef" @edit="openEdit" />
 
     <!-- Delete confirm dialog -->
     <ConfirmDialog

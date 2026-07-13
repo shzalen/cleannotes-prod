@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CleanNotes v1.3.0 第四轮安全与性能审计报告</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface-hover: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --teal: #39c5cf;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    line-height: 1.6;
+    padding: 0;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header .subtitle { color: var(--text-muted); font-size: 14px; }
+  .header .meta {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .header .meta-item {
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .header .meta-item svg { width: 14px; height: 14px; }
+
+  /* Summary Cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .summary-card:hover { border-color: var(--text-dim); }
+  .summary-card .number {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .summary-card .label {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .summary-card.critical .number { color: var(--red); }
+  .summary-card.high .number { color: var(--orange); }
+  .summary-card.medium .number { color: var(--yellow); }
+  .summary-card.low .number { color: var(--teal); }
+  .summary-card.passed .number { color: var(--green); }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--surface-hover);
+    color: var(--text-muted);
+  }
+
+  /* Comparison Table */
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  .comparison-table th, .comparison-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .comparison-table th {
+    background: var(--surface-hover);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .comparison-table td { color: var(--text); }
+  .comparison-table tr:last-child td { border-bottom: none; }
+  .comparison-table .trend-up { color: var(--green); }
+  .comparison-table .trend-flat { color: var(--text-muted); }
+  .comparison-table .trend-down { color: var(--red); }
+
+  /* Finding Card */
+  .finding-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .finding-card:hover { border-color: var(--text-dim); }
+  .finding-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .finding-id {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(88, 166, 255, 0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .finding-title {
+    font-size: 16px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 200px;
+  }
+  .severity-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .severity-badge.medium { background: rgba(210, 153, 34, 0.15); color: var(--yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+  .severity-badge.low { background: rgba(57, 197, 207, 0.15); color: var(--teal); border: 1px solid rgba(57, 197, 207, 0.3); }
+  .severity-badge.passed { background: rgba(63, 185, 80, 0.15); color: var(--green); border: 1px solid rgba(63, 185, 80, 0.3); }
+  .finding-body { color: var(--text-muted); font-size: 14px; }
+  .finding-body p { margin-bottom: 8px; }
+  .finding-body code {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 13px;
+    background: var(--surface-hover);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--purple);
+  }
+  .finding-body .file-ref {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .finding-body ul { padding-left: 20px; margin-bottom: 8px; }
+  .finding-body li { margin-bottom: 4px; }
+  .fix-suggestion {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(88, 166, 255, 0.05);
+    border: 1px solid rgba(88, 166, 255, 0.15);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .fix-suggestion .label {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  /* Passed Checklist */
+  .passed-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 8px;
+  }
+  .passed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .passed-item .check {
+    color: var(--green);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .passed-item .check svg { width: 14px; height: 14px; }
+
+  /* Filter buttons */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--text-dim); color: var(--text); }
+  .filter-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* Recommendation */
+  .rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .rec-card .rec-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .rec-card .rec-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .rec-card.p1 { border-left-color: var(--yellow); }
+  .rec-card.p2 { border-left-color: var(--teal); }
+  .rec-card.p3 { border-left-color: var(--purple); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  @media (max-width: 768px) {
+    .container { padding: 20px 16px; }
+    .header h1 { font-size: 22px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .passed-list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CleanNotes v1.3.0 第四轮安全与性能审计报告</h1>
+  <p class="subtitle">Fourth Round Security & Performance Audit Report</p>
+  <div class="meta">
+    <div class="meta-item">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 4a1 1 0 011-1h12a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm1 0v2h4V4H2zm5 0v2h4V4H7zm5 0v2h2V4h-2zM2 7v2h4V7H2zm5 0v2h4V7H7zm5 0v2h2V7h-2zM2 10v2h4v-2H2zm5 0v2h4v-2H7zm5 0v2h2v-2h-2z"/></svg>
+      2026-07-11
+    </div>
+    <div class="meta-item">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 3a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 018 3zm0 8a1 1 0 100-2 1 1 0 000 2z"/></svg>
+      审计范围: ~120 源文件
+    </div>
+    <div class="meta-item">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.75 1a.75.75 0 01.75.75V4h3V1.75a.75.75 0 011.5 0V4h.5A2.75 2.75 0 0114.25 6.5v6A2.75 2.75 0 0111.5 15.25h-7A2.75 2.75 0 011.75 12.5v-6A2.75 2.75 0 014.5 4h.5V1.75A.75.75 0 015.75 1zM3.25 7.5v5c0 .69.56 1.25 1.25 1.25h7c.69 0 1.25-.56 1.25-1.25v-5h-9.5z"/></svg>
+      方法: 3 并行 Agent + 手动验证
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="summary-card critical">
+      <div class="number">0</div>
+      <div class="label">严重 (Critical)</div>
+    </div>
+    <div class="summary-card high">
+      <div class="number">0</div>
+      <div class="label">高危 (High)</div>
+    </div>
+    <div class="summary-card medium">
+      <div class="number">2</div>
+      <div class="label">中风险 (Medium)</div>
+    </div>
+    <div class="summary-card low">
+      <div class="number">8</div>
+      <div class="label">低风险 (Low)</div>
+    </div>
+    <div class="summary-card passed">
+      <div class="number">55</div>
+      <div class="label">已通过 (Passed)</div>
+    </div>
+  </div>
+
+  <!-- Four-Round Comparison -->
+  <div class="section">
+    <h2 class="section-title">四轮审计对比 <span class="badge">Round 1 → 4</span></h2>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>维度</th>
+          <th>第一轮</th>
+          <th>第二轮</th>
+          <th>第三轮</th>
+          <th>第四轮</th>
+          <th>趋势</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>严重</td>
+          <td>3</td>
+          <td>0</td>
+          <td>0</td>
+          <td>0</td>
+          <td class="trend-flat">—</td>
+        </tr>
+        <tr>
+          <td>高危</td>
+          <td>8</td>
+          <td>0</td>
+          <td>0</td>
+          <td>0</td>
+          <td class="trend-flat">—</td>
+        </tr>
+        <tr>
+          <td>中风险</td>
+          <td>15</td>
+          <td>2</td>
+          <td>3</td>
+          <td>2</td>
+          <td class="trend-up">↓ 1</td>
+        </tr>
+        <tr>
+          <td>低风险</td>
+          <td>11</td>
+          <td>9</td>
+          <td>9</td>
+          <td>8</td>
+          <td class="trend-up">↓ 1</td>
+        </tr>
+        <tr>
+          <td>已通过</td>
+          <td>18</td>
+          <td>42</td>
+          <td>52</td>
+          <td>55</td>
+          <td class="trend-up">↑ 3</td>
+        </tr>
+        <tr>
+          <td><strong>累计修复</strong></td>
+          <td>—</td>
+          <td>37</td>
+          <td>45</td>
+          <td>45</td>
+          <td class="trend-flat">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Findings -->
+  <div class="section">
+    <h2 class="section-title">发现的问题 <span class="badge">10 项</span></h2>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterFindings('all')">全部 (10)</button>
+      <button class="filter-btn" onclick="filterFindings('medium')">中风险 (2)</button>
+      <button class="filter-btn" onclick="filterFindings('low')">低风险 (8)</button>
+    </div>
+
+    <!-- R4-P01 -->
+    <div class="finding-card" data-severity="medium">
+      <div class="finding-header">
+        <span class="finding-id">R4-P01</span>
+        <span class="finding-title">登出时 Growth 数据未刷入云端（数据丢失风险）</span>
+        <span class="severity-badge medium">中风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>handleLogout()</code> 在登出前调用了 <code>flushPendingWrites()</code>（备忘录）和 <code>flushTaskWrites()</code>（任务），但<strong>未调用</strong> <code>flushGrowthToCloud()</code>（成长数据）。Growth 数据使用 2 秒防抖上传策略，如果用户完成任务（触发 XP 计算）后立即登出，2 秒内的 XP 事件、成就解锁、状态变更将丢失。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/App.vue:95-108</span></p>
+        <p><strong>影响：</strong>用户完成最后一个任务后立刻登出 → XP 不记录 → 成就可能不解锁 → 等级不提升</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          在 <code>handleLogout()</code> 中 <code>auth.logout()</code> 之前添加 <code>await flushGrowthToCloud()</code> 调用。需从 <code>useGrowthStore()</code> 解构 <code>flushGrowthToCloud</code>。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-P02 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-P02</span>
+        <span class="finding-title">task.ts 模块级 visibilitychange 监听器使用匿名函数</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>task.ts</code> 第 92 行在模块顶层使用匿名函数注册 <code>visibilitychange</code> 事件监听器，无法通过 <code>removeEventListener</code> 移除。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/stores/task.ts:91-94</span></p>
+        <p><strong>实际影响：</strong>低。登出时 <code>window.location.href = '/login'</code> 触发整页重载，监听器随页面销毁自然清理。但代码质量上不规范，且如果未来改为 SPA 路由登出则会产生泄漏。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          提取为具名函数引用，添加 <code>export function cleanupTaskListeners()</code> 导出函数（与 <code>clearOnTaskDone()</code> 类似），在 <code>handleLogout</code> 中调用。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-P03 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-P03</span>
+        <span class="finding-title">ToggleExtension 事件监听器使用匿名函数</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>ToggleExtension.ts</code> 在 <code>summary</code> 元素上使用匿名函数注册 <code>blur</code> 和 <code>keydown</code> 事件，无法显式移除。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/extensions/ToggleExtension.ts:105, 114</span></p>
+        <p><strong>实际影响：</strong>极低。这些监听器绑定在 Tiptap 编辑器内部的 DOM 元素上，当 <code>editor.destroy()</code> 执行时随 DOM 树一起销毁。但无法显式清理仍是不规范。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          提取为具名函数，在 extension 的 <code>destroy()</code> 回调中 <code>removeEventListener</code>。优先级低，可在下次编辑器重构时一并处理。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-P04 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-P04</span>
+        <span class="finding-title">auth store onAuthStateChange 订阅未显式取消</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>auth.ts</code> store 中 <code>unsubAuth</code> 变量保存了 <code>onAuthStateChange()</code> 返回的取消订阅函数，但该函数从未被调用。Supabase Auth 状态监听订阅在页面生命周期内持续存在。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/stores/auth.ts:25, 30-38</span></p>
+        <p><strong>实际影响：</strong>低。<code>if (!unsubAuth)</code> 守卫防止重复注册，且 <code>window.location.href</code> 整页重载会自然销毁订阅。但代码中存储了取消函数却从不使用，属于未完成的生命周期管理。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          在 Pinia store 的 <code>$dispose</code> 或 App.vue 的 <code>onUnmounted</code> 中调用 <code>unsubAuth?.()</code>。或在 <code>logout()</code> 函数中调用。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-P05 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-P05</span>
+        <span class="finding-title">MemoView deep watch 性能开销</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>MemoView.vue</code> 第 102 行对选中备忘录使用 <code>watch(..., { deep: true })</code>。备忘录 content 字段可能包含数 MB 的 HTML（含 base64 图片或富文本），deep watch 会递归遍历所有嵌套属性。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/views/MemoView.vue:102</span></p>
+        <p><strong>实际影响：</strong>低。该 watch 用于触发自动保存（800ms 防抖），功能上必要。但 deep watch 对大对象的性能开销是 O(n)，每次 content 变更都触发完整遍历。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          考虑改用 <code>watch(() => selectedMemo.value?.updated_at, ...)</code> 或在 content 变更时显式设置 dirty flag，避免 deep 遍历。需要同时监听 title/tags/pinned 等字段变更，可用多个浅 watch 替代。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-S01 -->
+    <div class="finding-card" data-severity="medium">
+      <div class="finding-header">
+        <span class="finding-id">R4-S01</span>
+        <span class="finding-title">console_sync_fix.js 硬编码用户 UUID 和 Supabase 凭据</span>
+        <span class="severity-badge medium">中风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong>项目根目录存在调试脚本 <code>console_sync_fix.js</code>，包含硬编码的用户 UUID（<code>7c9fd979-4f67-4931-ab1d-3a73ea63bbf3</code>）和 Supabase URL + anon key。该文件未被 <code>.gitignore</code> 排除，会推送到远程仓库。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">console_sync_fix.js:5-8</span></p>
+        <p><strong>影响：</strong>anon key 虽为公开密钥（RLS 保护），但硬编码用户 UUID 属于隐私泄露。该脚本直接操作 localStorage 和 Supabase REST API，存在被滥用的风险。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          删除 <code>console_sync_fix.js</code> 文件，或移至 <code>scripts/</code> 目录并添加到 <code>.gitignore</code>。同时检查 git 历史中是否已推送该文件。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-S02 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-S02</span>
+        <span class="finding-title">DOMPurify ADD_ATTR: ['*'] 配置过于宽松</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong>两处 DOMPurify 消毒配置使用 <code>ADD_ATTR: ['*']</code>（允许所有属性通过），虽然 <code>FORBID_ATTR: ['on*']</code> 阻止了事件处理器，DOMPurify 默认也会过滤 <code>javascript:</code> URL，但此配置过于宽松。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/components/MermaidNodeView.vue:109</span> · <span class="file-ref">src/components/RichTextEditor.vue:1316</span></p>
+        <p><strong>实际影响：</strong>低。双重防护（FORBID_ATTR + DOMPurify 默认行为）已阻止主要攻击向量。但允许所有属性通过不符合最小权限原则。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          移除 <code>ADD_ATTR: ['*']</code>，改为明确列出需要的属性（如 <code>['d', 'x', 'y', 'cx', 'cy', 'r', 'width', 'height', 'fill', 'stroke', 'transform', 'viewBox', 'class', 'id']</code>），或直接使用 DOMPurify 默认配置。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-S03 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-S03</span>
+        <span class="finding-title">Mermaid DOMPurify 允许 style 标签（CSS 注入风险）</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>MermaidNodeView.vue</code> 第 109 行的 DOMPurify <code>ADD_TAGS</code> 中包含 <code>'style'</code> 标签，允许在 SVG 中注入 CSS。虽然 Mermaid 的 sandbox 模式和 <code>FORBID_ATTR: ['on*']</code> 提供了防护，但 CSS 注入可能被用于 UI 伪装或数据泄露。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/components/MermaidNodeView.vue:109</span></p>
+        <p><strong>实际影响：</strong>低。此为 Mermaid 渲染的功能需求（图表样式需要 <code>&lt;style&gt;</code> 标签），且内容来自 Mermaid 引擎而非直接用户输入。风险可接受。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          保留当前配置（功能需求）。如需进一步加固，可考虑用 CSP <code>style-src</code> 限制内联样式来源，或对 <code>&lt;style&gt;</code> 内容做正则过滤（移除 <code>url()</code> 和 <code>@import</code>）。
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-S04 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-S04</span>
+        <span class="finding-title">markdownExport.ts toggleToMarkdown 未转义 summary</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong><code>markdownExport.ts</code> 第 162 行将 <code>data-summary</code> 属性值直接插入 <code>&lt;summary&gt;${summary}&lt;/summary&gt;</code>，未进行 HTML 转义。summary 通过 <code>textContent</code> 设置（输入安全），但导出时未转义可能导致结构破坏。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">src/utils/markdownExport.ts:162</span></p>
+        <p><strong>实际影响：</strong>极低。仅影响导出的 markdown 文件，不涉及应用内渲染。如果导出的 markdown 被重新导入渲染，理论上可能产生问题。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          添加 HTML 转义：<code>summary.replace(/&amp;/g,'&amp;amp;').replace(/&lt;/g,'&amp;lt;').replace(/&gt;/g,'&amp;gt;')</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- R4-S05 -->
+    <div class="finding-card" data-severity="low">
+      <div class="finding-header">
+        <span class="finding-id">R4-S05</span>
+        <span class="finding-title">CSP wasm-unsafe-eval 可能不需要</span>
+        <span class="severity-badge low">低风险</span>
+      </div>
+      <div class="finding-body">
+        <p><strong>问题描述：</strong>CSP 策略中包含 <code>'wasm-unsafe-eval'</code>，但源码中无 <code>WebAssembly</code> 或 <code>wasm</code> 直接引用。<code>node_modules</code> 中仅 <code>source-map/lib/mappings.wasm</code> 为构建依赖（非运行时）。</p>
+        <p><strong>文件位置：</strong><span class="file-ref">index.html:7</span></p>
+        <p><strong>实际影响：</strong>低。<code>wasm-unsafe-eval</code> 仅允许 WebAssembly 编译，不允许 <code>eval()</code>。但移除可减少攻击面。</p>
+        <div class="fix-suggestion">
+          <span class="label">修复建议</span>
+          尝试移除 <code>'wasm-unsafe-eval'</code>，执行 <code>npx vite build</code> + 生产环境功能测试。如果一切正常则永久移除；如果某些依赖在运行时需要它，再保留。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passed Items -->
+  <div class="section">
+    <h2 class="section-title">已通过检查项 <span class="badge">55 项</span></h2>
+
+    <h3 style="font-size:15px; color:var(--text-muted); margin-bottom:12px; margin-top:24px;">认证与数据安全 (18 项)</h3>
+    <div class="passed-list">
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>JWT 正确缓存 (<code>setCachedAccessToken</code>) 并在登出时清除</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>路由守卫阻止未认证访问</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>登出使用 <code>window.location.href</code> 强制页面重载，清空所有状态</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>LoginView 使用 <code>load(true)</code> 强制重载所有 store</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>所有 Supabase 查询通过 <code>buildHeaders()</code> 使用 JWT Bearer token</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>用户 ID 从 JWT 获取 (<code>currentUserId</code>)，非客户端传入</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>所有 DELETE 操作包含 <code>user_id</code> 条件（纵深防御）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>跨用户数据残留风险已消除（页面重载 + force reload）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>Supabase URL/Key 从环境变量读取（R2-S01 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>AI API Key 使用 AES-GCM 加密存储（S-05 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>localStorage key 动态推导 projectRef（R3-S01 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>safeJsonParse</code> 防护畸形 JSON 数据</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>PostgREST 参数使用 <code>encodeURIComponent</code></div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>RPC XP 验证使用 SECURITY DEFINER + <code>auth.uid()</code></div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>文件上传 MIME 白名单（19 种安全类型）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>Storage 路径使用 <code>crypto.randomUUID()</code>（122 bits 熵值）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>所有 API 调用使用 HTTPS（CSP connect-src 限制）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>跨标签页登出同步（BroadcastChannel broadcast 'logout'）</div>
+    </div>
+
+    <h3 style="font-size:15px; color:var(--text-muted); margin-bottom:12px; margin-top:24px;">前端 XSS / DOM 安全 (15 项)</h3>
+    <div class="passed-list">
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> AiChat — DOMPurify.sanitize(marked.parse()) ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> H5Layout — 静态 SVG 图标字符串 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> AppSidebar — DOMPurify.sanitize(marked.parse(readme)) ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> ConfirmDialog — DOMPurify.sanitize() + HTML escape fallback ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> ReportsView — DOMPurify.sanitize() ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> MermaidNodeView — DOMPurify.sanitize(svg, ADD_TAGS, FORBID_TAGS:script) ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> TaskDetailModal — DOMPurify.sanitize(marked.parse()) ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>v-html</code> TaskEditModal — DOMPurify.sanitize(marked.parse()) ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>无 <code>eval()</code> 或 <code>new Function()</code> 使用</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>无 <code>document.write()</code> 或 <code>insertAdjacentHTML()</code></div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>Link URL 白名单验证（http/https/mailto/tel）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span><code>target="_blank"</code> 链接包含 <code>rel="noopener noreferrer"</code></div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>DiagView 敏感 localStorage 键脱敏（前 10 字符 + MASKED）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>错误消息脱敏（<code>.slice(0,200).replace(/[&lt;&gt;"']/g,'')</code>）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>CSP 策略完备（default-src 'self'，connect-src 'self' https:）</div>
+    </div>
+
+    <h3 style="font-size:15px; color:var(--text-muted); margin-bottom:12px; margin-top:24px;">性能与内存 (22 项)</h3>
+    <div class="passed-list">
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>App.vue keydown 监听器 onUnmounted 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>AppSidebar keydown 监听器 onBeforeUnmount 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>BackToTop scroll 监听器 onBeforeUnmount 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>MermaidNodeView resize 监听器 stopResize + onBeforeUnmount 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>MemoView 所有监听器 onBeforeUnmount 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>ReportPoster keydown 监听器 onUnmounted 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>RichTextEditor 所有监听器 onBeforeUnmount 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>DragHandle destroy() 回调清理监听器 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>SlashCommand __cleanup 清理监听器 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>EmojiExtension __cleanup 清理监听器 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>DoubleBracketLinker __cleanup 清理监听器 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>memoStorage 具名函数 + cleanupMemoStorage 清理（R3-P01 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>useTheme mediaQuery onUnmounted 清理（R3-P05 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>LoginView clockTimer onUnmounted 清理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>growthStorage syncTimer 防抖管理（clearTimeout）✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>task.ts writeTimer + retryTimer 防抖管理 ✓</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>AI 消息上限 MAX_AI_MESSAGES = 200 + 自动裁剪</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>所有 Supabase 查询有 limit 参数（R3-P09 修复确认）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>Vendor chunks 合理拆分（supabase/markdown/lunar/vue/prosemirror/tiptap）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>异步组件加载（AppSidebar/XpToast）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>DOMPurify 动态 import（不在入口 chunk）</div>
+      <div class="passed-item"><span class="check"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg></span>Mermaid/Mindmap 动态 import + 防抖渲染</div>
+    </div>
+  </div>
+
+  <!-- Fix Recommendations -->
+  <div class="section">
+    <h2 class="section-title">修复建议 <span class="badge">按优先级</span></h2>
+
+    <div class="rec-card p1">
+      <div class="rec-title">P1：R4-P01 — 登出时刷入 Growth 数据</div>
+      <div class="rec-desc">
+        在 <code>App.vue</code> <code>handleLogout()</code> 中添加 <code>growthStore.flushGrowthToCloud()</code> 调用。
+        改动量：3 行代码。影响范围：仅登出流程。风险：极低。
+      </div>
+    </div>
+
+    <div class="rec-card p1">
+      <div class="rec-title">P1：R4-S01 — 删除 console_sync_fix.js 调试脚本</div>
+      <div class="rec-desc">
+        删除 <code>console_sync_fix.js</code> 文件（含硬编码用户 UUID 和 Supabase 凭据）。检查 git 历史中是否已推送，如已推送需评估是否需要轮换 anon key。
+        改动量：删除 1 个文件。风险：无（文件不参与构建）。
+      </div>
+    </div>
+
+    <div class="rec-card p2">
+      <div class="rec-title">P2：R4-P02 — task.ts visibilitychange 具名函数化</div>
+      <div class="rec-desc">
+        提取匿名函数为具名引用，新增 <code>cleanupTaskListeners()</code> 导出。在 handleLogout 中调用。
+        防御性改进，当前因页面重载而无实际泄漏。
+      </div>
+    </div>
+
+    <div class="rec-card p2">
+      <div class="rec-title">P2：R4-P04 — auth store 订阅显式取消</div>
+      <div class="rec-desc">
+        在 <code>logout()</code> 中调用 <code>unsubAuth?.()</code> 并置 null。
+        完善生命周期管理，当前因页面重载而无实际泄漏。
+      </div>
+    </div>
+
+    <div class="rec-card p2">
+      <div class="rec-title">P2：R4-S02 — 收紧 DOMPurify ADD_ATTR 配置</div>
+      <div class="rec-desc">
+        移除 <code>ADD_ATTR: ['*']</code>，改用 DOMPurify 默认配置或明确列出需要的属性。
+        涉及 2 个文件：MermaidNodeView.vue:109、RichTextEditor.vue:1316。
+      </div>
+    </div>
+
+    <div class="rec-card p2">
+      <div class="rec-title">P2：R4-S05 — 尝试移除 CSP wasm-unsafe-eval</div>
+      <div class="rec-desc">
+        移除 <code>'wasm-unsafe-eval'</code>，构建 + 功能测试。如无运行时依赖则永久移除。
+      </div>
+    </div>
+
+    <div class="rec-card p3">
+      <div class="rec-title">P3：R4-P03 — ToggleExtension 监听器规范化</div>
+      <div class="rec-desc">
+        提取为具名函数，在 destroy() 回调中清理。优先级最低，可在下次编辑器重构时处理。
+      </div>
+    </div>
+
+    <div class="rec-card p3">
+      <div class="rec-title">P3：R4-P05 — MemoView deep watch 优化</div>
+      <div class="rec-desc">
+        考虑用多个浅 watch 替代 deep watch，或用 dirty flag 模式。需要功能验证，不建议在当前版本改动。
+      </div>
+    </div>
+
+    <div class="rec-card p3">
+      <div class="rec-title">P3：R4-S03 — Mermaid style 标签（保留）</div>
+      <div class="rec-desc">
+        当前为 Mermaid 渲染功能需求，风险可接受。如需加固可对 <code>&lt;style&gt;</code> 内容做正则过滤。
+      </div>
+    </div>
+
+    <div class="rec-card p3">
+      <div class="rec-title">P3：R4-S04 — markdownExport summary 转义</div>
+      <div class="rec-desc">
+        添加 HTML 转义。极低风险，可在下次导出功能更新时一并处理。
+      </div>
+    </div>
+  </div>
+
+  <!-- Previous Round Pending Items -->
+  <div class="section">
+    <h2 class="section-title">前三轮暂缓项状态 <span class="badge">4 项</span></h2>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>编号</th>
+          <th>问题</th>
+          <th>来源轮次</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>R3-P03</code></td>
+          <td>select= 限制返回字段（memos 列表返回完整 content）</td>
+          <td>第三轮</td>
+          <td style="color: var(--text-dim);">暂缓 — 需架构重构</td>
+        </tr>
+        <tr>
+          <td><code>R3-P06</code></td>
+          <td>多个短时 setTimeout 未清理</td>
+          <td>第三轮</td>
+          <td style="color: var(--text-dim);">暂缓 — 风险极低</td>
+        </tr>
+        <tr>
+          <td><code>R3-P08</code></td>
+          <td>memoStore.reorderMemo 逐条 upsert (N+1)</td>
+          <td>第三轮</td>
+          <td style="color: var(--text-dim);">暂缓 — 需批量 RPC</td>
+        </tr>
+        <tr>
+          <td><code>R3-S02</code></td>
+          <td>hybrid.ts ~500 行离线架构死代码</td>
+          <td>第三轮</td>
+          <td style="color: var(--text-dim);">保留备查</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>CleanNotes v1.3.0 — 第四轮安全与性能审计报告</p>
+  <p>生成时间：2026-07-11 15:30 | 审计方法：3 并行 Explore Agent + 手动逐文件验证（~120 源文件）</p>
+</div>
+
+<script>
+function filterFindings(severity) {
+  const cards = document.querySelectorAll('.finding-card');
+  const btns = document.querySelectorAll('.filter-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  cards.forEach(card => {
+    if (severity === 'all' || card.dataset.severity === severity) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+</script>
+
+</body>
+</html>
