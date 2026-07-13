@@ -4,6 +4,7 @@
 - 技术栈：Vue 3 + TypeScript + Pinia + TailwindCSS v4 + Tiptap + Supabase
 - 主项目路径：`D:\CleanNotepad\v1.3.0\`
 - 部署：dist 挂 IIS，`robocopy dist prod /E /XD .git`（**禁止 /MIR**，prod 有独立 .git）
+- 构建：每次 `vite build` 完成后，**自动将 dist 同步到 `D:\CleanNotepad-Prod\v1.3.0\`**（robocopy），无需用户提醒
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
 - Git：`https://github.com/shzalen/cleannotes.git`（prod: `cleannotes-prod`）
 
