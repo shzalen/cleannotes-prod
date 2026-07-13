@@ -49,7 +49,12 @@
 - RLS: 公开读取 + `auth.uid()` 隔离写入/删除
 - MIME 白名单：19 种安全类型
 
-## 功能测试与修复（2026-07-13）
+## 生产环境排查（2026-07-13）
+- GitHub Pages 部署报错 `toLocalDate is not defined`：根因为 `TaskHeatmap.vue` 使用 `toLocalDate` 未导入，Vite 打包后运行时变量未定义。已修复。
+- AI 配置保存报错 `Unexpected end of JSON input`：根因为 `supabase.ts` 的 `request()` 直接 `res.json()`，当返回空 body 时解析失败。已改为 `res.text()` + `JSON.parse()`，空 body 返回 `null`。
+- `ai.ts` 错误提示已区分：Web Crypto 不可用 / 存储网络错误 / 加密失败。
+- 新增教训：Vite 打包不会自动提示未导入的函数，需定期用静态检查或 IDE 标红；`return=minimal` 不保证一定是 204。主仓库 commit 57bc7f8。
+
 - 静态测试报告：`v1.3.0-functional-test-report-2026-07-13.html`（29 项缺陷，全部修复）
 - 交互测试报告：`v1.3.0-interactive-test-report.html`（47 用例，44 通过/1 P0 已修复/2 需真机验证）
 - **交互测试 P0 Bug（已修复）**：H5Settings.vue `const { h5Confirm } = useH5Dialog()` 解构错误 → h5Confirm undefined → onLogout 静默失败。改为 `import { h5Confirm } from useH5Dialog`（与 H5TaskEdit/H5TodoList 一致）
