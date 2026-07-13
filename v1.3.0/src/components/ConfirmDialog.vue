@@ -52,8 +52,13 @@ const sanitizedMessage = computed(() => {
   const msg = props.message || ''
   if (!msg) return ''
   if (dompurifyModule) return dompurifyModule.sanitize(msg)
-  // Fallback: basic HTML escape while DOMPurify loads
-  return msg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // Fallback: full HTML escape while DOMPurify loads (P2-09: include quotes)
+  return msg
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 })
 
 const btnClass = {

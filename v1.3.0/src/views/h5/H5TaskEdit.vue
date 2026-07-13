@@ -139,6 +139,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { Task, TaskStatus, TaskPriority } from '@/types'
 import { useH5Data } from '@/composables/useH5Data'
+import { h5Confirm } from '@/composables/useH5Dialog'
 
 const router = useRouter()
 const route = useRoute()
@@ -233,7 +234,8 @@ async function onSave() {
 
 async function onDelete() {
   if (!task.value || saving.value) return
-  if (!confirm('确定删除此任务？')) return
+  const confirmed = await h5Confirm('确定删除此任务？', '删除任务')
+  if (!confirmed) return
 
   saving.value = true
   try {

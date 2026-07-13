@@ -5,12 +5,12 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
-// 响应式时间源，每秒更新
+// 响应式时间源，每分钟更新（P3-02: 秒级精度无必要，改为 60s 降低 CPU 开销）
 const now = ref(new Date())
 let timer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
-  timer = setInterval(() => { now.value = new Date() }, 1000)
+  timer = setInterval(() => { now.value = new Date() }, 60000)
 })
 onUnmounted(() => {
   if (timer) clearInterval(timer)

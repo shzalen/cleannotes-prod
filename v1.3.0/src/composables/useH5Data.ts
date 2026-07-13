@@ -5,8 +5,12 @@
 import { ref } from 'vue'
 import type { Task, TodoItem, TaskStatus, TaskPriority } from '@/types'
 import { supabaseAdapter, supabaseGetTodos, supabaseUpsertTodo, supabaseDeleteTodoById } from '@/services/supabase'
+import { broadcastChange } from '@/services/crossTabSync'
+import { useGrowthStore } from '@/stores/growth'
+import { useTaskStore } from '@/stores/task'
 
 function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
@@ -31,10 +35,12 @@ export function useH5Data() {
 
   async function saveTask(task: Task): Promise<void> {
     await supabaseAdapter.upsertTask(task)
+    broadcastChange('tasks-updated')
   }
 
   async function removeTask(id: string): Promise<void> {
     await supabaseAdapter.deleteTaskById(id)
+    broadcastChange('tasks-updated')
   }
 
   async function toggleTaskStatus(task: Task): Promise<Task> {
@@ -59,6 +65,36 @@ export function useH5Data() {
       updatedAt: now,
     } as Task
     await saveTask(updated)
+
+    // P0-04: Trigger growth system XP calculation when task is completed
+    if (newStatus === 'done' && task.status !== 'done') {
+      try {
+        const growthStore = useGrowthStore()
+        const taskStore = useTaskStore()
+        // Sync the task into taskStore so growth context can find it
+        const existingIdx = taskStore.tasks.findIndex(t => t.id === task.id)
+        if (existingIdx >= 0) {
+          Object.assign(taskStore.tasks[existingIdx], updated)
+        } else {
+          taskStore.tasks.push(updated)
+        }
+        const xpResult = growthStore.calculateXp(updated, growthStore.streakDays)
+        growthStore.applyXp(xpResult, updated.id)
+        const ctx = growthStore.buildAchievementContext(taskStore.tasks)
+        const unlocked = growthStore.checkAchievements(ctx)
+        if (unlocked.length > 0) {
+          for (const id of unlocked) {
+            const def = growthStore.ACHIEVEMENTS.find(a => a.id === id)
+            if (def) growthStore.showAchievementToast(def.name)
+          }
+        }
+      } catch (e) {
+        console.error('[H5] Growth integration error:', e)
+      }
+    }
+
+    // P0-06: Broadcast cross-tab sync
+    broadcastChange('tasks-updated')
     return updated
   }
 
@@ -139,11 +175,13 @@ export function useH5Data() {
       updatedAt: now,
     }
     await supabaseUpsertTodo(todo)
+    broadcastChange('todos-updated')
     return todo
   }
 
   async function removeTodo(id: string): Promise<void> {
     await supabaseDeleteTodoById(id)
+    broadcastChange('todos-updated')
   }
 
   /** 将待办转为任务 */
@@ -164,6 +202,8 @@ export function useH5Data() {
     }
     await supabaseUpsertTodo(updated)
 
+    broadcastChange('tasks-updated')
+    broadcastChange('todos-updated')
     return task
   }
 

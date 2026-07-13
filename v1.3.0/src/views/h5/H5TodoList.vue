@@ -83,6 +83,7 @@ import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import type { TodoItem } from '@/types'
 import { useH5Data } from '@/composables/useH5Data'
+import { h5Confirm, h5Alert } from '@/composables/useH5Dialog'
 
 const router = useRouter()
 const { loading, fetchTodos, removeTodo, convertTodoToTask } = useH5Data()
@@ -109,7 +110,8 @@ async function loadData() {
 
 async function onConvert(todo: TodoItem) {
   if (converting.value) return
-  if (!confirm(`将「${todo.title}」转为任务？`)) return
+  const confirmed = await h5Confirm(`将「${todo.title}」转为任务？`, '转任务')
+  if (!confirmed) return
 
   converting.value = true
   try {
@@ -118,21 +120,22 @@ async function onConvert(todo: TodoItem) {
     todos.value = todos.value.filter(t => t.id !== todo.id)
   } catch (e) {
     console.error('convert failed', e)
-    alert('转换失败，请重试')
+    await h5Alert('转换失败，请重试', '错误')
   } finally {
     converting.value = false
   }
 }
 
 async function onDelete(todo: TodoItem) {
-  if (!confirm(`确定删除「${todo.title}」？`)) return
+  const confirmed = await h5Confirm(`确定删除「${todo.title}」？`, '删除待办')
+  if (!confirmed) return
 
   try {
     await removeTodo(todo.id)
     todos.value = todos.value.filter(t => t.id !== todo.id)
   } catch (e) {
     console.error('delete failed', e)
-    alert('删除失败，请重试')
+    await h5Alert('删除失败，请重试', '错误')
   }
 }
 

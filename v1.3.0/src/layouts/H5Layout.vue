@@ -25,14 +25,29 @@
         <span class="h5-tab-label">{{ tab.label }}</span>
       </router-link>
     </nav>
+
+    <!-- P1-05: Unified confirm/alert dialog for H5 views -->
+    <ConfirmDialog
+      :visible="dialogState.visible"
+      :title="dialogState.title"
+      :message="dialogState.message"
+      :confirm-text="dialogState.confirmText"
+      :cancel-text="dialogState.cancelText || undefined"
+      :type="dialogState.type"
+      @confirm="onConfirm"
+      @cancel="onCancel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import { useH5Dialog } from '@/composables/useH5Dialog'
 
 const route = useRoute()
+const { state: dialogState, onConfirm, onCancel } = useH5Dialog()
 
 const tabs = [
   {

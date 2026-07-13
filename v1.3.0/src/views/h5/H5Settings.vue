@@ -78,6 +78,7 @@ import type { ThemeMode } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { setForcePC } from '@/utils/device'
+import { h5Confirm } from '@/composables/useH5Dialog'
 
 const { mode, setTheme } = useTheme()
 const auth = useAuthStore()
@@ -99,8 +100,9 @@ function goPC() {
   router.push('/')
 }
 
-function onLogout() {
-  if (!confirm('确定退出登录？')) return
+async function onLogout() {
+  const confirmed = await h5Confirm('确定退出登录？', '退出登录')
+  if (!confirmed) return
   auth.logout()
   router.push('/login')
 }

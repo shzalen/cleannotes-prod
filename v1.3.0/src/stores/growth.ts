@@ -12,6 +12,7 @@ import { toUTCISO, toLocalDate } from '@/utils/time'
 import { broadcastChange } from '@/services/crossTabSync'
 
 function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
@@ -291,51 +292,50 @@ export const useGrowthStore = defineStore('growth', () => {
     tasks: { status: string; priority: string; dueDate: string | null; completedAt: string | null; createdAt: string }[],
     _deletedCount?: number,
   ): AchievementContext {
-    const doneTasks = tasks.filter(t => t.status === 'done')
-    const todayDoneTasks = doneTasks.filter(t => t.completedAt && isToday(t.completedAt))
-    const todayAllTasks = tasks.filter(t => {
-      const createdOnDay = t.createdAt.startsWith(todayStr())
-      const createdBeforeAndUndone = t.createdAt.slice(0, 10) < todayStr() && t.status !== 'done'
+    // P2-01: 单次遍历替代多次 filter
+    const today = todayStr()
+    let totalDone = 0
+    let todayDone = 0
+    let todayAll = 0
+    let nightDone = 0
+    let deadlineDone = 0
+
+    for (const t of tasks) {
+      const isDone = t.status === 'done'
+      if (isDone) {
+        totalDone++
+        if (t.completedAt) {
+          if (isToday(t.completedAt)) {
+            todayDone++
+          }
+          const hour = new Date(t.completedAt).getHours()
+          if (hour < 6) nightDone++
+          if (t.dueDate && t.dueDate.startsWith(t.completedAt.slice(0, 10))) {
+            deadlineDone++
+          }
+        }
+      }
+      const createdOnDay = t.createdAt.startsWith(today)
+      const createdBeforeAndUndone = t.createdAt.slice(0, 10) < today && !isDone
       const completedOnDay = t.completedAt != null && isToday(t.completedAt)
-      return createdOnDay || createdBeforeAndUndone || completedOnDay
-    })
+      if (createdOnDay || createdBeforeAndUndone || completedOnDay) {
+        todayAll++
+      }
+    }
 
-    // 凌晨完成数
-    const nightDone = doneTasks.filter(t => {
-      if (!t.completedAt) return false
-      const hour = new Date(t.completedAt).getHours()
-      return hour < 6
-    }).length
-
-    // 截止日当天完成数
-    const deadlineDone = doneTasks.filter(t => {
-      if (!t.dueDate || !t.completedAt) return false
-      return t.dueDate.startsWith(t.completedAt.slice(0, 10))
-    }).length
-
-    // 单日完成率
-    const dailyDone = todayDoneTasks.length
-    const dailyRate = todayAllTasks.length > 0
-      ? Math.round((dailyDone / todayAllTasks.length) * 100)
-      : 0
-
-    // 枯木逢春：倦意态后连续3天完成
-    const witheredThenRevive = state.value.dailyState === 'recovery' && state.value.streakDays >= 3
-
-    // 星河入梦：连续3天凌晨完成
-    const nightStreak3 = checkNightStreak3()
+    const dailyRate = todayAll > 0 ? Math.round((todayDone / todayAll) * 100) : 0
 
     return {
-      totalDone: doneTasks.length,
+      totalDone,
       maxStreak: state.value.maxStreakDays,
       streakDays: state.value.streakDays,
       nightDone,
       deadlineDone,
-      dailyDone,
+      dailyDone: todayDone,
       dailyRate,
-      witheredThenRevive,
+      witheredThenRevive: state.value.dailyState === 'recovery' && state.value.streakDays >= 3,
       deleteThenCreate: false,
-      nightStreak3,
+      nightStreak3: checkNightStreak3(),
     }
   }
 

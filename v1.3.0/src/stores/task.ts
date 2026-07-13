@@ -7,6 +7,7 @@ import { broadcastChange } from '@/services/crossTabSync'
 import { clearLastSyncAt } from '@/services/syncState'
 
 function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
@@ -111,6 +112,7 @@ export function formatDuration(task: Task): string | null {
   const end = task.completedAt
     ? new Date(task.completedAt).getTime()
     : Date.now()
+  if (isNaN(start) || isNaN(end)) return null
   const seconds = Math.floor((end - start) / 1000)
   if (seconds <= 0) return null
   if (seconds < 60) return `${seconds}秒`
@@ -131,7 +133,9 @@ export const useTaskStore = defineStore('task', () => {
   let loadPromise: Promise<void> | null = null
 
   // P-10: Debounce rapid reload() calls (e.g., from multiple cross-tab sync events)
+  // P1-04: Fix Promise leak — cache a single Deferred and resolve all waiters
   let reloadTimer: ReturnType<typeof setTimeout> | null = null
+  let reloadWaiters: (() => void)[] = []
   const RELOAD_DEBOUNCE_MS = 300
 
   // ---- 重新激活确认 ----
@@ -189,15 +193,22 @@ export const useTaskStore = defineStore('task', () => {
 
   /** 重新加载（绕过 loaded 守卫，强制全量同步）— P-10: debounce 300ms */
   async function reload() {
-    // P-10: Debounce rapid reload calls from cross-tab sync
-    if (reloadTimer) clearTimeout(reloadTimer)
+    // P1-04: Collect all resolvers and resolve them all after the debounced reload completes
     return new Promise<void>((resolve) => {
+      reloadWaiters.push(resolve)
+      if (reloadTimer) clearTimeout(reloadTimer)
       reloadTimer = setTimeout(async () => {
         reloadTimer = null
         loaded.value = false
         loadPromise = null
-        await load(true)
-        resolve()
+        try {
+          await load(true)
+        } finally {
+          // Resolve all waiting callers regardless of success/failure
+          const waiters = reloadWaiters
+          reloadWaiters = []
+          waiters.forEach(fn => fn())
+        }
       }, RELOAD_DEBOUNCE_MS)
     })
   }
@@ -312,10 +323,10 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   /** 将任务移入回收站（已完成任务不允许删除，由调用方判断） */
-  function deleteTask(id: string) {
+  function deleteTask(id: string): boolean {
     const task = tasks.value.find(t => t.id === id)
-    if (!task) return
-    if (task.status === 'done') return
+    if (!task) return false
+    if (task.status === 'done') return false
 
     const deletedTask: DeletedTask = {
       ...task,
@@ -330,6 +341,7 @@ export const useTaskStore = defineStore('task', () => {
     const storage = getStorage()
     storage.deleteTaskById(id).catch(() => {})
     broadcastChange('tasks-updated')
+    return true
   }
 
   function toggleStatus(id: string) {

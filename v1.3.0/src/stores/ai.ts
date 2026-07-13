@@ -6,8 +6,10 @@ import { getStorage } from '@/services/storage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
 import { encryptString, decryptString } from '@/utils/crypto'
 import { getCurrentUserIdSync } from '@/services/supabaseClient'
+import { buildChatUrl } from '@/utils/ai'
 
 function genId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
@@ -125,10 +127,16 @@ export const useAiStore = defineStore('ai', () => {
   async function persistConfig() {
     const storage = getStorage()
     // S-05: Encrypt API key before storing
+    // P0-05: If encryption fails, block plaintext storage and alert user
     const userId = getCurrentUserIdSync()
     if (userId && config.value.apiKey) {
-      const encryptedKey = await encryptString(config.value.apiKey, userId)
-      await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
+      try {
+        const encryptedKey = await encryptString(config.value.apiKey, userId)
+        await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
+      } catch (e) {
+        console.error('[AI] Failed to encrypt API key:', e)
+        throw new Error('API Key 加密失败，无法安全保存。请确认浏览器支持 Web Crypto API 且在 HTTPS 环境下运行。')
+      }
     } else {
       await storage.saveAiConfig(config.value)
     }
@@ -155,18 +163,16 @@ export const useAiStore = defineStore('ai', () => {
     if (messages.value.length > MAX_AI_MESSAGES) {
       const removed = messages.value.splice(0, messages.value.length - MAX_AI_MESSAGES)
       const storage = getStorage()
-      for (const m of removed) {
-        storage.deleteAiMessageById(m.id).catch(() => {})
+      // P2-04: Use batch delete if available, otherwise fall back to individual deletes
+      const ids = removed.map(m => m.id)
+      if (storage.deleteAiMessagesByIds) {
+        storage.deleteAiMessagesByIds(ids).catch(() => {})
+      } else {
+        for (const m of removed) {
+          storage.deleteAiMessageById(m.id).catch(() => {})
+        }
       }
     }
-  }
-
-  function buildChatUrl(input: string): string {
-    const url = input.trim()
-    if (url.includes('/chat/completions')) return url
-    const base = url.replace(/\/+$/, '')
-    if (base.endsWith('/v1')) return base + '/chat/completions'
-    return base + '/v1/chat/completions'
   }
 
   // ---- P0: Task context awareness ----
@@ -370,7 +376,7 @@ export const useAiStore = defineStore('ai', () => {
           // Try to resolve task ID for better display
           const taskId = args.taskId
           if (taskId) {
-            const task = taskStore.tasks.find(t => t.id.startsWith(taskId) || t.id === taskId)
+            const task = taskStore.tasks.find(t => t.id === taskId)
             if (task) {
               args.taskId = task.id // normalize to full ID
               // Enrich description with task title
@@ -454,6 +460,7 @@ export const useAiStore = defineStore('ai', () => {
   // ---- Main send function with streaming ----
 
   async function send(content: string) {
+    if (loading.value) return
     addUserMessage(content)
     loading.value = true
 

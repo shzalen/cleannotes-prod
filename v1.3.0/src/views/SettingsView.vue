@@ -34,6 +34,7 @@ const aiApiKey = ref('')
 const aiModel = ref('')
 const aiSaved = ref(false)
 const showApiKey = ref(false)
+const aiError = ref('')
 
 const displayEmail = computed(() => {
   const e = auth.user?.email || ''
@@ -101,12 +102,17 @@ async function saveNickname() {
 }
 
 async function saveAiConfig() {
+  aiError.value = ''
   aiStore.config.apiUrl = aiApiUrl.value.trim()
   aiStore.config.apiKey = aiApiKey.value.trim()
   aiStore.config.model = aiModel.value.trim()
-  await aiStore.persistConfig()
-  aiSaved.value = true
-  setTimeout(() => aiSaved.value = false, 2000)
+  try {
+    await aiStore.persistConfig()
+    aiSaved.value = true
+    setTimeout(() => aiSaved.value = false, 2000)
+  } catch (e) {
+    aiError.value = e instanceof Error ? e.message : '保存失败'
+  }
 }
 </script>
 
@@ -312,6 +318,21 @@ async function saveAiConfig() {
               </svg>
               <span>支持 OpenAI 兼容格式的 API（如 DeepSeek、通义千问等）。可填写基础地址或完整地址，系统会自动补全接口路径。</span>
             </div>
+            <!-- P1-08: Encryption scope notice -->
+            <div class="ai-hint ai-hint-security">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span>API Key 采用客户端 AES-GCM 加密存储，可防御数据库单独泄露。如设备或客户端代码同时泄露，加密可能被破解。</span>
+            </div>
+            <!-- P2-05: AI privacy notice -->
+            <div class="ai-hint ai-hint-privacy">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <span>使用 AI 助手时，您的任务标题、状态、优先级等信息将作为上下文发送给 AI 服务提供商。请勿在任务中包含敏感信息。</span>
+            </div>
+            <div v-if="aiError" class="pw-error">{{ aiError }}</div>
             <button class="btn-primary" @click="saveAiConfig">
               {{ aiSaved ? '已保存' : '保存' }}
             </button>

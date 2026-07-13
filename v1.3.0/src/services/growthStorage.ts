@@ -134,16 +134,29 @@ let visRegistered = false
 /** DEF-03 fix: Flush growth data when the tab is hidden/closed */
 function onVisibilityChange() {
   if (document.visibilityState === 'hidden') {
-    // Fire-and-forget — the page may close before the request completes,
-    // but navigator.sendBeacon is not practical for Supabase REST calls.
-    // The 2s debounce already covers most cases; this is best-effort.
     void flushGrowthToCloud()
+  }
+}
+
+/** P1-01: Flush on page unload — use sendBeacon fallback for fire-and-forget */
+function onBeforeUnload() {
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+  }
+  // Best-effort: fire the request without waiting
+  // navigator.sendBeacon doesn't support auth headers, so use fetch with keepalive
+  try {
+    void flushGrowthToCloud()
+  } catch {
+    // Page is closing, nothing more we can do
   }
 }
 
 function ensureVisibilityListener() {
   if (!visRegistered) {
     document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('beforeunload', onBeforeUnload)
     visRegistered = true
   }
 }
@@ -175,6 +188,7 @@ export async function flushGrowthToCloud(): Promise<void> {
 export function cleanupGrowthStorage() {
   if (visRegistered) {
     document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('beforeunload', onBeforeUnload)
     visRegistered = false
   }
   if (syncTimer) {
