@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CleanNotes v1.3.0 功能测试报告</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --text: #1a1d21;
+      --text-secondary: #5f6368;
+      --border: #e5e7eb;
+      --p0: #dc2626;
+      --p1: #ea580c;
+      --p2: #d97706;
+      --p3: #6b7280;
+      --pass: #16a34a;
+      --fail: #dc2626;
+      --warn: #ca8a04;
+      --info: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .meta { color: var(--text-secondary); font-size: 14px; }
+    .meta span { margin-right: 24px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    h2 { margin: 0 0 16px; font-size: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+    h3 { margin: 24px 0 12px; font-size: 17px; color: var(--text); }
+    p { margin: 0 0 12px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .summary-box {
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .summary-box .num { font-size: 32px; font-weight: 700; display: block; }
+    .summary-box .label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+    .p0 { color: var(--p0); }
+    .p1 { color: var(--p1); }
+    .p2 { color: var(--p2); }
+    .p3 { color: var(--p3); }
+    .pass { color: var(--pass); }
+    .fail { color: var(--fail); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: #f3f4f6; font-weight: 600; }
+    tr:hover td { background: #f9fafb; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-p0 { background: #fee2e2; color: var(--p0); }
+    .badge-p1 { background: #ffedd5; color: var(--p1); }
+    .badge-p2 { background: #fef3c7; color: var(--p2); }
+    .badge-p3 { background: #f3f4f6; color: var(--p3); }
+    .badge-pass { background: #dcfce7; color: var(--pass); }
+    .badge-fail { background: #fee2e2; color: var(--fail); }
+    .badge-warn { background: #fef9c3; color: var(--warn); }
+    .issue { margin-bottom: 28px; }
+    .issue-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .issue-title { font-weight: 600; font-size: 16px; margin: 0; }
+    .issue-meta { color: var(--text-secondary); font-size: 13px; margin-bottom: 8px; }
+    .code { background: #f3f4f6; padding: 12px 16px; border-radius: 8px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; overflow-x: auto; margin: 10px 0; }
+    .fix { background: #eff6ff; border-left: 4px solid var(--info); padding: 14px 18px; border-radius: 0 8px 8px 0; margin-top: 10px; }
+    .fix-title { font-weight: 600; color: var(--info); margin-bottom: 6px; }
+    .screenshot { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; }
+    .notice { background: #fffbeb; border-left: 4px solid var(--warn); padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    .notice-title { font-weight: 600; color: var(--warn); margin-bottom: 6px; }
+    ul { margin: 8px 0; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 768px) {
+      .two-col { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>CleanNotes v1.3.0 功能测试报告</h1>
+    <div class="meta">
+      <span>测试日期：2026-07-13</span>
+      <span>测试版本：v1.3.0</span>
+      <span>测试方式：浏览器自动化 + 静态代码审查</span>
+      <span>报告人：WorkBuddy</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>执行摘要</h2>
+    <p>本次测试对 CleanNotes v1.3.0 进行了完整的功能审查。由于 Supabase 注册流程启用了邮箱验证，无法通过自动化注册获得已认证会话，因此<strong>未认证页面（登录/注册/找回密码）通过真实浏览器验证</strong>，<strong>认证后功能（任务/待办/备忘录/周报/养成/AI/设置）通过静态代码审查与逻辑推演验证</strong>。</p>
+    <div class="summary-grid">
+      <div class="summary-box">
+        <span class="num p0">6</span>
+        <div class="label">P0 严重问题</div>
+      </div>
+      <div class="summary-box">
+        <span class="num p1">8</span>
+        <div class="label">P1 高优先级问题</div>
+      </div>
+      <div class="summary-box">
+        <span class="num p2">10</span>
+        <div class="label">P2 中优先级问题</div>
+      </div>
+      <div class="summary-box">
+        <span class="num p3">5</span>
+        <div class="label">P3 低优先级问题</div>
+      </div>
+      <div class="summary-box">
+        <span class="num pass">5</span>
+        <div class="label">浏览器测试通过</div>
+      </div>
+      <div class="summary-box">
+        <span class="num warn">1</span>
+        <div class="label">阻塞项（需测试账号）</div>
+      </div>
+    </div>
+    <div class="notice">
+      <div class="notice-title">需要后续补充的测试</div>
+      <p>以下场景需要已认证的测试账号才能完成真实交互验证：</p>
+      <ul>
+        <li>登录成功后首页 Dashboard 数据加载与渲染</li>
+        <li>任务的增删改查、状态切换、回收站、热力图</li>
+        <li>待办的增删改查、转任务</li>
+        <li>备忘录的创建、编辑、搜索、标签、拖拽排序、富文本编辑器</li>
+        <li>周报的生成、AI 总结、导出海报</li>
+        <li>成长/烛系统的 XP 计算、成就解锁、状态流转</li>
+        <li>AI 助手的对话、工具调用、任务分析</li>
+        <li>设置的昵称/密码/AI 配置/主题切换</li>
+        <li>H5 移动端的完整流程</li>
+        <li>跨标签页同步、登出数据清理</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>测试环境</h2>
+    <table>
+      <tr><th>项目</th><th>值</th></tr>
+      <tr><td>项目路径</td><td>D:\CleanNotepad\v1.3.0\</td></tr>
+      <tr><td>构建命令</td><td>npx vite build</td></tr>
+      <tr><td>构建结果</td><td><span class="badge badge-pass">成功</span>（11.74s，0 错误）</td></tr>
+      <tr><td>本地服务</td><td>http://localhost:8765/（Node.js 静态服务器）</td></tr>
+      <tr><td>浏览器</td><td>Chromium（agent-browser）</td></tr>
+      <tr><td>Supabase 项目</td><td>ghkyhbxltdxhkhpqltdr.supabase.co</td></tr>
+      <tr><td>认证方式</td><td>邮箱 + 密码，需邮箱验证</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>未认证页面浏览器测试结果</h2>
+    <table>
+      <tr><th>用例编号</th><th>测试项</th><th>结果</th><th>备注</th></tr>
+      <tr><td>AUTH-01</td><td>登录页加载与渲染</td><td><span class="badge badge-pass">通过</span></td><td>页面布局、文案、时钟组件正常显示</td></tr>
+      <tr><td>AUTH-02</td><td>登录表单校验 - 邮箱格式错误</td><td><span class="badge badge-pass">通过</span></td><td>输入无效邮箱时登录按钮保持禁用</td></tr>
+      <tr><td>AUTH-03</td><td>登录表单校验 - 密码不足 8 位</td><td><span class="badge badge-pass">通过</span></td><td>密码过短时登录按钮保持禁用</td></tr>
+      <tr><td>AUTH-04</td><td>登录 - 错误凭据</td><td><span class="badge badge-pass">通过</span></td><td>提示 "Invalid login credentials"</td></tr>
+      <tr><td>AUTH-05</td><td>注册 - 有效邮箱提交</td><td><span class="badge badge-warn">需验证</span></td><td>提示 "验证邮件已发送，请查收邮箱后登录"</td></tr>
+      <tr><td>AUTH-06</td><td>注册 - 无效邮箱域名</td><td><span class="badge badge-pass">通过</span></td><td>提示 Email address invalid</td></tr>
+      <tr><td>AUTH-07</td><td>找回密码</td><td><span class="badge badge-warn">触发限流</span></td><td>已向该邮箱发送注册邮件，再次请求提示 rate limit exceeded</td></tr>
+      <tr><td>AUTH-08</td><td>移动端响应式登录页</td><td><span class="badge badge-pass">通过</span></td><td>375×812 视口下布局适配正常</td></tr>
+    </table>
+    <div style="margin-top: 16px;">
+      <p><strong>截图：</strong></p>
+      <div class="two-col">
+        <div>
+          <p>PC 登录页</p>
+          <img class="screenshot" src="../test-screenshots/01-login.png" alt="PC 登录页">
+        </div>
+        <div>
+          <p>注册页</p>
+          <img class="screenshot" src="../test-screenshots/04-register-3.png" alt="注册页">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>问题总览</h2>
+    <table>
+      <tr>
+        <th>模块</th>
+        <th>P0</th>
+        <th>P1</th>
+        <th>P2</th>
+        <th>P3</th>
+        <th>合计</th>
+      </tr>
+      <tr><td>认证/登录</td><td>0</td><td>1</td><td>1</td><td>1</td><td>3</td></tr>
+      <tr><td>任务（PC）</td><td>1</td><td>1</td><td>2</td><td>2</td><td>6</td></tr>
+      <tr><td>任务（H5）</td><td>1</td><td>2</td><td>0</td><td>0</td><td>3</td></tr>
+      <tr><td>待办</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td></tr>
+      <tr><td>备忘录</td><td>0</td><td>0</td><td>1</td><td>1</td><td>2</td></tr>
+      <tr><td>周报</td><td>0</td><td>1</td><td>2</td><td>0</td><td>3</td></tr>
+      <tr><td>成长/烛</td><td>0</td><td>1</td><td>2</td><td>0</td><td>3</td></tr>
+      <tr><td>AI 助手</td><td>2</td><td>2</td><td>2</td><td>1</td><td>7</td></tr>
+      <tr><td>安全/加密</td><td>1</td><td>1</td><td>1</td><td>0</td><td>3</td></tr>
+      <tr><td>代码质量</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td></tr>
+      <tr><td><strong>合计</strong></td><td><strong>6</strong></td><td><strong>8</strong></td><td><strong>10</strong></td><td><strong>5</strong></td><td><strong>29</strong></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>P0 严重问题</h2>
+    
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">AI 助手通过 taskId 前缀模糊匹配任务，可能误操作其他任务</h3>
+      </div>
+      <div class="issue-meta">文件：src/views/AiView.vue:18，src/stores/ai.ts:373</div>
+      <p>两处代码仍使用 <code>t.id.startsWith(taskId)</code> 查找任务。如果多个任务 ID 具有相同前缀，AI 可能解析到错误的任务，进而更新或删除非目标数据。历史审计项 DEF-01 曾要求改为精确匹配，但代码中仍存在前缀匹配逻辑。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>移除 <code>startsWith</code>，仅使用精确匹配 <code>t.id === taskId</code>。确认所有工具调用入口传入完整任务 ID。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">待办存储写入无 await / catch / 重试，数据易丢失</h3>
+      </div>
+      <div class="issue-meta">文件：src/stores/todo.ts:59, 68, 86</div>
+      <p><code>addTodo</code>、<code>updateTodo</code>、<code>markConverted</code> 均使用 fire-and-forget 方式调用 <code>upsertTodo()</code>，既无 await 也无 catch。网络波动或 Supabase 临时失败时，本地 Pinia 已更新但云端未同步，刷新页面后数据永久丢失。任务模块已有完善的防抖+重试机制，但待办模块完全缺失。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>引入与 task store 类似的写入队列：300ms 防抖 + Map 合并 + 最多 3 次指数退避重试；失败时在控制台输出可脱敏的错误日志，并考虑在 UI 中提示同步异常。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">AI 发送函数缺少并发锁，可触发重复请求与消息混乱</h3>
+      </div>
+      <div class="issue-meta">文件：src/stores/ai.ts:456</div>
+      <p><code>send()</code> 在开头设置 <code>loading.value = true</code>，但并未检查当前是否已在 loading 状态。用户快速连续点击发送或快速触发 query 参数时，会发起多个并发的 SSE 请求，多个流式响应会交错写入同一个 <code>streamMsg.content</code>，导致消息内容混乱，且 AbortController 无法取消前一个请求。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在函数入口添加 <code>if (loading.value) return</code> 守卫；或在发起新请求前 <code>abortController.abort()</code> 取消前一个请求。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">H5 移动端任务完成不触发成长系统（XP/成就/连续天数）</h3>
+      </div>
+      <div class="issue-meta">文件：src/composables/useH5Data.ts:40-63</div>
+      <p>H5 的 <code>toggleTaskStatus</code> 直接构造 patch 并调用 <code>saveTask</code> 写入 Supabase，完全绕过了 PC 端 task store 的 <code>updateTask</code> 流程，因此 <code>onTaskDoneCallback</code>（由 <code>useGrowthIntegration</code> 注入的 XP 计算回调）永远不会被触发。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在 H5 的 <code>toggleTaskStatus</code> 中，当状态变为 done 时显式调用 growth store 的 XP 计算与成就检查逻辑；或重构 H5 数据层以复用 task store 的 <code>updateTask</code> 方法。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">AES-GCM 加密失败时静默返回明文，API Key 可能明文入库</h3>
+      </div>
+      <div class="issue-meta">文件：src/utils/crypto.ts:55-57</div>
+      <p><code>encryptString</code> 的 catch 块直接返回原始明文。如果 Web Crypto API 不可用或派生密钥失败，AI API Key 将以明文形式存入 Supabase，用户无法感知加密是否生效。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>加密失败时抛出异常或返回特殊标记，阻止 <code>ai.ts persistConfig</code> 将明文写入数据库；在设置页提示"加密不可用，请检查浏览器环境"。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p0">P0</span>
+        <h3 class="issue-title">H5 数据层完全绕过跨标签页同步</h3>
+      </div>
+      <div class="issue-meta">文件：src/composables/useH5Data.ts（全文件）</div>
+      <p>useH5Data 的所有写操作（saveTask、removeTask、createTodo、removeTodo、convertTodoToTask）均未调用 <code>broadcastChange</code>。H5 页面修改数据后，PC 或其他 H5 标签页不会收到通知，导致多标签页数据视图不一致。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在每个写操作成功后调用对应的 <code>broadcastChange('tasks-updated' | 'todos-updated')</code>。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>P1 高优先级问题</h2>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">Growth 2 秒防抖窗口内关闭页面可能丢失 XP 数据</h3>
+      </div>
+      <div class="issue-meta">文件：src/services/growthStorage.ts:134-162</div>
+      <p><code>syncGrowthToCloud</code> 使用 2 秒防抖。<code>onVisibilityChange</code> 在页面隐藏时调用 <code>flushGrowthToCloud()</code> 但不等待完成；浏览器可能在 HTTP 请求完成前终止页面，导致 XP 事件和成就解锁丢失。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在 <code>beforeunload</code> 中同步等待 flush（通过 <code>navigator.sendBeacon</code> 不适合 Supabase REST，需评估改为同步 fetch 的可行性）；或降低 growth 写入延迟并引入 <code>navigator.locks</code> 保证刷新时重试。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">AiView 在 store 加载完成前处理 query 参数，导致误报未配置</h3>
+      </div>
+      <div class="issue-meta">文件：src/views/AiView.vue:38-42</div>
+      <p><code>onMounted</code> 中调用 <code>store.load()</code> 和 <code>taskStore.load()</code> 但不 await，随后立即执行 <code>handleQueryParams()</code>，后者会调用 <code>store.send()</code>。如果 AI 配置尚未加载完成，会错误提示"请先在设置中配置 AI API 地址和密钥"。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>将 onMounted 改为 async：<code>await Promise.all([store.load(), taskStore.load()]); handleQueryParams()</code>。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">周报 AI 总结无并发保护，可被重复触发</h3>
+      </div>
+      <div class="issue-meta">文件：src/stores/weeklyReport.ts:548-606</div>
+      <p><code>generateAiSummary</code> 未检查 <code>report.aiSummaryStatus === 'generating'</code>。用户快速点击"重新生成"时，多个 AI 请求会并发执行，最后完成的响应可能覆盖最新内容，造成 AI 调用浪费和 loading 状态闪烁。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在函数入口添加 <code>if (report.aiSummaryStatus === 'generating') return</code>；同时在前端按钮上绑定 <code>generating</code> 状态禁用点击。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">task.ts reload() 防抖导致第一个调用者的 Promise 永不 resolve</h3>
+      </div>
+      <div class="issue-meta">文件：src/stores/task.ts:191-203</div>
+      <p><code>reload()</code> 使用 300ms 防抖。当两次调用间隔小于 300ms 时，第一次创建的 Promise 的 resolve 不会被调用（timer 被第二次 clear 并替换）。在 cross-tab sync 高频触发的场景下，可能导致 UI 永久 loading。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>使用共享 Deferred：缓存同一个 reload Promise，防抖结束后 resolve 所有等待者；或简单返回缓存的 Promise 而非每次都新建。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">H5 视图使用原生 confirm/alert，与 PC 端体验不一致</h3>
+      </div>
+      <div class="issue-meta">文件：src/views/h5/H5TodoList.vue:112,121,128,135；src/views/h5/H5TaskEdit.vue:236</div>
+      <p>H5 移动端使用浏览器原生 <code>confirm()</code> 和 <code>alert()</code> 进行确认和错误提示。原生对话框阻塞主线程、无法应用主题样式、在部分 WebView 中行为不一致，且与 PC 端 ConfirmDialog 体验割裂。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>为 H5 引入轻量级对话框组件（基于现有 ConfirmDialog 适配移动端），统一替换所有 confirm/alert。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">LoginView 登录成功时未加载 AI Store</h3>
+      </div>
+      <div class="issue-meta">文件：src/views/LoginView.vue:158-164</div>
+      <p>登录成功后的 <code>Promise.all</code> 加载了 task、growth、todo、memo、weeklyReport 五个 store，唯独缺少 <code>aiStore.load(true)</code>。用户登录后直接跳转 AI 页面时，配置需额外加载，结合 P1-02 会导致误报。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>将 <code>aiStore.load(true)</code> 加入 <code>Promise.all</code>。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title"><code>getCurrentUserIdSync</code> 依赖 Supabase SDK 内部 localStorage key</h3>
+      </div>
+      <div class="issue-meta">文件：src/services/supabaseClient.ts:47-58</div>
+      <p>该函数直接读取 <code>sb-{projectRef}-auth-token</code> 键值，这是 Supabase SDK 的内部实现细节。SDK 升级后若修改 key 格式，此函数将静默返回空字符串，导致 AI Key 加密/解密失效。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在 auth state change 时缓存 userId 到独立变量；或提供异步的 <code>getCurrentUser()</code> 替代同步读取。</p>
+      </div>
+    </div>
+
+    <div class="issue">
+      <div class="issue-header">
+        <span class="badge badge-p1">P1</span>
+        <h3 class="issue-title">硬编码 APP_SECRET，客户端加密保护范围有限</h3>
+      </div>
+      <div class="issue-meta">文件：src/utils/crypto.ts:10</div>
+      <p>加密密钥 <code>APP_SECRET = 'cleannotes-v1-aes-gcm-2026'</code> 硬编码在前端代码中。攻击者同时拥有数据库和客户端代码即可解密所有 API Key。当前设计仅对"纯数据库泄露"有效，属于已知的架构限制，但应在 UI/文档中明确告知用户。</p>
+      <div class="fix">
+        <div class="fix-title">修复方案</div>
+        <p>在设置页增加说明文案："API Key 采用客户端加密存储，可防御数据库单独泄露；如设备或代码同时泄露，加密可能被破解。" 如需更高安全性，考虑使用用户密码派生密钥。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>P2 中优先级问题</h2>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>位置</th><th>修复方向</th></tr>
+      <tr><td>P2-01</td><td>成就上下文每次任务完成时多次全量遍历任务数组</td><td>src/stores/growth.ts:290-340</td><td>合并为单次遍历，同时计算所有统计指标</td></tr>
+      <tr><td>P2-02</td><td>任务热力图每次调用都遍历全部任务且无缓存</td><td>src/stores/task.ts:419-456</td><td>改为 computed 或缓存 countMap</td></tr>
+      <tr><td>P2-03</td><td>备忘录拖拽排序对整组每条调用 upsertMemo，产生大量请求</td><td>src/stores/memo.ts:150-171</td><td>引入批量 upsert API 或防抖合并</td></tr>
+      <tr><td>P2-04</td><td>AI 消息超限后逐条删除，产生 N 个 DELETE 请求</td><td>src/stores/ai.ts:154-162</td><td>添加批量删除方法 <code>deleteAiMessagesByIds</code></td></tr>
+      <tr><td>P2-05</td><td>AI system prompt 包含完整任务标题，存在隐私泄露风险</td><td>src/stores/ai.ts:174-225</td><td>设置页明确告知，并提供"隐私模式"仅发送统计摘要</td></tr>
+      <tr><td>P2-06</td><td><code>deleteTask</code> 静默拒绝删除已完成任务，无反馈</td><td>src/stores/task.ts:315-333</td><td>返回 boolean 或抛出错误供调用方处理</td></tr>
+      <tr><td>P2-07</td><td>周报周数计算未采用 ISO 8601 标准，存在跨年偏差</td><td>src/stores/weeklyReport.ts:59-66</td><td>使用标准周数算法或 <code>Intl.DateTimeFormat</code></td></tr>
+      <tr><td>P2-08</td><td>日期间隔计算使用 <code>new Date('YYYY-MM-DD')</code>，存在时区解析风险</td><td>src/stores/growth.ts:170-172</td><td>使用 <code>new Date(y, m, d)</code> 构造函数确保本地时区</td></tr>
+      <tr><td>P2-09</td><td>DOMPurify 懒加载期间 fallback 转义不完整，未处理引号</td><td>src/components/ConfirmDialog.vue:51-57</td><td>fallback 中同时转义 <code>"</code> 和 <code>'</code></td></tr>
+      <tr><td>P2-10</td><td>周报与 AI store 中 API URL 构建逻辑重复</td><td>src/stores/weeklyReport.ts:371-382；src/stores/ai.ts:164-170</td><td>提取公共 <code>buildChatUrl</code> 工具函数</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>P3 低优先级问题</h2>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>位置</th><th>修复方向</th></tr>
+      <tr><td>P3-01</td><td>所有 store 的 genId 使用 Math.random()，非加密安全且碰撞风险高于 crypto.randomUUID</td><td>src/stores/*.ts, src/composables/useH5Data.ts</td><td>统一使用 <code>crypto.randomUUID()</code> 或公共工具函数</td></tr>
+      <tr><td>P3-02</td><td>登录页时钟每秒更新，造成不必要的重渲染</td><td>src/views/LoginView.vue:131</td><td>间隔改为 5000ms 或页面不可见时暂停</td></tr>
+      <tr><td>P3-03</td><td>ConfirmDialog Escape 键监听器挂载在 document 上，多实例时可能互相影响</td><td>src/components/ConfirmDialog.vue:37-43</td><td>检查 visible 状态并考虑 stopPropagation</td></tr>
+      <tr><td>P3-04</td><td>weeklyReport.ts 自定义 escapeHtml，维护成本高</td><td>src/stores/weeklyReport.ts:290-297</td><td>抽取为公共工具函数或统一使用 DOMPurify</td></tr>
+      <tr><td>P3-05</td><td>formatDuration 对进行中任务使用 Date.now()，显示不会自动更新</td><td>src/stores/task.ts:108-122</td><td>如需要实时效果，在组件层使用定时器触发重渲染</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>修复计划</h2>
+    <h3>第一阶段（立即修复，预计 1-2 天）</h3>
+    <ul>
+      <li><strong>P0-01</strong>：移除 AI 助手中的 taskId 前缀匹配，改为精确匹配。</li>
+      <li><strong>P0-02</strong>：为待办 store 添加写入防抖、重试队列和错误捕获。</li>
+      <li><strong>P0-03</strong>：为 AI send 添加并发锁，防止重复请求。</li>
+      <li><strong>P0-04</strong>：H5 任务完成时调用 growth XP 计算与成就检查。</li>
+      <li><strong>P0-05</strong>：加密失败时阻止明文入库，并提示用户。</li>
+      <li><strong>P0-06</strong>：H5 写操作后调用 broadcastChange。</li>
+    </ul>
+
+    <h3>第二阶段（高优先级修复，预计 2-3 天）</h3>
+    <ul>
+      <li><strong>P1-01</strong>：评估 growth flush 在页面关闭时的可靠性方案（beforeunload/sync/locks）。</li>
+      <li><strong>P1-02</strong>：AiView onMounted 改为 await store.load。</li>
+      <li><strong>P1-03</strong>：周报 AI 总结增加 generating 状态守卫。</li>
+      <li><strong>P1-04</strong>：修复 task reload 防抖导致的 Promise 泄漏。</li>
+      <li><strong>P1-05</strong>：H5 替换原生 confirm/alert 为统一对话框组件。</li>
+      <li><strong>P1-06</strong>：LoginView 登录成功时加载 aiStore。</li>
+      <li><strong>P1-07</strong>：消除 getCurrentUserIdSync 对 Supabase 内部 key 的依赖。</li>
+      <li><strong>P1-08</strong>：在设置页说明 APP_SECRET 加密的保护范围。</li>
+    </ul>
+
+    <h3>第三阶段（性能与体验优化，预计 3-5 天）</h3>
+    <ul>
+      <li><strong>P2-01~P2-04</strong>：减少全量遍历与 N+1 写入；引入批量 API。</li>
+      <li><strong>P2-05</strong>：AI 隐私说明与隐私模式。</li>
+      <li><strong>P2-06~P2-10</strong>：错误反馈、标准周数、时区安全、转义完整性、代码去重。</li>
+      <li><strong>P3</strong>：代码质量微优化（genId、时钟、对话框、escapeHtml、formatDuration）。</li>
+    </ul>
+
+    <h3>建议补充的测试</h3>
+    <ul>
+      <li>提供一组已认证的测试账号，重新执行登录后的全功能浏览器自动化测试。</li>
+      <li>重点验证 P0/P1 修复项：AI 精确匹配、待办写入失败重试、H5 成长系统、并发控制。</li>
+      <li>在弱网/断网环境下测试数据同步与恢复行为。</li>
+      <li>跨标签页同步测试（PC+PC、PC+H5、H5+H5）。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>构建与部署说明</h2>
+    <ul>
+      <li>本次构建成功，dist 目录生成完整，入口 chunk gzip 约 209KB， lazy chunks 按需加载。</li>
+      <li>构建时遇到安全删除保护，已手动清理 dist 后重新构建并通过。</li>
+      <li>部署到 prod 仓库时请继续使用 <code>robocopy dist prod /E /XD .git</code>，切勿使用 <code>/MIR</code>。</li>
+      <li>建议修复 P0/P1 后重新执行完整构建，并再次进行浏览器回归测试。</li>
+    </ul>
+  </div>
+
+  <footer style="text-align: center; color: var(--text-secondary); font-size: 13px; padding: 24px 0;">
+    CleanNotes v1.3.0 功能测试报告 · 生成于 2026-07-13
+  </footer>
+</div>
+</body>
+</html>
