@@ -123,20 +123,18 @@ const ICONS = {
   todo: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
 }
 
-/** 生成编号段落 header */
-function sectionHeader(num: string, title: string): string {
-  return `<div class="section-header"><span class="section-num">${num}</span><span class="section-title-text">${title}</span><span class="section-line"></span></div>`
+/** 生成编号段落 header — 测试报告风格（h2 + border-bottom） */
+function sectionHeader(title: string): string {
+  return `<h2 class="section-title">${title}</h2>`
 }
 
-/** 生成单个统计卡片 */
-function statCard(
-  icon: string,
+/** 生成居中统计卡片（测试报告 summary-box 风格） */
+function summaryBox(
   value: string,
   label: string,
-  accentVar: string,
-  bgVar: string
+  accentVar: string
 ): string {
-  return `<div class="stat-card" style="--card-accent: ${accentVar}; --card-bg: ${bgVar};"><div class="sc-icon">${icon}</div><div class="sc-body"><div class="sc-value" style="color: ${accentVar};">${value}</div><div class="sc-label">${label}</div></div></div>`
+  return `<div class="summary-box" style="--box-accent: ${accentVar};"><span class="sb-num" style="color: ${accentVar};">${value}</span><div class="sb-label">${label}</div></div>`
 }
 
 /** 生成周报 HTML 内容 */
@@ -183,37 +181,32 @@ function generateReportContent(
   }
 
   // ---- 01 统计概览 ----
-  parts.push('<div class="report-section">')
-  parts.push(sectionHeader('01', '统计概览'))
-  parts.push('<div class="stat-grid">')
+  parts.push('<div class="report-card">')
+  parts.push(sectionHeader('统计概览'))
+  parts.push('<div class="summary-grid">')
 
   const rateColor = summary.completionRate >= 80
     ? 'var(--color-success-text)'
     : summary.completionRate >= 50
       ? 'var(--color-warning-text)'
       : 'var(--color-danger-text)'
-  const rateBg = summary.completionRate >= 80
-    ? 'var(--color-success-light)'
-    : summary.completionRate >= 50
-      ? 'var(--color-warning-light)'
-      : 'var(--color-danger-light)'
 
-  parts.push(statCard(ICONS.completion, `${summary.completionRate}%`, '完成率', rateColor, rateBg))
-  parts.push(statCard(ICONS.completed, `${summary.tasksCompleted}`, '完成任务', 'var(--color-success-text)', 'var(--color-success-light)'))
-  parts.push(statCard(ICONS.created, `${summary.tasksCreated}`, '新增任务', 'var(--color-warning-text)', 'var(--color-warning-light)'))
-  parts.push(statCard(ICONS.xp, `${summary.totalXpGained}`, '经验获得', 'var(--color-accent-text)', 'var(--color-accent-light)'))
-  parts.push(statCard(ICONS.streak, `${summary.streakDays}`, '连续天数', 'var(--color-info-text)', 'var(--color-info-light)'))
-  parts.push(statCard(ICONS.todo, `${summary.todosCreated}`, '新增待办', 'var(--color-text-2)', 'var(--color-bg-3)'))
+  parts.push(summaryBox(`${summary.completionRate}%`, '完成率', rateColor))
+  parts.push(summaryBox(`${summary.tasksCompleted}`, '完成任务', 'var(--color-success-text)'))
+  parts.push(summaryBox(`${summary.tasksCreated}`, '新增任务', 'var(--color-warning-text)'))
+  parts.push(summaryBox(`${summary.totalXpGained}`, '经验获得', 'var(--color-accent-text)'))
+  parts.push(summaryBox(`${summary.streakDays}`, '连续天数', 'var(--color-info-text)'))
+  parts.push(summaryBox(`${summary.todosCreated}`, '新增待办', 'var(--color-text-2)'))
 
   parts.push('</div>')
   parts.push('</div>')
 
   // ---- 02 本周完成任务 ----
-  parts.push('<div class="report-section">')
-  parts.push(sectionHeader('02', '本周完成任务'))
+  parts.push('<div class="report-card">')
+  parts.push(sectionHeader('本周完成任务'))
 
   if (completedTasks.length > 0) {
-    parts.push('<table class="task-table">')
+    parts.push('<table class="report-table">')
     parts.push('<thead><tr><th>任务名称</th><th style="text-align: center; width: 80px;">优先级</th><th style="text-align: center; width: 140px; white-space: nowrap;">实际开始时间</th><th style="text-align: center; width: 100px; white-space: nowrap;">耗时</th><th style="text-align: center; width: 140px; white-space: nowrap;">实际完成日期</th></tr></thead>')
     parts.push('<tbody>')
     for (const t of completedTasks) {
@@ -230,8 +223,8 @@ function generateReportContent(
   parts.push('</div>')
 
   // ---- 03 本周新增待办 ----
-  parts.push('<div class="report-section">')
-  parts.push(sectionHeader('03', '本周新增待办'))
+  parts.push('<div class="report-card">')
+  parts.push(sectionHeader('本周新增待办'))
 
   if (newTodos.length > 0) {
     parts.push('<ul class="todo-list">')
@@ -246,8 +239,8 @@ function generateReportContent(
   parts.push('</div>')
 
   // ---- 04 待完成任务 · 下周跟进 ----
-  parts.push('<div class="report-section">')
-  parts.push(sectionHeader('04', '待完成任务 · 下周跟进'))
+  parts.push('<div class="report-card">')
+  parts.push(sectionHeader('待完成任务 · 下周跟进'))
 
   if (pendingTasks.length > 0) {
     parts.push('<ul class="pending-list">')
@@ -387,8 +380,8 @@ async function callAiForSummary(
 /** 生成 AI 总结占位 section（generating / failed） */
 function aiSummaryPlaceholder(status: 'generating' | 'failed', errorMsg?: string): string {
   if (status === 'generating') {
-    return `<div class="report-section report-section-ai ai-status-generating">
-  ${sectionHeader('00', 'AI 智能总结')}
+    return `<div class="report-card report-card-ai ai-status-generating">
+  ${sectionHeader('AI 智能总结')}
   <div class="ai-summary-content">
     <div class="ai-badge">${AI_ICON}<span>AI</span></div>
     <div class="ai-placeholder ai-placeholder-generating">
@@ -400,8 +393,8 @@ function aiSummaryPlaceholder(status: 'generating' | 'failed', errorMsg?: string
   }
   // failed — include error details for diagnostics
   const errorSuffix = errorMsg ? `（${escapeHtml(errorMsg)}）` : ''
-  return `<div class="report-section report-section-ai ai-status-failed">
-  ${sectionHeader('00', 'AI 智能总结')}
+  return `<div class="report-card report-card-ai ai-status-failed">
+  ${sectionHeader('AI 智能总结')}
   <div class="ai-summary-content">
     <div class="ai-badge">${AI_ICON}<span>AI</span></div>
     <div class="ai-placeholder ai-placeholder-failed">
@@ -421,8 +414,8 @@ function aiSummarySection(aiSummary: string): string {
     .map(p => `<p>${escapeHtml(p)}</p>`)
     .join('')
 
-  return `<div class="report-section report-section-ai ai-status-success">
-  ${sectionHeader('00', 'AI 智能总结')}
+  return `<div class="report-card report-card-ai ai-status-success">
+  ${sectionHeader('AI 智能总结')}
   <div class="ai-summary-content">
     <div class="ai-badge">${AI_ICON}<span>AI</span></div>
     ${paragraphs}
