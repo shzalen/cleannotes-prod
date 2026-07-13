@@ -21,13 +21,11 @@
 - hex 禁止出现在 .vue style 中，用 CSS 变量；半透明用 `color-mix()`
 - html2canvas-pro 无法解析 var()，导出时 onclone 预收集计算值内联
 
-## 模块概要
-- **任务**：`inProgressAt` 记录执行耗时；已完成→待办需确认
-- **养成（烛）**：火焰=等级/光晕=活力/蜡烛体=累计经验；三态活力/倦意/复苏
-- **待办**：TodoItem 模型，可转任务
-- **备忘录**：左右分栏，800ms 防抖自动保存，content-aware PATCH + retry queue
-- **周报**：AI 总结两阶段（同步占位→异步更新）
-- **删除公约**：所有删除操作必须先弹 ConfirmDialog
+## 周报模块
+- 格式重构为测试报告风格（2026-07-13）：card 容器 + h2 标题 + summary-box 居中统计 + report-table
+- `generateReportContent()` 生成 HTML → v-html + DOMPurify 渲染
+- ReportPoster.vue 独立海报组件（html2canvas-pro 导出 PNG），不受内容格式重构影响
+- `sectionHeader(title)` 输出 `<h2 class="section-title">`，`summaryBox(value, label, color)` 输出居中卡片
 
 ## 富文本编辑器
 - Tiptap + 自定义扩展（SlashCommand/Mermaid/Mindmap/DoubleBracketLinker）

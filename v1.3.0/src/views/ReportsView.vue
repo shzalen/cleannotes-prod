@@ -939,55 +939,31 @@ function reportDateRange(weekStart: string): string {
   line-height: 1.7;
 }
 
-/* Section wrapper */
-.content-inner :deep(.report-section) {
-  margin-bottom: 32px;
-}
-
-/* Section header */
-.content-inner :deep(.section-header) {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.content-inner :deep(.section-num) {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--color-primary);
-  letter-spacing: 0.02em;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  background: var(--color-primary-light);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.content-inner :deep(.section-title-text) {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-1);
-  flex-shrink: 0;
-}
-
-.content-inner :deep(.section-line) {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--color-primary) 30%, var(--color-border)) 0%,
-    transparent 100%
-  );
-}
-
-/* AI Summary Section */
-.content-inner :deep(.report-section-ai) {
+/* Section wrapper — card container */
+.content-inner :deep(.report-card) {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 24px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+}
+
+/* Section title — h2 style */
+.content-inner :deep(.section-title) {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  margin: 0 0 16px;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 10px;
+}
+
+/* AI Summary Section — card */
+.content-inner :deep(.report-card-ai) {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px 28px;
   margin-bottom: 24px;
 }
 
@@ -1026,7 +1002,6 @@ function reportDateRange(weekStart: string): string {
 .content-inner :deep(.ai-status-generating) {
   border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
 }
-
 .content-inner :deep(.ai-placeholder) {
   display: flex;
   align-items: center;
@@ -1129,110 +1104,56 @@ function reportDateRange(weekStart: string): string {
   cursor: not-allowed;
 }
 
-/* Stat Cards Grid */
-.content-inner :deep(.stat-grid) {
+/* Summary Grid — centered stat boxes */
+.content-inner :deep(.summary-grid) {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
 }
 
-.content-inner :deep(.stat-card) {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: 12px;
+.content-inner :deep(.summary-box) {
+  border-radius: 10px;
+  padding: 18px;
+  text-align: center;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   transition: all 0.25s;
-  position: relative;
-  overflow: hidden;
 }
 
-.content-inner :deep(.stat-card::before) {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--card-accent, var(--color-primary)), transparent);
-  opacity: 0.6;
-}
-
-.content-inner :deep(.stat-card::after) {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  border: 1px solid var(--card-accent, var(--color-primary));
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-
-.content-inner :deep(.stat-card:hover) {
+.content-inner :deep(.summary-box:hover) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--color-shadow-md);
-  border-color: transparent;
+  box-shadow: 0 4px 16px var(--color-shadow-md);
 }
 
-.content-inner :deep(.stat-card:hover::after) {
-  opacity: 0.3;
-}
-
-.content-inner :deep(.sc-icon) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--card-bg, var(--color-primary-light));
-  color: var(--card-accent, var(--color-primary));
-  flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--card-accent, var(--color-primary)) 15%, transparent);
-}
-
-.content-inner :deep(.sc-body) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.content-inner :deep(.sc-value) {
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.1;
+.content-inner :deep(.sb-num) {
+  font-size: 32px;
+  font-weight: 700;
+  display: block;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
 }
 
-.content-inner :deep(.sc-label) {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-text-4);
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
+.content-inner :deep(.sb-label) {
+  font-size: 13px;
+  color: var(--color-text-secondary, var(--color-text-4));
+  margin-top: 4px;
 }
 
 /* Task Table */
-.content-inner :deep(.task-table) {
+.content-inner :deep(.report-table) {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
+  border-collapse: collapse;
+  font-size: 14px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--color-border);
 }
 
-.content-inner :deep(.task-table th) {
-  padding: 10px 16px;
+.content-inner :deep(.report-table th) {
+  padding: 12px 14px;
   text-align: left;
   background: var(--color-bg-3);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-text-2);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1240,26 +1161,22 @@ function reportDateRange(weekStart: string): string {
   font-variant-numeric: tabular-nums;
 }
 
-.content-inner :deep(.task-table td) {
-  padding: 10px 16px;
+.content-inner :deep(.report-table td) {
+  padding: 12px 14px;
   color: var(--color-text-2);
   border-bottom: 1px solid var(--color-border-light);
   font-variant-numeric: tabular-nums;
 }
 
-.content-inner :deep(.task-table tr:last-child td) {
+.content-inner :deep(.report-table tr:last-child td) {
   border-bottom: none;
 }
 
-.content-inner :deep(.task-table tbody tr) {
-  transition: background 0.15s;
-}
-
-.content-inner :deep(.task-table tbody tr:hover td) {
+.content-inner :deep(.report-table tbody tr:hover td) {
   background: var(--color-bg-3);
 }
 
-.content-inner :deep(.task-table .task-name) {
+.content-inner :deep(.report-table .task-name) {
   font-weight: 500;
   color: var(--color-text-1);
 }
