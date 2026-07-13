@@ -196,8 +196,12 @@ async function request(
     const sanitized = text.slice(0, 200).replace(/[<>"']/g, '')
     throw new Error(`Supabase ${res.status}: ${sanitized}`)
   }
+  // S-19: Some proxies/PostgREST responses return 200 with empty body instead of 204.
+  // Read as text first and only parse JSON if body is non-empty.
   if (res.status === 204) return null
-  return res.json()
+  const text = await res.text()
+  if (!text) return null
+  return JSON.parse(text)
 }
 
 // ---- Adapter ----

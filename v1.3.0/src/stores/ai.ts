@@ -133,15 +133,19 @@ export const useAiStore = defineStore('ai', () => {
       try {
         const encryptedKey = await encryptString(config.value.apiKey, userId)
         await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
-    } catch (e) {
-      console.error('[AI] Failed to encrypt API key:', e)
-      const msg = e instanceof Error ? e.message : String(e)
-      // Distinguish "not a secure context" from real encryption failures
-      if (msg.includes('Web Crypto API 不可用') || msg.includes('not available')) {
-        throw new Error('API Key 加密失败：当前不是安全上下文（需 HTTPS 或 localhost），Web Crypto API 不可用，无法安全保存。')
+      } catch (e) {
+        console.error('[AI] Failed to save AI config:', e)
+        const msg = e instanceof Error ? e.message : String(e)
+        // Distinguish Web Crypto unavailability (secure context issue) from other errors
+        if (msg.includes('Web Crypto API 不可用') || msg.includes('not available')) {
+          throw new Error('API Key 加密失败：当前不是安全上下文（需 HTTPS 或 localhost），Web Crypto API 不可用，无法安全保存。')
+        }
+        // Distinguish storage/network errors from encryption errors
+        if (msg.includes('Supabase') || msg.includes('JSON') || msg.includes('fetch') || msg.includes('Failed to execute') || msg.includes('Unexpected end')) {
+          throw new Error('AI 配置保存失败：' + msg)
+        }
+        throw new Error('API Key 加密失败：' + msg)
       }
-      throw new Error('API Key 加密失败：' + msg)
-    }
     } else {
       await storage.saveAiConfig(config.value)
     }

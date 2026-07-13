@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { HeatmapView, HeatmapCell } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { useTheme } from '@/composables/useTheme'
+import { toLocalDate } from '@/utils/time'
 
 const store = useTaskStore()
 const { isDark, isZuru, isTencent } = useTheme()
