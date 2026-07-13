@@ -133,10 +133,15 @@ export const useAiStore = defineStore('ai', () => {
       try {
         const encryptedKey = await encryptString(config.value.apiKey, userId)
         await storage.saveAiConfig({ ...config.value, apiKey: encryptedKey })
-      } catch (e) {
-        console.error('[AI] Failed to encrypt API key:', e)
-        throw new Error('API Key 加密失败，无法安全保存。请确认浏览器支持 Web Crypto API 且在 HTTPS 环境下运行。')
+    } catch (e) {
+      console.error('[AI] Failed to encrypt API key:', e)
+      const msg = e instanceof Error ? e.message : String(e)
+      // Distinguish "not a secure context" from real encryption failures
+      if (msg.includes('Web Crypto API 不可用') || msg.includes('not available')) {
+        throw new Error('API Key 加密失败：当前不是安全上下文（需 HTTPS 或 localhost），Web Crypto API 不可用，无法安全保存。')
       }
+      throw new Error('API Key 加密失败：' + msg)
+    }
     } else {
       await storage.saveAiConfig(config.value)
     }
