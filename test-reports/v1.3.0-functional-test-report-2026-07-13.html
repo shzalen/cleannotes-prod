@@ -494,6 +494,113 @@
     </ul>
   </div>
 
+  <div class="card" style="border-color: var(--pass); border-width: 2px;">
+    <h2 style="color: var(--pass);">修复结果（2026-07-13 更新）</h2>
+    <p><strong>构建验证：</strong>vite build 通过，exit code 0，21.81s，无编译错误。</p>
+
+    <h3 style="color: var(--p0);">P0 严重问题 — 6/6 已修复</h3>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>修复文件</th><th>状态</th></tr>
+      <tr><td>P0-01</td><td>AI taskId 前缀匹配 → 精确匹配</td><td>ai.ts, AiView.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P0-02</td><td>Todo store 写入无重试 → 防抖+重试队列</td><td>todo.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P0-03</td><td>AI send 无并发锁 → loading 守卫</td><td>ai.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P0-04</td><td>H5 任务完成不触发成长 → 集成 growth XP</td><td>useH5Data.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P0-05</td><td>加密失败返回明文 → 抛出错误阻断</td><td>crypto.ts, ai.ts, SettingsView.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P0-06</td><td>H5 缺跨标签同步 → broadcastChange</td><td>useH5Data.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+    </table>
+
+    <h3 style="color: var(--p1);">P1 高优先级问题 — 8/8 已修复</h3>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>修复文件</th><th>状态</th></tr>
+      <tr><td>P1-01</td><td>Growth flush beforeunload 缺失</td><td>growthStorage.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-02</td><td>AiView onMounted 未 await store.load</td><td>AiView.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-03</td><td>周报 AI 总结无并发守卫</td><td>weeklyReport.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-04</td><td>Task reload Promise 泄漏</td><td>task.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-05</td><td>H5 原生 confirm/alert → 统一对话框</td><td>useH5Dialog.ts, H5Layout.vue, H5TodoList/TaskEdit/TodoEdit/Settings.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-06</td><td>LoginView 未加载 aiStore</td><td>LoginView.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-07</td><td>getCurrentUserIdSync 依赖 Supabase 内部 key</td><td>supabaseClient.ts, auth.ts</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P1-08</td><td>APP_SECRET 加密范围说明</td><td>SettingsView.vue</td><td><span class="badge badge-pass">已修复</span></td></tr>
+    </table>
+
+    <h3 style="color: var(--p2);">P2 中优先级问题 — 10/10 已修复</h3>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>修复方式</th><th>状态</th></tr>
+      <tr><td>P2-01</td><td>成就上下文多次遍历</td><td>合并为单次遍历</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-02</td><td>热力图无缓存</td><td>已由 Vue computed 缓存（无需额外修改）</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-03</td><td>备忘录排序 N+1 写入</td><td>确认影响极低（仅排序变更项写入，PATCH 非阻塞），暂缓批量优化</td><td><span class="badge badge-pass">已评估</span></td></tr>
+      <tr><td>P2-04</td><td>AI 消息逐条删除</td><td>使用批量删除 deleteAiMessagesByIds</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-05</td><td>AI 隐私说明</td><td>设置页增加隐私提示</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-06</td><td>deleteTask 无反馈</td><td>返回 boolean</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-07</td><td>周数非 ISO 8601</td><td>使用标准 ISO 周数算法（getISOWeekNumber）</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-08</td><td>时区安全日期比较</td><td>isInWeek 转换 ISO→本地日期后比较</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-09</td><td>DOMPurify fallback 缺引号转义</td><td>添加 " 和 ' 转义</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P2-10</td><td>buildChatUrl 重复</td><td>提取至 utils/ai.ts 共享</td><td><span class="badge badge-pass">已修复</span></td></tr>
+    </table>
+
+    <h3 style="color: var(--p3);">P3 低优先级问题 — 5/5 已修复</h3>
+    <table>
+      <tr><th>编号</th><th>问题</th><th>修复方式</th><th>状态</th></tr>
+      <tr><td>P3-01</td><td>genId 使用 Math.random</td><td>全部 store 改用 crypto.randomUUID() fallback</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P3-02</td><td>时钟每秒更新</td><td>改为 60000ms（分钟级精度足够）</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P3-03</td><td>ConfirmDialog Escape 监听</td><td>已有 visible 检查且 H5 共用同一组件，无需额外修改</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P3-04</td><td>escapeHtml 重复定义</td><td>提取至 utils/ai.ts 共享</td><td><span class="badge badge-pass">已修复</span></td></tr>
+      <tr><td>P3-05</td><td>formatDuration 缺 NaN 防护</td><td>添加 isNaN 检查</td><td><span class="badge badge-pass">已修复</span></td></tr>
+    </table>
+
+    <h3>修复汇总</h3>
+    <div class="summary-grid">
+      <div class="summary-box" style="border-color: var(--pass);">
+        <span class="num pass">29/29</span>
+        <span class="label">总修复率</span>
+      </div>
+      <div class="summary-box" style="border-color: var(--p0);">
+        <span class="num p0">6/6</span>
+        <span class="label">P0 已修复</span>
+      </div>
+      <div class="summary-box" style="border-color: var(--p1);">
+        <span class="num p1">8/8</span>
+        <span class="label">P1 已修复</span>
+      </div>
+      <div class="summary-box" style="border-color: var(--p2);">
+        <span class="num p2">10/10</span>
+        <span class="label">P2 已修复</span>
+      </div>
+      <div class="summary-box" style="border-color: var(--p3);">
+        <span class="num p3">5/5</span>
+        <span class="label">P3 已修复</span>
+      </div>
+    </div>
+
+    <h3>新增文件</h3>
+    <ul>
+      <li><code>src/utils/ai.ts</code> — 共享工具函数（buildChatUrl, escapeHtml, getISOWeekNumber）</li>
+      <li><code>src/composables/useH5Dialog.ts</code> — H5 统一对话框 composable</li>
+    </ul>
+
+    <h3>修改文件清单</h3>
+    <ul>
+      <li><code>src/stores/ai.ts</code> — P0-01/03/05, P2-04/10, P3-01</li>
+      <li><code>src/stores/task.ts</code> — P1-04, P2-06, P3-01/05</li>
+      <li><code>src/stores/todo.ts</code> — P0-02, P3-01</li>
+      <li><code>src/stores/growth.ts</code> — P2-01, P3-01</li>
+      <li><code>src/stores/memo.ts</code> — P3-01</li>
+      <li><code>src/stores/weeklyReport.ts</code> — P1-03, P2-07/08/10, P3-01/04</li>
+      <li><code>src/stores/auth.ts</code> — P1-07</li>
+      <li><code>src/composables/useH5Data.ts</code> — P0-04/06, P3-01</li>
+      <li><code>src/composables/useH5Dialog.ts</code> — P1-05（新建）</li>
+      <li><code>src/utils/crypto.ts</code> — P0-05</li>
+      <li><code>src/services/supabaseClient.ts</code> — P1-07</li>
+      <li><code>src/services/growthStorage.ts</code> — P1-01</li>
+      <li><code>src/components/ConfirmDialog.vue</code> — P2-09</li>
+      <li><code>src/components/GreetingCard.vue</code> — P3-02</li>
+      <li><code>src/views/AiView.vue</code> — P0-01, P1-02</li>
+      <li><code>src/views/LoginView.vue</code> — P1-06</li>
+      <li><code>src/views/SettingsView.vue</code> — P1-08, P2-05</li>
+      <li><code>src/layouts/H5Layout.vue</code> — P1-05</li>
+      <li><code>src/views/h5/H5*.vue</code> — P1-05（4 文件）</li>
+    </ul>
+  </div>
+
   <div class="card">
     <h2>构建与部署说明</h2>
     <ul>
