@@ -313,7 +313,8 @@ function clearIcon() {
 
 // Close icon picker when clicking outside
 function onDocumentClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
+  const target = e.target
+  if (!(target instanceof Element)) return
   if (!target.closest('.icon-picker') && !target.closest('.editor-icon-btn')) {
     iconPickerVisible.value = false
   }

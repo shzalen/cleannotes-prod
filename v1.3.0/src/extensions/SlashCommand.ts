@@ -317,7 +317,8 @@ function showPanel(view: EditorView, editor: any, pos: number) {
 
   // ---- Panel-level mousedown: event delegation for item clicks ----
   _panelMouseHandler = (e: MouseEvent) => {
-    const target = e.target as HTMLElement
+    const target = e.target
+    if (!(target instanceof Element)) return
     const itemEl = target.closest('[data-slash-idx]') as HTMLElement | null
     if (itemEl) {
       e.preventDefault()
@@ -332,7 +333,8 @@ function showPanel(view: EditorView, editor: any, pos: number) {
   // ---- Document-level mousedown: close on outside click (CAPTURE phase) ----
   _docMouseHandler = (e: MouseEvent) => {
     if (!_view) return
-    const target = e.target as HTMLElement
+    const target = e.target
+    if (!(target instanceof Element)) return
     // If click is inside the panel, let the panel handler deal with it
     if (target.closest('.rte-slash-panel')) return
     // Outside click → close
@@ -431,7 +433,8 @@ export const SlashCommand = Extension.create({
             return false
           },
           handleClick(_view: EditorView, _pos: number, event: MouseEvent) {
-            if (!(event.target as HTMLElement).closest('.rte-slash-panel')) closePanel()
+            const t = event.target
+            if (!(t instanceof Element) || !t.closest('.rte-slash-panel')) closePanel()
             return false
           },
         },
