@@ -94,7 +94,7 @@ async function renderMermaid(code: string): Promise<string> {
   mermaid.default.initialize({
     startOnLoad: false,
     theme: getMermaidTheme(),
-    securityLevel: 'strict',
+    securityLevel: 'loose',
   })
 
   const id = `${containerId.value}-${++renderSeq}`
@@ -106,17 +106,31 @@ async function renderMermaid(code: string): Promise<string> {
   try {
     const { svg } = await mermaid.default.render(id, trimmed)
 
-    // strict 模式下 mermaid 可能缺少文本样式，注入内联样式兜底
+    // S-09: Sanitize SVG output with DOMPurify (defense in depth)
+    const sanitized = DOMPurify.sanitize(svg, {
+      ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'],
+      ADD_ATTR: ['*'],
+      FORBID_TAGS: ['script'],
+      FORBID_ATTR: ['on*']
+    })
+
+    // strict 模式下 mermaid 的 SVG 文本可能依赖 CSS 类（如 .label、.nodeLabel），
+    // 当 DOMPurify 清理 <style> 内容或宿主页面的 CSS 未生效时，文本变为不可见。
+    // 用 DOMParser 直接给每个 text/tspan 设置 !important fill，确保任何环境下都可见。
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(sanitized, 'image/svg+xml')
     const isDark = getMermaidTheme() === 'dark'
     const textFill = isDark ? '#e8e8e8' : '#333333'
     const edgeLabelFill = isDark ? '#cccccc' : '#555555'
-    const styledSvg = svg.replace(
-      /<\/svg>\s*$/,
-      `<style>/* mermaid text visibility fix */text,tspan{fill:${textFill}!important}.edgeLabel,.edgeLabel text{fill:${edgeLabelFill}!important}</style></svg>`
-    )
 
-    // S-09: Sanitize SVG output with DOMPurify (defense in depth, even with securityLevel: 'sandbox')
-    return DOMPurify.sanitize(styledSvg, { ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'], ADD_ATTR: ['*'], FORBID_TAGS: ['script'], FORBID_ATTR: ['on*'] })
+    doc.querySelectorAll('text, tspan').forEach((el) => {
+      el.style.setProperty('fill', textFill, 'important')
+    })
+    doc.querySelectorAll('.edgeLabel, .edgeLabel text, .edgeLabel tspan').forEach((el) => {
+      el.style.setProperty('fill', edgeLabelFill, 'important')
+    })
+
+    return new XMLSerializer().serializeToString(doc.documentElement)
   } finally {
     // 精确清理：mermaid.render 会在失败时向 body 追加错误 DOM，
     // 仅移除本次 render 过程中新增到 body 的子元素，避免误伤正常内容
@@ -543,7 +557,7 @@ onBeforeUnmount(() => {
 /* strict 模式下 mermaid 文本可能丢失颜色，兜底 */
 .rte-mermaid-preview :deep(svg text),
 .rte-mermaid-preview :deep(svg tspan) {
-  fill: var(--color-text-1, #333333);
+  fill: var(--color-text-1, #333333) !important;
 }
 
 /* ---- Loading ---- */
@@ -735,7 +749,7 @@ onBeforeUnmount(() => {
 /* strict 模式下 mermaid 文本可能丢失颜色，兜底 */
 .rte-mermaid-modal-preview :deep(svg text),
 .rte-mermaid-modal-preview :deep(svg tspan) {
-  fill: var(--color-text-1, #333333);
+  fill: var(--color-text-1, #333333) !important;
 }
 
 /* Modal footer */
