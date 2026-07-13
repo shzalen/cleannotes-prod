@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Mermaid Render Test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; background: #f5f5f5; }
+    .test-case { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; font-size: 16px; color: #333; }
+    .preview { background: #f9fafb; padding: 20px; border-radius: 6px; margin-top: 10px; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+    .svg-output { max-height: 300px; overflow: auto; }
+    label { display: inline-block; margin-right: 10px; font-size: 13px; }
+    select { padding: 4px 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Mermaid v11.16.0 Render Test</h1>
+  <p>Test Mermaid rendering in different securityLevel modes. Check if text labels appear in the SVG.</p>
+
+  <div>
+    <label>Security Level:</label>
+    <select id="securityLevel">
+      <option value="strict" selected>strict</option>
+      <option value="sandbox">sandbox</option>
+      <option value="loose">loose</option>
+    </select>
+    <label style="margin-left:20px">Theme:</label>
+    <select id="theme">
+      <option value="default" selected>default</option>
+      <option value="dark">dark</option>
+    </select>
+    <button onclick="runTest()" style="margin-left:20px; padding:4px 16px;">Run Test</button>
+  </div>
+
+  <div class="test-case">
+    <h2>1. Live Preview (v-html)</h2>
+    <div class="preview" id="live-preview"></div>
+  </div>
+
+  <div class="test-case">
+    <h2>2. Raw SVG String (before DOMPurify)</h2>
+    <div class="svg-output"><pre id="raw-svg"></pre></div>
+  </div>
+
+  <div class="test-case">
+    <h2>3. DOMPurify Sanitized SVG</h2>
+    <div class="svg-output"><pre id="sanitized-svg"></pre></div>
+  </div>
+
+  <div class="test-case">
+    <h2>4. DOMPurify Config Comparison</h2>
+    <div style="display:flex; gap:20px;">
+      <div style="flex:1">
+        <h3>Config A (Current)</h3>
+        <div class="preview" id="preview-a"></div>
+      </div>
+      <div style="flex:1">
+        <h3>Config B (No DOMPurify)</h3>
+        <div class="preview" id="preview-b"></div>
+      </div>
+      <div style="flex:1">
+        <h3>Config C (WHOLE_DOCUMENT)</h3>
+        <div class="preview" id="preview-c"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs';
+    import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@3.2.5/dist/purify.es.mjs';
+
+    const MERMAID_CODE = `graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[处理]
+    B -->|否| D[结束]
+    C --> D`;
+
+    async function runTest() {
+      const securityLevel = document.getElementById('securityLevel').value;
+      const theme = document.getElementById('theme').value;
+
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: theme,
+        securityLevel: securityLevel,
+      });
+
+      try {
+        // Raw render
+        const { svg } = await mermaid.render('test-diagram', MERMAID_CODE);
+
+        document.getElementById('raw-svg').textContent = svg.substring(0, 3000) + (svg.length > 3000 ? '...' : '');
+
+        // Current DOMPurify config (from MermaidNodeView.vue)
+        const currentPurify = DOMPurify.sanitize(svg, {
+          ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'],
+          ADD_ATTR: ['*'],
+          FORBID_TAGS: ['script'],
+          FORBID_ATTR: ['on*']
+        });
+        document.getElementById('sanitized-svg').textContent = currentPurify.substring(0, 3000) + (currentPurify.length > 3000 ? '...' : '');
+
+        // Live preview with current config
+        document.getElementById('live-preview').innerHTML = currentPurify;
+
+        // Config A: Current config
+        document.getElementById('preview-a').innerHTML = currentPurify;
+
+        // Config B: No DOMPurify (raw SVG)
+        document.getElementById('preview-b').innerHTML = svg;
+
+        // Config C: WHOLE_DOCUMENT mode
+        const wholeDocPurify = DOMPurify.sanitize(svg, {
+          ADD_TAGS: ['svg', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'marker', 'use', 'foreignObject', 'desc', 'title', 'clipPath', 'image', 'switch', 'label', 'table', 'tr', 'td', 'th', 'tbody', 'thead', 'span', 'p', 'div', 'br', 'style'],
+          ADD_ATTR: ['*'],
+          FORBID_TAGS: ['script'],
+          FORBID_ATTR: ['on*'],
+          WHOLE_DOCUMENT: true
+        });
+        document.getElementById('preview-c').innerHTML = wholeDocPurify;
+
+        console.log('Security Level:', securityLevel);
+        console.log('Theme:', theme);
+        console.log('SVG contains text elements:', svg.includes('<text'));
+        console.log('SVG text content sample:', svg.match(/<text[^>]*>[^<]+/g)?.slice(0, 3));
+
+      } catch (err) {
+        console.error('Render error:', err);
+        document.getElementById('live-preview').innerHTML = '<p style="color:red">Error: ' + err.message + '</p>';
+      }
+    }
+
+    // Auto-run on load
+    runTest();
+  </script>
+</body>
+</html>
