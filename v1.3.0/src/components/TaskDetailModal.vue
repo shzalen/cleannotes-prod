@@ -90,6 +90,8 @@ const renderedDesc = computed(() => {
   return DOMPurify.sanitize(raw)
 })
 
+const emit = defineEmits<{ (e: 'edit', task: Task): void }>()
+
 function open(task: Task) {
   detailTask.value = task
   priority.value = task.priority
@@ -103,6 +105,14 @@ function open(task: Task) {
 function close() {
   visible.value = false
   detailTask.value = null
+}
+
+/** 点击编辑：关闭详情并通知父组件打开编辑界面 */
+function handleEdit() {
+  const t = detailTask.value
+  if (!t) return
+  close()
+  emit('edit', t)
 }
 
 function handleOverlayClick(e: MouseEvent) {
@@ -199,6 +209,13 @@ defineExpose({ open, close })
         <div class="modal-footer">
           <span class="footer-spacer" />
           <button class="btn-cancel" @click="close">关闭</button>
+          <button class="btn-edit" @click="handleEdit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            编辑
+          </button>
         </div>
       </div>
     </div>
@@ -423,5 +440,24 @@ defineExpose({ open, close })
 .btn-cancel:hover {
   background: var(--color-bg-3);
   color: var(--color-text-2);
+}
+
+.btn-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.btn-edit:hover {
+  filter: brightness(0.94);
 }
 </style>

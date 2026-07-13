@@ -22,10 +22,15 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => user.value !== null)
   const userId = computed(() => user.value?.id ?? '')
 
+  /** 会话恢复是否已执行（幂等标志，供路由守卫等待，修复刷新回首页问题） */
+  const initialized = ref(false)
+
   let unsubAuth: (() => void) | null = null
 
   /** 初始化：从 Supabase 恢复会话，注册 auth state listener */
   async function init() {
+    // 幂等：会话恢复只执行一次，后续调用直接返回
+    if (initialized.value) return
     // 注册认证状态变化监听（token 刷新时自动更新 cached token）
     if (!unsubAuth) {
       unsubAuth = onAuthStateChange((authUser) => {
@@ -45,6 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (currentUser) {
       user.value = currentUser
     }
+    initialized.value = true
   }
 
   /** 邮箱密码登录 */
@@ -183,6 +189,7 @@ export const useAuthStore = defineStore('auth', () => {
     needsVerification,
     isAuthenticated,
     userId,
+    initialized,
     init,
     signIn,
     signUp,

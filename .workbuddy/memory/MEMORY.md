@@ -60,3 +60,12 @@
 - **交互测试 P0 Bug（已修复）**：H5Settings.vue `const { h5Confirm } = useH5Dialog()` 解构错误 → h5Confirm undefined → onLogout 静默失败。改为 `import { h5Confirm } from useH5Dialog`（与 H5TaskEdit/H5TodoList 一致）
 - prod 仓库 commits：2850ea0（静态修复）+ 9677961（交互测试+h5Confirm 修复）
 - **需真机验证**：H5 ConfirmDialog 触摸事件传播、H5 登出功能
+
+## 已知 Bug 修复速查（2026-07-13 第二轮）
+- **BUG-04 刷新回首页**：路由守卫需在评估受保护路由前 `await auth.init()` 恢复会话（auth store 加 `initialized` 幂等标志）。否则刷新瞬间 `isAuthenticated=false` 误判未登录→重定向 login→home。已修复（commit 71232ed）。
+- **BUG-05 周报 AI 总结卡「生成中」**：`generateAiSummary` 不能用 `aiSummaryStatus==='generating'` 做重入守卫（Phase 1 的占位状态会被误判为进行中）。改用 module-level `generatingInFlight` Set；`callAiForSummary` 配置缺失须返回 `{summary:null, error}` 而非裸 null；整体 try/finally 保底置 failed。已修复（commit 71232ed）。
+- 教训：两阶段（占位 generating → 异步 Phase 2）模式下，占位状态与生产状态必须区分，重入保护用独立 in-flight 标志，不要用业务状态位兼任。
+
+## 已知 Bug 修复速查（2026-07-13 第三轮）
+- **BUG-06 Mermaid 图表空白**：第四轮安全审计(commit 9bb86f8)将 DOMPurify `ADD_ATTR` 从 `['*']` 改为显式约 50 个属性白名单，mermaid 11 SVG 的 CSS class 引用、aria-*、data-* 等关键属性被剥离导致不可见。修复：恢复 `ADD_ATTR: ['*']`，保留 `FORBID_TAGS: ['script'], FORBID_ATTR: ['on*']`。mermaid 已有 `securityLevel: 'sandbox'`，DOMPurify 是纵深防御不应过度限制（commit 711df96）。
+- 教训：安全优化收紧白名单时必须验证第三方渲染库输出的兼容性；这些库生成的 SVG/HTML 属性集合不可预测，显式白名单极易遗漏关键属性。

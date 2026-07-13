@@ -6,6 +6,7 @@ import type { Task, TaskPriority } from '@/types'
 import { toLocalDate } from '@/utils/time'
 import TaskEditModal from '@/components/TaskEditModal.vue'
 import TaskDetailModal from '@/components/TaskDetailModal.vue'
+import TaskProgressModal from '@/components/TaskProgressModal.vue'
 
 const { isDark, isZuru, isTencent } = useTheme()
 const store = useTaskStore()
@@ -134,13 +135,21 @@ const modalRef = ref<InstanceType<typeof TaskEditModal> | null>(null)
 // ---- TaskDetailModal ----
 const detailModalRef = ref<InstanceType<typeof TaskDetailModal> | null>(null)
 
+// ---- TaskProgressModal ----
+const progressModalRef = ref<InstanceType<typeof TaskProgressModal> | null>(null)
+
 function showDetail(task: Task) {
   detailModalRef.value?.open(task)
 }
 
-function cycleStatus(task: Task) {
+function openEdit(task: Task) {
+  modalRef.value?.openEdit(task)
+}
+
+/** 点击小圆点/状态徽标：弹出进度更新弹窗（默认下一状态 + 实际开始时间默认当前时间） */
+function openProgress(task: Task) {
   if (isFutureTask(task)) return
-  store.requestToggleStatus(task.id)
+  progressModalRef.value?.open(task)
 }
 
 function isFutureTask(task: Task) {
@@ -187,7 +196,7 @@ function isTimeReached(task: Task) {
         <div
           class="timeline-dot"
           :class="[task.status, { clickable: task.status !== 'done' && !isFutureTask(task), 'is-due': isTimeReached(task) && task.status !== 'todo', 'is-due-urgent': isTimeReached(task) && task.status === 'todo' }]"
-          @click="task.status !== 'done' && !isFutureTask(task) && cycleStatus(task)"
+          @click="task.status !== 'done' && !isFutureTask(task) && openProgress(task)"
         />
         <span class="timeline-time" :class="task.status">
           {{ timeLabel(task) }}
@@ -218,14 +227,15 @@ function isTimeReached(task: Task) {
         <span
           v-if="task.status !== 'done'"
           :class="['timeline-status', task.status, { locked: isFutureTask(task) }]"
-          @click="!isFutureTask(task) && cycleStatus(task)"
+          @click="!isFutureTask(task) && openProgress(task)"
         >{{ statusLabel[task.status] }}</span>
       </div>
     </div>
     <div v-else class="today-empty">今日暂无任务</div>
 
     <TaskEditModal ref="modalRef" />
-    <TaskDetailModal ref="detailModalRef" />
+    <TaskDetailModal ref="detailModalRef" @edit="openEdit" />
+    <TaskProgressModal ref="progressModalRef" />
   </div>
 </template>
 
