@@ -172,64 +172,42 @@ function timeLabel(task: Task) {
 
 const statusLabel: Record<string, string> = { todo: '待办', in_progress: '进行中', done: '已完成' }
 
-// ── 橡皮筋效果（下拉刷新 + 底部弹性） ──
+// ── 下拉刷新 ──
 const scrollEl = ref<HTMLElement | null>(null)
-const bounceOffset = ref(0)
-const bounceActive = ref(false)
+const pullDistance = ref(0)
+const isPulling = ref(false)
 const refreshing = ref(false)
-const touchStartY = ref(0)
-const isAtTop = ref(false)
-const isAtBottom = ref(false)
+const pullStartY = ref(0)
 
 function onScrollTouchStart(e: TouchEvent) {
   const el = scrollEl.value
-  if (!el || refreshing.value) return
-  touchStartY.value = e.touches[0].clientY
-  isAtTop.value = el.scrollTop <= 0
-  isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
+  if (!el || refreshing.value || el.scrollTop > 0) return
+  pullStartY.value = e.touches[0].clientY
+  isPulling.value = true
 }
 
 function onScrollTouchMove(e: TouchEvent) {
-  const el = scrollEl.value
-  if (!el || refreshing.value) return
-  const dy = e.touches[0].clientY - touchStartY.value
-
-  if (isAtTop.value && dy > 0 && el.scrollTop <= 0) {
-    bounceActive.value = true
-    bounceOffset.value = Math.min(dy, 160) * 0.35
-    if (e.cancelable) e.preventDefault()
-    return
-  }
-
-  if (isAtBottom.value && dy < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-    bounceActive.value = true
-    bounceOffset.value = Math.max(dy, -160) * 0.35
-    if (e.cancelable) e.preventDefault()
-    return
-  }
-
-  bounceActive.value = false
-  bounceOffset.value = 0
+  if (!isPulling.value || refreshing.value) return
+  const dy = e.touches[0].clientY - pullStartY.value
+  if (dy <= 0) { pullDistance.value = 0; return }
+  pullDistance.value = Math.min(dy * 0.4, 60)
 }
 
 async function onScrollTouchEnd() {
-  if (refreshing.value) return
-
-  if (bounceActive.value && bounceOffset.value >= 40 && isAtTop.value) {
+  if (!isPulling.value) return
+  isPulling.value = false
+  if (pullDistance.value >= 40 && !refreshing.value) {
     refreshing.value = true
-    bounceOffset.value = 40
+    pullDistance.value = 40
     try {
       await store.load(true)
     } finally {
       refreshing.value = false
-      bounceOffset.value = 0
-      bounceActive.value = false
+      pullDistance.value = 0
     }
-    return
+  } else {
+    pullDistance.value = 0
   }
-
-  bounceActive.value = false
-  bounceOffset.value = 0
 }
 
 // ── 弹窗 ──
@@ -319,7 +297,7 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
 
     <div class="week-label-text">{{ weekLabel }}</div>
 
-    <!-- Task List with rubber-band pull-refresh -->
+    <!-- Task List with pull-refresh -->
     <div
       ref="scrollEl"
       class="cal-scroll"
@@ -327,17 +305,10 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
       @touchmove="onScrollTouchMove"
       @touchend="onScrollTouchEnd"
     >
-      <div
-        class="scroll-wrapper"
-        :style="{
-          transform: `translateY(${bounceOffset}px)`,
-          transition: bounceActive || refreshing ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)'
-        }"
-      >
-        <div class="pull-indicator" :style="{ height: bounceOffset > 0 && isAtTop ? bounceOffset + 'px' : '0px', opacity: Math.min(bounceOffset / 40, 1) }">
-          <span v-if="!refreshing && bounceOffset > 0" class="pull-text">{{ bounceOffset >= 40 ? '松开刷新' : '下拉刷新' }}</span>
-          <span v-else-if="refreshing" class="pull-spinner" />
-        </div>
+      <div class="pull-indicator" :style="{ height: pullDistance + 'px', opacity: pullDistance / 40 }">
+        <span v-if="!refreshing" class="pull-text">{{ pullDistance >= 40 ? '松开刷新' : '下拉刷新' }}</span>
+        <span v-else class="pull-spinner" />
+      </div>
 
       <div v-if="dayTasks.length" class="task-list">
         <div
@@ -353,7 +324,6 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
         </div>
       </div>
       <div v-else class="empty-state">当天暂无任务</div>
-      </div> <!-- .scroll-wrapper -->
     </div>
 
     <TaskDetailSheet ref="detailSheet" />
@@ -456,10 +426,6 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
 /* ── Scroll ── */
 .cal-scroll {
   flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
-}
-
-.scroll-wrapper {
-  min-height: 100%;
   padding: 8px 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }

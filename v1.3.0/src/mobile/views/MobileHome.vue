@@ -118,72 +118,43 @@ const priorityColorMap = computed(() => ({
 
 const priorityLabelMap: Record<TaskPriority, string> = { high: '高', medium: '中', low: '低' }
 
-// ── 橡皮筋效果（下拉刷新 + 底部弹性） ──
+// ── 下拉刷新 ──
 const scrollEl = ref<HTMLElement | null>(null)
-const bounceOffset = ref(0)        // translateY 偏移
-const bounceActive = ref(false)    // 是否正在橡皮筋
+const pullDistance = ref(0)
+const isPulling = ref(false)
 const refreshing = ref(false)
-const touchStartY = ref(0)
-const touchStartScrollTop = ref(0)
-const isAtTop = ref(false)         // 触摸开始时是否在顶部
-const isAtBottom = ref(false)      // 触摸开始时是否在底部
+const pullStartY = ref(0)
 
 function onTouchStart(e: TouchEvent) {
   const el = scrollEl.value
-  if (!el || refreshing.value) return
-  touchStartY.value = e.touches[0].clientY
-  touchStartScrollTop.value = el.scrollTop
-  isAtTop.value = el.scrollTop <= 0
-  isAtBottom.value = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
+  if (!el || refreshing.value || el.scrollTop > 0) return
+  pullStartY.value = e.touches[0].clientY
+  isPulling.value = true
 }
 
 function onTouchMove(e: TouchEvent) {
-  const el = scrollEl.value
-  if (!el || refreshing.value) return
-  const dy = e.touches[0].clientY - touchStartY.value
-
-  // 下拉橡皮筋（在顶部继续下拉）
-  if (isAtTop.value && dy > 0 && el.scrollTop <= 0) {
-    bounceActive.value = true
-    // 阻尼曲线：越大越难拉
-    bounceOffset.value = Math.min(dy, 160) * 0.35
-    if (e.cancelable) e.preventDefault()
-    return
-  }
-
-  // 上拉橡皮筋（在底部继续上拉）
-  if (isAtBottom.value && dy < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-    bounceActive.value = true
-    bounceOffset.value = Math.max(dy, -160) * 0.35
-    if (e.cancelable) e.preventDefault()
-    return
-  }
-
-  bounceActive.value = false
-  bounceOffset.value = 0
+  if (!isPulling.value || refreshing.value) return
+  const dy = e.touches[0].clientY - pullStartY.value
+  if (dy <= 0) { pullDistance.value = 0; return }
+  pullDistance.value = Math.min(dy * 0.4, 60)
 }
 
 async function onTouchEnd() {
-  if (refreshing.value) return
-
-  if (bounceActive.value && bounceOffset.value >= 40 && isAtTop.value) {
-    // 触发刷新
+  if (!isPulling.value) return
+  isPulling.value = false
+  if (pullDistance.value >= 40 && !refreshing.value) {
     refreshing.value = true
-    bounceOffset.value = 40
+    pullDistance.value = 40
     try {
       await store.load(true)
       now.value = new Date()
     } finally {
       refreshing.value = false
-      bounceOffset.value = 0
-      bounceActive.value = false
+      pullDistance.value = 0
     }
-    return
+  } else {
+    pullDistance.value = 0
   }
-
-  // 弹性回弹
-  bounceActive.value = false
-  bounceOffset.value = 0
 }
 
 // ── 弹窗 ──
@@ -219,11 +190,11 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
           transition: bounceActive || refreshing ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)'
         }"
       >
-        <!-- Pull-refresh indicator -->
-        <div class="pull-indicator" :style="{ height: bounceOffset > 0 && isAtTop ? bounceOffset + 'px' : '0px', opacity: Math.min(bounceOffset / 40, 1) }">
-          <span v-if="!refreshing && bounceOffset > 0" class="pull-text">{{ bounceOffset >= 40 ? '松开刷新' : '下拉刷新' }}</span>
-          <span v-else-if="refreshing" class="pull-spinner" />
-        </div>
+      <!-- Pull-refresh indicator -->
+      <div class="pull-indicator" :style="{ height: pullDistance + 'px', opacity: pullDistance / 40 }">
+        <span v-if="!refreshing" class="pull-text">{{ pullDistance >= 40 ? '松开刷新' : '下拉刷新' }}</span>
+        <span v-else class="pull-spinner" />
+      </div>
 
         <div class="content-area">
         <!-- Progress Card -->
