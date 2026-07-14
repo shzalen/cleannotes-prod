@@ -421,7 +421,8 @@ function updateActiveCellClass(cellEl: HTMLElement | null) {
 // immediately hide the button before the user can click it.
 function onDocumentMouseMove(e: MouseEvent) {
   if (!editor.value || showTableMenu.value) return
-  const target = e.target as HTMLElement
+  const target = e.target
+  if (!(target instanceof Element)) return
   // Keep controls visible while the cursor is over the trigger/menu itself.
   if (target.closest('.rte-table-controls-wrapper')) {
     return
@@ -985,8 +986,8 @@ function onEditorScroll(e?: Event) {
   // Don't close the table menu if the user is scrolling the menu itself;
   // otherwise scrolling the page/resizing the window closes it.
   if (e) {
-    const target = e.target as HTMLElement
-    if (target.closest('.rte-table-controls-wrapper')) return
+    const target = e.target
+    if (target instanceof Element && target.closest('.rte-table-controls-wrapper')) return
   }
   showTableMenu.value = false
   showTableColorSubmenu.value = false
@@ -1057,7 +1058,8 @@ function triggerFileDownload(el: HTMLElement) {
 }
 
 function handleAttachmentClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
+  const target = e.target
+  if (!(target instanceof Element)) return
   const link = target.closest('.rte-file-link') as HTMLElement | null
   if (!link) return
   e.preventDefault()
@@ -1066,7 +1068,8 @@ function handleAttachmentClick(e: MouseEvent) {
 }
 
 function handleMentionClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
+  const target = e.target
+  if (!(target instanceof Element)) return
   const mention = target.closest('[data-type="mention"]') as HTMLElement | null
   if (!mention) return
   const memoId = mention.getAttribute('data-id')
@@ -1339,8 +1342,9 @@ onMounted(() => {
   rteWrapperRef.value?.addEventListener('dblclick', handleImageDblClick)
 
   const onMouseDown = (e: MouseEvent) => {
-    const target = e.target as HTMLElement
-    const insideBubble = bubbleRef.value?.contains(target)
+    const target = e.target
+    if (!(target instanceof Element)) return
+    const insideBubble = bubbleRef.value?.contains(target as Node)
     const insideTableControls = target.closest('.rte-table-controls-wrapper')
     const insideImageToolbar = target.closest('.rte-image-toolbar')
 

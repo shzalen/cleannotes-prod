@@ -125,10 +125,10 @@ router.beforeEach(async (to, _from, next) => {
     // If already authenticated, redirect (except for diag)
     if (auth.isAuthenticated && to.name !== 'diag') {
       if (isMobileDevice() && !isH5 && !isForcePC()) {
-        next('/h5/tasks')
-      } else {
-        next({ name: 'home' })
+        window.location.replace('./mobile.html')
+        return
       }
+      next({ name: 'home' })
       return
     }
     next()
@@ -146,9 +146,9 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // ── 已认证：设备自适应重定向 ──
-  // 移动端访问 PC 路由 → 跳转 H5（除非用户已强制桌面版）
+  // 移动端访问 PC 路由 → 跳转移动端 mobile.html（除非用户已强制桌面版）
   if (isMobileDevice() && !isH5 && !isForcePC()) {
-    next('/h5/tasks')
+    window.location.replace('./mobile.html')
     return
   }
   // 桌面端访问 H5 路由 → 跳转 PC 首页

@@ -8,6 +8,15 @@
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
 - Git：`https://github.com/shzalen/cleannotes.git`（prod: `cleannotes-prod`）
 
+## 移动端 PWA 架构（2026-07-14）
+- **多入口构建**：`vite.config.ts` 中 `rollupOptions.input` = `{ main: index.html, mobile: mobile.html }`
+- **移动端独立入口**：`mobile.html` → `src/mobile.ts` → `MobileApp.vue`，与 PC 端完全分离
+- **路由**：`src/mobile/router/index.ts`，Hash 模式；3 Tab（首页/应用/我的）+ 子应用（`/app/:name`）
+- **共享层**：Pinia Store + Service + types + Supabase — 两端完全共享
+- **PWA**：手动 `public/manifest.json` + `public/sw-mobile.js`（vite-plugin-pwa 依赖冲突未用）
+- **访问**：`/mobile.html`（PC 端仍为 `/index.html`）
+- **TodoItem 注意**：无 `completed` 字段，待办池是"未转任务的idea"概念，`activeTodos` 过滤已转任务
+
 ## 认证与存储架构
 - Supabase Auth 邮箱+密码（JWT），RLS 用 `auth.uid()::text`
 - 纯在线架构：`getStorage()` → `supabaseAdapter`，无 localStorage 数据层

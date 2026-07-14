@@ -351,7 +351,8 @@ function showPanel(view: EditorView, editor: any, pos: number) {
   // Document mousedown listener
   _docMouseHandler = (e: MouseEvent) => {
     if (!_view) return
-    if (!(e.target as HTMLElement).closest('.rte-emoji-panel')) {
+    const t = e.target
+    if (!(t instanceof Element) || !t.closest('.rte-emoji-panel')) {
       closePanel()
     }
   }
@@ -404,7 +405,8 @@ export const EmojiExtension = Extension.create({
             return false
           },
           handleClick(_view: EditorView, _pos: number, event: MouseEvent) {
-            if (!(event.target as HTMLElement).closest('.rte-emoji-panel')) closePanel()
+            const t = event.target
+            if (!(t instanceof Element) || !t.closest('.rte-emoji-panel')) closePanel()
             return false
           },
         },

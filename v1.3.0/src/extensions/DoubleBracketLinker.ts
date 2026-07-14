@@ -195,7 +195,8 @@ export const DoubleBracketLinker = Extension.create({
             return false
           },
           handleClick(_view: EditorView, _pos: number, event: MouseEvent) {
-            if (!(event.target as HTMLElement).closest('.rte-db-panel')) closePanel()
+            const t = event.target
+            if (!(t instanceof Element) || !t.closest('.rte-db-panel')) closePanel()
             return false
           },
         },
