@@ -24,18 +24,36 @@ function getMonday(date: Date): Date {
   return d
 }
 
-// ── 本周 7 天 ──
-const weekDays = computed(() => {
+const weekLabel = computed(() => {
+  const s = weekBase.value
+  const e = new Date(s); e.setDate(e.getDate() + 6)
+  return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 - ${e.getMonth() + 1}月${e.getDate()}日`
+})
+
+// ── 日历无限衔接滑动（iOS 原生风格） ──
+const swipeStartX = ref(0)
+const swipeDeltaX = ref(0)
+const isSwiping = ref(false)
+const swipeSnap = ref<'prev' | 'current' | 'next'>('current')
+const weekSliderEl = ref<HTMLElement | null>(null)
+
+// 三周数据：prev / current / next
+const prevWeekBase = computed(() => {
+  const d = new Date(weekBase.value); d.setDate(d.getDate() - 7); return d
+})
+const nextWeekBase = computed(() => {
+  const d = new Date(weekBase.value); d.setDate(d.getDate() + 7); return d
+})
+
+function buildWeekDays(base: Date) {
   const days: { date: Date; dateStr: string; dayName: string; dayNum: number; isToday: boolean; hasTasks: boolean }[] = []
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekBase.value)
-    d.setDate(d.getDate() + i)
+    const d = new Date(base); d.setDate(d.getDate() + i)
     const ds = toLocalDate(d)
     days.push({
       date: d, dateStr: ds,
       dayName: ['一', '二', '三', '四', '五', '六', '日'][i],
-      dayNum: d.getDate(),
-      isToday: ds === todayStr,
+      dayNum: d.getDate(), isToday: ds === todayStr,
       hasTasks: store.tasks.some(t => {
         const sd = t.startDate || t.createdAt.slice(0, 10)
         return sd === ds
@@ -43,18 +61,11 @@ const weekDays = computed(() => {
     })
   }
   return days
-})
+}
 
-const weekLabel = computed(() => {
-  const s = weekBase.value
-  const e = new Date(s); e.setDate(e.getDate() + 6)
-  return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 - ${e.getMonth() + 1}月${e.getDate()}日`
-})
-
-// ── Touch 无限衔接滚动 ──
-const swipeStartX = ref(0)
-const swipeDeltaX = ref(0)
-const isSwiping = ref(false)
+const prevWeekDays = computed(() => buildWeekDays(prevWeekBase.value))
+const currentWeekDays = computed(() => buildWeekDays(weekBase.value))
+const nextWeekDays = computed(() => buildWeekDays(nextWeekBase.value))
 
 function onTouchStart(e: TouchEvent) {
   swipeStartX.value = e.touches[0].clientX
@@ -70,29 +81,69 @@ function onTouchMove(e: TouchEvent) {
 function onTouchEnd() {
   if (!isSwiping.value) return
   isSwiping.value = false
-  const threshold = 80
-  if (Math.abs(swipeDeltaX.value) >= threshold) {
-    // 计算需要偏移多少周
-    const weeks = Math.round(Math.abs(swipeDeltaX.value) / threshold)
-    const dir = swipeDeltaX.value > 0 ? -weeks : weeks
-    const newBase = new Date(weekBase.value)
-    newBase.setDate(newBase.getDate() + dir * 7)
-    weekBase.value = newBase
+
+  const el = weekSliderEl.value
+  const containerWidth = el?.clientWidth || 320
+  const threshold = containerWidth * 0.3  // 30% 阈值切换
+
+  if (swipeDeltaX.value > threshold) {
+    // 向右滑 → 上一周
+    swipeSnap.value = 'prev'
+    setTimeout(() => {
+      weekBase.value = new Date(prevWeekBase.value)
+      swipeDeltaX.value = 0
+      swipeSnap.value = 'current'
+    }, 300)
+  } else if (swipeDeltaX.value < -threshold) {
+    // 向左滑 → 下一周
+    swipeSnap.value = 'next'
+    setTimeout(() => {
+      weekBase.value = new Date(nextWeekBase.value)
+      swipeDeltaX.value = 0
+      swipeSnap.value = 'current'
+    }, 300)
+  } else {
+    // 回弹到当前周
+    swipeDeltaX.value = 0
   }
-  swipeDeltaX.value = 0
 }
 
 function prevWeek() {
-  const d = new Date(weekBase.value)
-  d.setDate(d.getDate() - 7)
-  weekBase.value = d
+  swipeDeltaX.value = 0
+  swipeSnap.value = 'prev'
+  setTimeout(() => {
+    weekBase.value = new Date(prevWeekBase.value)
+    swipeSnap.value = 'current'
+  }, 300)
 }
 
 function nextWeek() {
-  const d = new Date(weekBase.value)
-  d.setDate(d.getDate() + 7)
-  weekBase.value = d
+  swipeDeltaX.value = 0
+  swipeSnap.value = 'next'
+  setTimeout(() => {
+    weekBase.value = new Date(nextWeekBase.value)
+    swipeSnap.value = 'current'
+  }, 300)
 }
+
+// slider translateX 计算
+const sliderTransform = computed(() => {
+  if (swipeSnap.value === 'prev') return 'translateX(33.33%)'
+  if (swipeSnap.value === 'next') return 'translateX(-33.33%)'
+  if (isSwiping.value) {
+    const el = weekSliderEl.value
+    const w = el?.clientWidth || 320
+    return `translateX(${swipeDeltaX.value - (w / 3)}px)`
+  }
+  // 默认停在中间（当前周）
+  return 'translateX(-33.33%)'
+})
+
+const sliderTransition = computed(() => {
+  if (isSwiping.value) return 'none'
+  if (swipeSnap.value !== 'current') return 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)'
+  return 'transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)'
+})
 
 // ── 选中日期任务 ──
 const dayTasks = computed(() =>
@@ -196,7 +247,7 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
       </div>
     </div>
 
-    <!-- Week Strip with infinite swipe -->
+    <!-- Week Strip with iOS-style swipe -->
     <div
       class="week-strip"
       @touchstart="onTouchStart"
@@ -207,24 +258,54 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18L9 12L15 6"/></svg>
       </button>
 
-      <div
-        class="week-days"
-        :style="{
-          transform: `translateX(${isSwiping ? swipeDeltaX : 0}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-        }"
-      >
-        <button
-          v-for="d in weekDays"
-          :key="d.dateStr"
-          class="day-cell"
-          :class="{ today: d.isToday, selected: selectedDate === d.dateStr }"
-          @click="selectDate(d.dateStr)"
+      <div ref="weekSliderEl" class="week-slider">
+        <div
+          class="week-slider-track"
+          :style="{ transform: sliderTransform, transition: sliderTransition }"
         >
-          <span class="day-name">{{ d.dayName }}</span>
-          <span class="day-num">{{ d.dayNum }}</span>
-          <span v-if="d.hasTasks" class="day-dot" />
-        </button>
+          <!-- Prev week -->
+          <div class="week-page">
+            <button
+              v-for="d in prevWeekDays"
+              :key="'p'+d.dateStr"
+              class="day-cell"
+              :class="{ today: d.isToday, selected: selectedDate === d.dateStr }"
+              @click="selectDate(d.dateStr)"
+            >
+              <span class="day-name">{{ d.dayName }}</span>
+              <span class="day-num">{{ d.dayNum }}</span>
+              <span v-if="d.hasTasks" class="day-dot" />
+            </button>
+          </div>
+          <!-- Current week -->
+          <div class="week-page">
+            <button
+              v-for="d in currentWeekDays"
+              :key="'c'+d.dateStr"
+              class="day-cell"
+              :class="{ today: d.isToday, selected: selectedDate === d.dateStr }"
+              @click="selectDate(d.dateStr)"
+            >
+              <span class="day-name">{{ d.dayName }}</span>
+              <span class="day-num">{{ d.dayNum }}</span>
+              <span v-if="d.hasTasks" class="day-dot" />
+            </button>
+          </div>
+          <!-- Next week -->
+          <div class="week-page">
+            <button
+              v-for="d in nextWeekDays"
+              :key="'n'+d.dateStr"
+              class="day-cell"
+              :class="{ today: d.isToday, selected: selectedDate === d.dateStr }"
+              @click="selectDate(d.dateStr)"
+            >
+              <span class="day-name">{{ d.dayName }}</span>
+              <span class="day-num">{{ d.dayNum }}</span>
+              <span v-if="d.hasTasks" class="day-dot" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <button class="week-arrow" @click="nextWeek">
@@ -311,20 +392,32 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
 
 /* ── Week Strip ── */
 .week-strip {
-  display: flex; align-items: center; padding: 8px 4px;
+  display: flex; align-items: center;
   background: var(--color-surface); flex-shrink: 0;
   overflow: hidden; touch-action: pan-y;
 }
 
 .week-arrow {
-  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 50px; display: flex; align-items: center; justify-content: center;
   background: none; border: none; color: var(--color-text-3); cursor: pointer; flex-shrink: 0;
+  z-index: 1;
 }
 
 .week-arrow:active { opacity: 0.5; }
 
-.week-days {
-  flex: 1; display: flex; justify-content: space-around; will-change: transform;
+.week-slider {
+  flex: 1; overflow: hidden; padding: 8px 0;
+}
+
+.week-slider-track {
+  display: flex;
+  width: 300%;
+}
+
+.week-page {
+  flex: 1;
+  display: flex;
+  justify-content: space-around;
 }
 
 .day-cell {
