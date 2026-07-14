@@ -27,56 +27,62 @@ function go(tab: string) {
       :class="{ active: activeTab === tab.key }"
       @click="go(tab.key)"
     >
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
-        <!-- Home icon -->
-        <template v-if="tab.icon === 'home'">
-          <path
-            d="M3 10.5L12 3L21 10.5V20C21 20.5523 20.5523 21 20 21H15V14H9V21H4C3.44772 21 3 20.5523 3 20V10.5Z"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-          />
-        </template>
-        <!-- Apps grid icon -->
-        <template v-else-if="tab.icon === 'apps'">
-          <rect x="3" y="3" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="13.5" y="3" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-        </template>
-        <!-- Profile icon -->
-        <template v-else>
-          <circle cx="12" cy="8" r="4.5"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <path
-            d="M4 21C4 16.5817 7.58172 13 12 13C16.4183 13 20 16.5817 20 21"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </template>
+      <!-- Home -->
+      <svg v-if="tab.icon === 'home'" class="tab-icon" viewBox="0 0 24 24" fill="none">
+        <path
+          v-if="activeTab === tab.key"
+          d="M12 3L4 9V21H10V14H14V21H20V9L12 3Z"
+          fill="var(--color-primary)"
+        />
+        <path
+          v-else
+          d="M3 10.5L12 3L21 10.5V20C21 20.5523 20.5523 21 20 21H15V14H9V21H4C3.44772 21 3 20.5523 3 20V10.5Z"
+          stroke="var(--color-text-4)"
+          stroke-width="1.8"
+          stroke-linejoin="round"
+        />
       </svg>
+
+      <!-- Apps -->
+      <svg v-else-if="tab.icon === 'apps'" class="tab-icon" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="3" width="7.5" height="7.5" rx="2"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+        />
+        <rect x="13.5" y="3" width="7.5" height="7.5" rx="2"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+        />
+        <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+        />
+        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+        />
+      </svg>
+
+      <!-- Profile -->
+      <svg v-else class="tab-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="4.5"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+        />
+        <path
+          d="M4 21C4 16.5817 7.58172 13 12 13C16.4183 13 20 16.5817 20 21"
+          :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
+          :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        />
+      </svg>
+
       <span class="tab-label">{{ tab.label }}</span>
     </button>
   </nav>
@@ -85,11 +91,15 @@ function go(tab: string) {
 <style scoped>
 .tab-bar {
   display: flex;
-  height: 60px;
-  background: var(--color-surface);
-  border-top: 0.5px solid var(--color-border);
+  height: 56px;
+  background: var(--color-navbar-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--color-separator);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
 }
 
 .tab-item {
@@ -102,8 +112,9 @@ function go(tab: string) {
   border: none;
   background: none;
   cursor: pointer;
-  padding: 8px 0;
+  padding: 6px 0;
   transition: opacity 0.15s;
+  position: relative;
 }
 
 .tab-item:active {
@@ -113,16 +124,22 @@ function go(tab: string) {
 .tab-icon {
   width: 26px;
   height: 26px;
+  transition: transform 0.2s ease;
+}
+
+.tab-item.active .tab-icon {
+  transform: scale(1.08);
 }
 
 .tab-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-4);
-  transition: color 0.15s;
+  transition: color 0.15s, font-weight 0.15s;
 }
 
 .tab-item.active .tab-label {
   color: var(--color-primary);
+  font-weight: 600;
 }
 </style>

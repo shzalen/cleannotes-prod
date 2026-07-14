@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-/* ===== Mobile App Global Styles =====
-   Design references: WeChat, Notion Mobile, iOS Settings, Douyin */
-
+/* ===== Mobile Global Styles ===== */
 * {
   -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
@@ -13,12 +11,9 @@ html, body {
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--color-bg-0);
+  background: var(--color-bg-1);
   color: var(--color-text-1);
   overscroll-behavior: none;
-  /* Prevent pull-to-refresh on body (handled per-page if needed) */
-  overflow: hidden;
 }
 
 #app {
@@ -31,19 +26,10 @@ input, textarea, button {
   font-family: inherit;
 }
 
-/* Native-like tap feedback */
-button:active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
-}
+/* ===== Theme CSS Variables (full copy from PC style.css) ===== */
 
-/* ===== Theme CSS Variables ===== */
-
-/* Mobile base overrides — pure white background for app feel */
+/* Light Theme (default) */
 :root {
-  /* App background — pure white for native app feel */
-  --color-bg-0: #ffffff;
-
   /* Primary & Semantic */
   --color-primary: #4f6cf7;
   --color-primary-light: #eef2ff;
@@ -76,16 +62,16 @@ button:active {
   --color-text-3: #64748b;
   --color-text-4: #9ca3af;
 
-  /* Background layers */
-  --color-bg-1: #f5f5f7;
-  --color-bg-2: #f0f0f2;
+  /* Background */
+  --color-bg-1: #f8f9fc;
+  --color-bg-2: #f1f5f9;
   --color-bg-3: #f9fafb;
   --color-bg-4: #f3f4f6;
   --color-surface: #ffffff;
 
   /* Border */
-  --color-border: #e5e5ea;
-  --color-border-light: #eaeaeb;
+  --color-border: #e2e8f0;
+  --color-border-light: #ebeef5;
 
   /* Effects */
   --color-focus-ring: rgba(79, 108, 247, 0.1);
@@ -99,16 +85,10 @@ button:active {
   --color-code-text: #4b5563;
   --color-pre-bg: #1e293b;
   --color-pre-text: #e2e8f0;
-
-  /* App-specific */
-  --color-separator: rgba(60, 60, 67, 0.08);
-  --color-navbar-bg: rgba(255, 255, 255, 0.85);
 }
 
 /* Dark Theme */
 [data-theme="dark"] {
-  --color-bg-0: #000000;
-
   --color-primary: #6b81f8;
   --color-primary-light: #1c1f3d;
   --color-success: #4d8fff;
@@ -143,7 +123,7 @@ button:active {
   --color-bg-2: #1a1b20;
   --color-bg-3: #1e2028;
   --color-bg-4: #252730;
-  --color-surface: #1c1c1e;
+  --color-surface: #1a1b20;
 
   --color-border: #2e3038;
   --color-border-light: #252730;
@@ -158,15 +138,10 @@ button:active {
   --color-code-text: #cbd5e1;
   --color-pre-bg: #111318;
   --color-pre-text: #e2e8f0;
-
-  --color-separator: rgba(84, 84, 88, 0.4);
-  --color-navbar-bg: rgba(0, 0, 0, 0.85);
 }
 
 /* ZURU Theme */
 [data-theme="zuru"] {
-  --color-bg-0: #ffffff;
-
   --color-primary: #CB312D;
   --color-primary-light: #F9EBEB;
   --color-primary-hover: #AD2A26;
@@ -215,15 +190,10 @@ button:active {
   --color-code-text: #1A1A1A;
   --color-pre-bg: #F8F9FB;
   --color-pre-text: #1A1A1A;
-
-  --color-separator: rgba(60, 60, 67, 0.08);
-  --color-navbar-bg: rgba(255, 255, 255, 0.85);
 }
 
-/* Tencent Theme */
+/* Tencent Theme (default active) */
 [data-theme="tencent"] {
-  --color-bg-0: #ffffff;
-
   --color-primary: #0052D9;
   --color-primary-light: #EDF1FF;
   --color-primary-hover: #003CAB;
@@ -272,27 +242,22 @@ button:active {
   --color-code-text: #0F172A;
   --color-pre-bg: #1E293B;
   --color-pre-text: #E2E8F0;
-
-  --color-separator: rgba(60, 60, 67, 0.08);
-  --color-navbar-bg: rgba(255, 255, 255, 0.85);
 }
 
 /* ===== Mobile UI Helpers ===== */
 
-/* Page transitions — smooth horizontal slide like native iOS */
-.page-enter-active {
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
+/* Mobile page transitions */
+.page-enter-active,
 .page-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .page-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(20px);
 }
 .page-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-20px);
 }
 
 /* Sub-app slide transition */
@@ -324,116 +289,4 @@ button:active {
 }
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* ===== Native App-style Reusable Components ===== */
-
-/* iOS-style grouped table view (used in Profile, Settings) */
-.app-group {
-  margin: 0 16px 16px;
-  background: var(--color-surface);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.app-group-header {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 20px 16px 8px;
-  margin: 0;
-}
-
-.app-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 15px 16px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 16px;
-  color: var(--color-text-1);
-  transition: background 0.15s;
-}
-
-.app-row:active {
-  background: var(--color-bg-2);
-}
-
-.app-row + .app-row {
-  border-top: 0.5px solid var(--color-separator);
-}
-
-.app-row-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.app-row-label {
-  flex: 1;
-  font-weight: 400;
-}
-
-.app-row-value {
-  font-size: 15px;
-  color: var(--color-text-3);
-}
-
-.app-row-arrow {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  color: var(--color-text-4);
-}
-
-/* Large section header (Home, Apps) */
-.app-section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-1);
-  margin: 0;
-  letter-spacing: -0.3px;
-  line-height: 1.2;
-}
-
-.app-section-subtitle {
-  font-size: 15px;
-  color: var(--color-text-3);
-  margin: 4px 0 0;
-}
-
-/* Floating action button style */
-.app-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(79, 108, 247, 0.35);
-  cursor: pointer;
-  z-index: 10;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.app-fab:active {
-  transform: scale(0.92);
-  box-shadow: 0 2px 8px rgba(79, 108, 247, 0.25);
 }

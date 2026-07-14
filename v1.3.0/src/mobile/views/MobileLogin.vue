@@ -10,6 +10,7 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
+const showPassword = ref(false)
 
 async function handleLogin() {
   if (!email.value || !password.value) {
@@ -23,50 +24,93 @@ async function handleLogin() {
   if (ok) {
     router.push({ name: 'home' })
   } else {
-    errorMsg.value = auth.error || '登录失败'
+    errorMsg.value = auth.error || '登录失败，请检查邮箱和密码'
   }
 }
 </script>
 
 <template>
   <div class="login-page safe-top safe-bottom">
-    <div class="login-header">
-      <div class="logo-circle">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="none">
-          <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z" stroke="white" stroke-width="2"/>
-          <path d="M8 10H16M8 14H13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <!-- Brand area -->
+    <div class="login-brand">
+      <div class="logo-wrapper">
+        <svg viewBox="0 0 48 48" width="48" height="48" fill="none">
+          <rect x="4" y="4" width="40" height="40" rx="12" fill="var(--color-primary)"/>
+          <path d="M14 18H34M14 26H28" stroke="white" stroke-width="3" stroke-linecap="round"/>
+          <path d="M14 18L20 30L34 18" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <h1 class="login-title">清记</h1>
-      <p class="login-subtitle">记录每一天的成长</p>
+      <p class="login-subtitle">简洁 · 高效 · 记录每一天</p>
     </div>
 
-    <form class="login-form" @submit.prevent="handleLogin">
-      <div class="input-group">
+    <!-- Form -->
+    <div class="login-form-area">
+      <!-- Email -->
+      <div class="input-wrapper">
+        <svg class="input-icon" viewBox="0 0 24 24" width="20" height="20" fill="none">
+          <rect x="2" y="5" width="20" height="14" rx="2" stroke="var(--color-text-4)" stroke-width="1.8"/>
+          <path d="M2 7L12 13L22 7" stroke="var(--color-text-4)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
         <input
           v-model="email"
           type="email"
-          placeholder="邮箱"
+          placeholder="请输入邮箱"
           class="input-field"
           autocomplete="email"
         />
       </div>
-      <div class="input-group">
+
+      <!-- Password -->
+      <div class="input-wrapper">
+        <svg class="input-icon" viewBox="0 0 24 24" width="20" height="20" fill="none">
+          <rect x="3" y="11" width="18" height="11" rx="2" stroke="var(--color-text-4)" stroke-width="1.8"/>
+          <path d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11" stroke="var(--color-text-4)" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="12" cy="16" r="1.5" fill="var(--color-text-4)"/>
+        </svg>
         <input
           v-model="password"
-          type="password"
-          placeholder="密码"
+          :type="showPassword ? 'text' : 'password'"
+          placeholder="请输入密码"
           class="input-field"
           autocomplete="current-password"
         />
+        <button type="button" class="toggle-pw" @click="showPassword = !showPassword">
+          <svg v-if="showPassword" viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M2 12C2 12 6 5 12 5C18 5 22 12 22 12C22 12 18 19 12 19C6 19 2 12 2 12Z" stroke="var(--color-text-4)" stroke-width="1.8"/>
+            <circle cx="12" cy="12" r="3" stroke="var(--color-text-4)" stroke-width="1.8"/>
+            <line x1="2" y1="2" x2="22" y2="22" stroke="var(--color-text-4)" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none">
+            <path d="M2 12C2 12 6 5 12 5C18 5 22 12 22 12C22 12 18 19 12 19C6 19 2 12 2 12Z" stroke="var(--color-text-4)" stroke-width="1.8"/>
+            <circle cx="12" cy="12" r="3" fill="var(--color-text-4)"/>
+          </svg>
+        </button>
       </div>
 
+      <!-- Error -->
       <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
 
-      <button type="submit" class="login-btn" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
+      <!-- Submit -->
+      <button
+        type="submit"
+        class="login-btn"
+        :class="{ loading: loading }"
+        :disabled="loading"
+        @click="handleLogin"
+      >
+        <span v-if="loading" class="btn-spinner" />
+        <span>{{ loading ? '登录中...' : '登录' }}</span>
       </button>
-    </form>
+    </div>
+
+    <!-- Footer -->
+    <p class="login-footer">
+      登录即表示同意
+      <a href="#" class="footer-link">服务协议</a>
+      和
+      <a href="#" class="footer-link">隐私政策</a>
+    </p>
   </div>
 </template>
 
@@ -77,74 +121,102 @@ async function handleLogin() {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0 32px;
-  background: var(--color-bg-1);
+  padding: 0 28px;
+  background: var(--color-bg-0);
 }
 
-.login-header {
+/* ===== Brand ===== */
+.login-brand {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 44px;
 }
 
-.logo-circle {
-  width: 80px;
-  height: 80px;
-  border-radius: 22px;
-  background: var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
+.logo-wrapper {
+  display: inline-block;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 12px rgba(79, 108, 247, 0.25));
 }
 
 .login-title {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 800;
   color: var(--color-text-1);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
 }
 
 .login-subtitle {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--color-text-3);
-  margin: 10px 0 0;
+  margin: 8px 0 0;
+  font-weight: 400;
+  letter-spacing: 1px;
 }
 
-.login-form {
+/* ===== Form ===== */
+.login-form-area {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
-.input-group {
+.input-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .input-field {
   width: 100%;
-  height: 52px;
-  padding: 0 18px;
-  border: 1px solid var(--color-border);
+  height: 54px;
+  padding: 0 48px 0 48px;
+  border: 1.5px solid var(--color-border);
   border-radius: 14px;
-  font-size: 17px;
+  font-size: 16px;
   color: var(--color-text-1);
-  background: var(--color-surface);
+  background: var(--color-bg-2);
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .input-field:focus {
   border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-4);
+}
+
+.toggle-pw {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .error-text {
   font-size: 14px;
   color: var(--color-danger);
-  margin: 0;
+  margin: 2px 0 0;
   text-align: center;
+  padding: 4px 0;
 }
 
+/* ===== Button ===== */
 .login-btn {
   height: 52px;
   border: none;
@@ -154,15 +226,52 @@ async function handleLogin() {
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
-  margin-top: 8px;
+  transition: background 0.2s, transform 0.1s, opacity 0.2s;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.login-btn:active {
-  opacity: 0.8;
+.login-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .login-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-btn.loading {
+  background: var(--color-primary-hover);
+}
+
+.btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Footer ===== */
+.login-footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-4);
+  margin-top: 36px;
+  line-height: 1.6;
+}
+
+.footer-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
 }
 </style>

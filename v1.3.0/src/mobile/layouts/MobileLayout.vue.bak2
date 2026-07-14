@@ -21,13 +21,12 @@ import MobileTabBar from '@/mobile/components/MobileTabBar.vue'
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--color-bg-0, #ffffff);
+  background: var(--color-bg-1);
 }
 
 .mobile-content {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: var(--color-bg-0, #ffffff);
 }
 </style>

@@ -18,8 +18,13 @@ onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
 })
 
+// ── Loading state: wait for store.loaded before showing content ──
 const isLoaded = ref(false)
-watch(() => store.loaded, (val) => { if (val) isLoaded.value = true }, { immediate: true })
+watch(
+  () => store.loaded,
+  (val) => { if (val) isLoaded.value = true },
+  { immediate: true }
+)
 
 const today = computed(() => toLocalDate(now.value))
 
@@ -31,22 +36,28 @@ const dateLabel = computed(() => {
   return `${month}月${day}日 ${weekdays[d.getDay()]}`
 })
 
+// ── Today tasks filter (exact same logic as PC TodayProgress.vue) ──
 const todayTasks = computed(() =>
   store.tasks.filter(t => {
     const todayStr = today.value
+    // 1. 开始日期为当天 → 计划任务
     if (t.startDate === todayStr) return true
+    // 2. 开始日期早于当天且未完成 → 延迟任务
     if (t.startDate && t.startDate < todayStr && t.status !== 'done') return true
+    // 3. 无开始日期（旧数据/未规划）→ 回退到 createdAt 逻辑
     if (!t.startDate) {
       const createdOnDay = t.createdAt.startsWith(todayStr)
       const createdBeforeAndUndone = t.createdAt.slice(0, 10) < todayStr && t.status !== 'done'
       const completedOnDay = t.completedAt && t.completedAt.startsWith(todayStr)
       return createdOnDay || createdBeforeAndUndone || completedOnDay
     }
+    // 4. 今天完成的任务（无论开始日期是什么，方便追溯）
     if (t.completedAt && t.completedAt.startsWith(todayStr)) return true
     return false
   })
 )
 
+// ── Sort: active first (by startDate/startTime), then done (by completedAt desc) ──
 const sortedTasks = computed(() => {
   const active: Task[] = []
   const done: Task[] = []
@@ -73,11 +84,7 @@ const doneTasks = computed(() => sortedTasks.value.filter(t => t.status === 'don
 const totalCount = computed(() => sortedTasks.value.length)
 const doneCount = computed(() => doneTasks.value.length)
 
-// ── Progress ring ──
-const progress = computed(() => totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100))
-const circumference = 2 * Math.PI * 36
-const progressOffset = computed(() => circumference * (1 - progress.value / 100))
-
+// ── Helpers ──
 function isOverdue(task: Task) {
   return !!task.startDate && task.startDate < today.value && task.status !== 'done'
 }
@@ -95,9 +102,9 @@ function timeLabel(task: Task) {
 }
 
 const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string }> = {
-  high: { label: '高优先', color: '#FF3B30', bg: 'rgba(255,59,48,0.08)' },
-  medium: { label: '中优先', color: '#FF9500', bg: 'rgba(255,149,0,0.08)' },
-  low: { label: '低优先', color: '#34C759', bg: 'rgba(52,199,89,0.08)' },
+  high: { label: '高优先', color: '#FF3B30', bg: 'rgba(255,59,48,0.1)' },
+  medium: { label: '中优先', color: '#FF9500', bg: 'rgba(255,149,0,0.1)' },
+  low: { label: '低优先', color: '#34C759', bg: 'rgba(52,199,89,0.1)' },
 }
 
 function toggleStatus(task: Task) {
@@ -117,34 +124,28 @@ function goToApps() {
   <div class="home-page safe-top">
     <!-- Loading skeleton -->
     <template v-if="!isLoaded">
-      <div class="loading-area">
+      <div class="loading-header">
         <div class="skeleton skeleton-date" />
         <div class="skeleton skeleton-title" />
-        <div class="skeleton skeleton-ring" />
-        <div v-for="i in 3" :key="i" class="skeleton skeleton-card" />
+      </div>
+      <div class="task-list">
+        <div v-for="i in 4" :key="i" class="skeleton skeleton-card" />
       </div>
     </template>
 
     <!-- Loaded content -->
     <template v-else>
-      <!-- Header with progress ring -->
+      <!-- Header -->
       <header class="home-header">
-        <div class="header-main">
-          <div class="header-text">
+        <div class="header-top">
+          <div>
             <p class="date-text">{{ dateLabel }}</p>
             <h1 class="page-title">今日任务</h1>
           </div>
-          <!-- Progress ring -->
-          <div class="progress-ring-wrapper" v-if="totalCount > 0">
-            <svg class="progress-ring" viewBox="0 0 80 80">
-              <circle class="ring-bg" cx="40" cy="40" r="36" />
-              <circle
-                class="ring-fill"
-                cx="40" cy="40" r="36"
-                :style="{ strokeDasharray: circumference, strokeDashoffset: progressOffset }"
-              />
-            </svg>
-            <span class="ring-text">{{ progress }}%</span>
+          <div class="header-right">
+            <span class="count-badge" v-if="totalCount > 0">
+              {{ doneCount }} / {{ totalCount }}
+            </span>
           </div>
         </div>
       </header>
@@ -153,9 +154,7 @@ function goToApps() {
       <div class="task-list" v-if="sortedTasks.length">
         <!-- Active tasks -->
         <div class="section-header" v-if="activeTasks.length">
-          <span class="section-dot active" />
-          <span>待完成</span>
-          <span class="section-count">{{ activeTasks.length }}</span>
+          <span>待完成 · {{ activeTasks.length }}</span>
         </div>
 
         <div
@@ -169,37 +168,33 @@ function goToApps() {
             :class="task.status"
             @click.stop="toggleStatus(task)"
           >
-            <svg v-if="task.status === 'in_progress'" viewBox="0 0 24 24" width="12" height="12">
+            <svg v-if="task.status === 'in_progress'" viewBox="0 0 24 24" width="14" height="14">
               <circle cx="12" cy="12" r="5" fill="white" />
             </svg>
           </button>
+
           <div class="task-body">
-            <div class="task-title">{{ task.title }}</div>
-            <div class="task-meta">
-              <span class="task-time" :class="{ overdue: isOverdue(task) }">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" class="time-icon">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
-                  <path d="M12 7V12L15 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                </svg>
-                {{ timeLabel(task) }}
-              </span>
-              <span
-                v-if="task.priority !== 'low'"
-                class="priority-dot"
-                :style="{ background: priorityConfig[task.priority].color }"
-              />
+            <div class="task-time" :class="{ overdue: isOverdue(task) }">
+              {{ timeLabel(task) }}
             </div>
+            <div class="task-title">{{ task.title }}</div>
           </div>
-          <svg class="card-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+
+          <span
+            v-if="task.priority !== 'low'"
+            class="priority-tag"
+            :style="{
+              color: priorityConfig[task.priority].color,
+              background: priorityConfig[task.priority].bg
+            }"
+          >
+            {{ priorityConfig[task.priority].label }}
+          </span>
         </div>
 
         <!-- Completed tasks -->
         <div class="section-header completed" v-if="doneTasks.length">
-          <span class="section-dot done" />
-          <span>已完成</span>
-          <span class="section-count">{{ doneTasks.length }}</span>
+          <span>已完成 · {{ doneTasks.length }}</span>
         </div>
 
         <div
@@ -212,43 +207,34 @@ function goToApps() {
             class="status-circle done"
             @click.stop="toggleStatus(task)"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
               <path d="M5 12L10 17L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+
           <div class="task-body">
+            <div class="task-time">{{ timeLabel(task) }}</div>
             <div class="task-title done">{{ task.title }}</div>
-            <div class="task-meta">
-              <span class="task-time">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" class="time-icon">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
-                  <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                {{ timeLabel(task) }}
-              </span>
-            </div>
           </div>
         </div>
       </div>
 
       <!-- Empty state -->
       <div class="empty-state" v-else>
-        <div class="empty-illustration">
-          <svg viewBox="0 0 120 100" fill="none" width="120" height="100">
-            <rect x="20" y="10" width="80" height="70" rx="10" fill="var(--color-bg-2)" stroke="var(--color-border)" stroke-width="1.5"/>
-            <rect x="32" y="24" width="56" height="6" rx="3" fill="var(--color-border)"/>
-            <rect x="32" y="38" width="40" height="6" rx="3" fill="var(--color-border-light)"/>
-            <rect x="32" y="52" width="48" height="6" rx="3" fill="var(--color-border-light)"/>
-            <circle cx="88" cy="88" r="24" fill="var(--color-primary)" opacity="0.12"/>
-            <path d="M81 88L86 93L95 84" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <div class="empty-icon">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <rect x="8" y="6" width="32" height="36" rx="4" stroke="var(--color-text-4)" stroke-width="2"/>
+            <path d="M16 20H32M16 28H28" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="36" cy="36" r="8" fill="var(--color-primary)"/>
+            <path d="M33 36L35 38L39 34" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </div>
         <p class="empty-text">今日暂无任务</p>
-        <p class="empty-hint">在应用中添加任务，开始规划你的一天</p>
         <button class="empty-btn" @click="goToApps">去应用看看</button>
       </div>
     </template>
 
+    <!-- Reactivate confirm dialog -->
     <ConfirmDialog
       :visible="store.reactivateConfirm.visible"
       title="重新激活任务"
@@ -265,16 +251,16 @@ function goToApps() {
 .home-page {
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--color-bg-0);
+  background: var(--color-bg-1);
   padding-bottom: 80px;
 }
 
-/* ===== Loading ===== */
-.loading-area {
-  padding: 24px 20px;
+/* ===== Loading skeleton ===== */
+.loading-header {
+  padding: 20px 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .skeleton {
@@ -282,80 +268,59 @@ function goToApps() {
   border-radius: 10px;
   animation: shimmer 1.5s ease-in-out infinite;
 }
-.skeleton-date { width: 100px; height: 16px; }
-.skeleton-title { width: 140px; height: 32px; border-radius: 12px; }
-.skeleton-ring { width: 80px; height: 80px; border-radius: 50%; align-self: flex-end; margin-top: -40px; }
-.skeleton-card { height: 64px; border-radius: 14px; }
+
+.skeleton-date {
+  width: 120px;
+  height: 18px;
+}
+
+.skeleton-title {
+  width: 140px;
+  height: 32px;
+  border-radius: 12px;
+}
+
+.skeleton-card {
+  height: 64px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+}
+
 @keyframes shimmer {
-  0% { opacity: 0.35; }
-  50% { opacity: 0.6; }
-  100% { opacity: 0.35; }
+  0% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.4; }
 }
 
 /* ===== Header ===== */
 .home-header {
-  padding: 20px 20px 8px;
-  background: var(--color-bg-0);
+  padding: 16px 20px 20px;
+  background: var(--color-bg-1);
 }
 
-.header-main {
+.header-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 .date-text {
   font-size: 15px;
   color: var(--color-text-3);
   margin: 0 0 6px;
-  font-weight: 500;
 }
 
 .page-title {
-  font-size: 32px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--color-text-1);
   margin: 0;
-  letter-spacing: -0.5px;
-  line-height: 1.1;
+  letter-spacing: -0.3px;
 }
 
-/* ===== Progress ring ===== */
-.progress-ring-wrapper {
-  position: relative;
-  width: 68px;
-  height: 68px;
-  flex-shrink: 0;
-}
-
-.progress-ring {
-  width: 68px;
-  height: 68px;
-  transform: rotate(-90deg);
-}
-
-.ring-bg {
-  fill: none;
-  stroke: var(--color-bg-2);
-  stroke-width: 5;
-}
-
-.ring-fill {
-  fill: none;
-  stroke: var(--color-primary);
-  stroke-width: 5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.6s ease;
-}
-
-.ring-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.count-badge {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-primary);
 }
 
@@ -365,44 +330,17 @@ function goToApps() {
 }
 
 .section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-2);
-  padding: 20px 6px 12px;
+  color: var(--color-text-3);
+  padding: 20px 4px 12px;
+  letter-spacing: 0.3px;
 }
 
 .section-header.completed {
   padding-top: 28px;
 }
 
-.section-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.section-dot.active {
-  background: var(--color-primary);
-}
-
-.section-dot.done {
-  background: var(--color-success);
-}
-
-.section-count {
-  font-size: 12px;
-  color: var(--color-text-4);
-  font-weight: 500;
-  background: var(--color-bg-2);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-/* ===== Task card ===== */
 .task-card {
   display: flex;
   align-items: center;
@@ -412,17 +350,16 @@ function goToApps() {
   border-radius: 16px;
   margin-bottom: 10px;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-  border: 1px solid var(--color-border-light);
+  transition: opacity 0.15s;
+  box-shadow: 0 1px 2px var(--color-shadow);
 }
 
 .task-card:active {
-  background: var(--color-bg-2);
+  opacity: 0.7;
 }
 
 .task-card.completed {
-  opacity: 0.55;
-  background: var(--color-bg-1);
+  opacity: 0.5;
 }
 
 .status-circle {
@@ -444,16 +381,37 @@ function goToApps() {
   transform: scale(0.85);
 }
 
-.status-circle.todo { border-color: #C7C7CC; }
-.status-circle.in_progress { border-color: #FF9500; background: #FF9500; }
-.status-circle.done { border-color: #34C759; background: #34C759; }
+.status-circle.todo {
+  border-color: #C7C7CC;
+}
+
+.status-circle.in_progress {
+  border-color: #FF9500;
+  background: #FF9500;
+}
+
+.status-circle.done {
+  border-color: #34C759;
+  background: #34C759;
+}
 
 .task-body {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+}
+
+.task-time {
+  font-size: 13px;
+  color: var(--color-text-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-time.overdue {
+  color: var(--color-danger);
 }
 
 .task-title {
@@ -471,41 +429,13 @@ function goToApps() {
   color: var(--color-text-3);
 }
 
-.task-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.task-time {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--color-text-3);
+.priority-tag {
+  font-size: 12px;
   font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.task-time.overdue {
-  color: var(--color-danger);
-}
-
-.time-icon {
+  padding: 3px 10px;
+  border-radius: 10px;
   flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.priority-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.card-arrow {
-  flex-shrink: 0;
-  opacity: 0.4;
+  white-space: nowrap;
 }
 
 /* ===== Empty state ===== */
@@ -514,43 +444,33 @@ function goToApps() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 32px;
-  gap: 12px;
+  padding: 100px 32px;
+  gap: 20px;
 }
 
-.empty-illustration {
-  margin-bottom: 8px;
-  opacity: 0.6;
+.empty-icon {
+  opacity: 0.4;
 }
 
 .empty-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-text-2);
+  font-size: 17px;
+  color: var(--color-text-3);
   margin: 0;
 }
 
-.empty-hint {
-  font-size: 14px;
-  color: var(--color-text-4);
-  margin: 0 0 12px;
-  text-align: center;
-  line-height: 1.5;
-}
-
 .empty-btn {
-  padding: 12px 36px;
+  padding: 12px 32px;
   border: none;
   border-radius: 24px;
   background: var(--color-primary);
   color: white;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: opacity 0.15s;
 }
 
 .empty-btn:active {
-  background: var(--color-primary-hover);
+  opacity: 0.8;
 }
 </style>
