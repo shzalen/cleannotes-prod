@@ -65,6 +65,10 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        mobile: resolve(__dirname, 'mobile.html'),
+      },
       output: {
         manualChunks(id) {
           // Split heavy editor dependencies by functional group for finer-grained loading
