@@ -21,10 +21,10 @@ const today = computed(() => toLocalDate(now.value))
 const dateDisplay = computed(() => {
   const d = now.value
   const wd = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${wd[d.getDay()]}`
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${wd[d.getDay()]}`
 })
 
-// ── 今日任务过滤（对齐 PC 端 TodayProgress） ──
+// ── 今日任务过滤（对齐 PC 端 TodayProgress.vue） ──
 const todayTasks = computed(() =>
   store.tasks.filter(t => {
     const ts = today.value
@@ -93,12 +93,7 @@ const priorityLabelMap: Record<TaskPriority, string> = { high: '高', medium: '�
 // ── 下拉刷新 ──
 const refreshing = ref(false)
 async function onRefresh() {
-  try {
-    await store.load(true)
-    now.value = new Date()
-  } finally {
-    refreshing.value = false
-  }
+  try { await store.load(true); now.value = new Date() } finally { refreshing.value = false }
 }
 
 // ── 弹窗 ──
@@ -111,66 +106,75 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 
 <template>
   <div class="home-page">
-    <!-- 沉浸式头部 -->
-    <div class="home-header safe-top">
+    <!-- 蓝色渐变头部，延伸到状态栏 -->
+    <div class="home-header">
       <div class="header-content">
-        <h1 class="header-title">清记</h1>
+        <div class="header-top">
+          <h1 class="header-title">清记</h1>
+          <div class="header-badge">
+            <span class="badge-num">{{ sortedTasks.length }}</span>
+            <span class="badge-label">今日</span>
+          </div>
+        </div>
         <p class="header-date">{{ dateDisplay }}</p>
       </div>
     </div>
 
-    <VanPullRefresh v-model="refreshing" @refresh="onRefresh" class="home-scroll">
-      <div class="content-area">
-        <!-- 完成率 -->
-        <div class="progress-card">
-          <div class="progress-top">
-            <span class="progress-label">今日完成率</span>
-            <span class="progress-value">{{ rate }}%</span>
+    <!-- 圆角白色内容区 -->
+    <div class="content-wrapper">
+      <VanPullRefresh v-model="refreshing" @refresh="onRefresh" class="home-scroll">
+        <div class="content-area">
+          <!-- 完成率卡片 -->
+          <div class="progress-card">
+            <div class="progress-top">
+              <span class="progress-label">今日完成率</span>
+              <span class="progress-value">{{ rate }}%</span>
+            </div>
+            <VanProgress :percentage="rate" :show-pivot="false" color="var(--color-primary)" stroke-width="6" />
           </div>
-          <VanProgress :percentage="rate" :show-pivot="false" color="var(--color-primary)" stroke-width="6" />
-        </div>
 
-        <!-- 任务列表 -->
-        <VanCellGroup v-if="sortedTasks.length" inset class="task-group">
-          <VanCell
-            v-for="task in sortedTasks"
-            :key="task.id"
-            class="task-cell"
-            :class="{ 'is-done': task.status === 'done' }"
-            clickable
-            @click="showDetail(task)"
-          >
-            <template #icon>
-              <div
-                class="task-dot"
-                :class="task.status"
-                @click.stop="openProgress(task)"
-              />
-            </template>
-            <template #title>
-              <span class="task-time">{{ timeLabel(task) }}</span>
-            </template>
-            <template #value>
-              <div class="task-value">
-                <span class="task-title" :class="task.status">{{ task.title }}</span>
-                <div class="task-tags">
-                  <VanTag plain :type="task.priority === 'high' ? 'danger' : task.priority === 'medium' ? 'primary' : 'success'" size="mini">
-                    {{ priorityLabelMap[task.priority] }}
-                  </VanTag>
+          <!-- 任务列表 -->
+          <VanCellGroup v-if="sortedTasks.length" inset class="task-group">
+            <VanCell
+              v-for="task in sortedTasks"
+              :key="task.id"
+              class="task-cell"
+              :class="{ 'is-done': task.status === 'done' }"
+              clickable
+              @click="showDetail(task)"
+            >
+              <template #icon>
+                <div
+                  class="task-dot"
+                  :class="task.status"
+                  @click.stop="openProgress(task)"
+                />
+              </template>
+              <template #title>
+                <span class="task-time">{{ timeLabel(task) }}</span>
+              </template>
+              <template #value>
+                <div class="task-value">
+                  <span class="task-title" :class="task.status">{{ task.title }}</span>
+                  <div class="task-tags">
+                    <VanTag plain :type="task.priority === 'high' ? 'danger' : task.priority === 'medium' ? 'primary' : 'success'" size="mini">
+                      {{ priorityLabelMap[task.priority] }}
+                    </VanTag>
+                  </div>
                 </div>
-              </div>
-            </template>
-            <template #right-icon>
-              <VanTag v-if="task.status !== 'done'" :type="task.status === 'in_progress' ? 'warning' : 'default'" size="mini" @click.stop="openProgress(task)">
-                {{ statusLabel[task.status] }}
-              </VanTag>
-            </template>
-          </VanCell>
-        </VanCellGroup>
+              </template>
+              <template #right-icon>
+                <VanTag v-if="task.status !== 'done'" :type="task.status === 'in_progress' ? 'warning' : 'default'" size="mini" @click.stop="openProgress(task)">
+                  {{ statusLabel[task.status] }}
+                </VanTag>
+              </template>
+            </VanCell>
+          </VanCellGroup>
 
-        <VanEmpty v-else description="今日暂无任务" />
-      </div>
-    </VanPullRefresh>
+          <VanEmpty v-else description="今日暂无任务" />
+        </div>
+      </VanPullRefresh>
+    </div>
 
     <TaskDetailSheet ref="detailSheet" />
     <TaskProgressSheet ref="progressSheet" />
@@ -185,21 +189,83 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   overflow: hidden;
 }
 
+/* ── 蓝色渐变头部，延伸到状态栏 ── */
 .home-header {
-  background: var(--color-primary);
-  padding-bottom: 20px;
+  background: linear-gradient(135deg, #4a90d9 0%, #0052D9 100%);
+  padding-top: max(env(safe-area-inset-top, 0px), 28px);
+  padding-bottom: 24px;
   flex-shrink: 0;
+  position: relative;
 }
 
-.header-content { padding: 8px 20px 0; }
+/* 底部圆角过渡 */
+.home-header::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 0; right: 0;
+  height: 32px;
+  background: var(--color-bg-0, #fff);
+  border-radius: 16px 16px 0 0;
+}
+
+.header-content {
+  padding: 0 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
 .header-title {
-  font-size: 32px; font-weight: 800;
-  color: #fff; letter-spacing: -0.5px;
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.header-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: rgba(255,255,255,0.2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.badge-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.badge-label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
 }
 
 .header-date {
-  font-size: 14px; color: rgba(255,255,255,0.75); margin-top: 2px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.85);
+  margin-top: 6px;
+}
+
+/* ── 白色内容区 ── */
+.content-wrapper {
+  flex: 1;
+  background: var(--color-bg-0, #fff);
+  border-radius: 16px 16px 0 0;
+  margin-top: -16px;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .home-scroll {
@@ -208,10 +274,11 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 }
 
 .content-area {
-  padding: 12px 0;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
+/* ── 完成率卡片 ── */
 .progress-card {
   margin: 0 16px 16px;
   padding: 16px 18px;
@@ -224,20 +291,22 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
 }
 
-.progress-label { font-size: 15px; font-weight: 500; color: var(--color-text-2); }
-.progress-value { font-size: 16px; font-weight: 700; color: var(--color-primary); }
+.progress-label { font-size: 16px; font-weight: 500; color: var(--color-text-2); }
+.progress-value { font-size: 18px; font-weight: 700; color: var(--color-primary); }
 
+/* ── 任务列表 ── */
 .task-group { margin: 0 16px; }
 
 .task-cell {
   align-items: center;
+  padding: 14px 16px;
 }
 
 .task-cell.is-done { opacity: 0.6; }
 
 .task-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  margin-right: 10px; flex-shrink: 0;
+  width: 12px; height: 12px; border-radius: 50%;
+  margin-right: 12px; flex-shrink: 0;
 }
 
 .task-dot.todo { background: var(--color-text-4); }
@@ -245,8 +314,8 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 .task-dot.done { background: var(--color-primary); }
 
 .task-time {
-  font-size: 13px; font-weight: 600; color: var(--color-text-2);
-  font-variant-numeric: tabular-nums; min-width: 36px; display: inline-block;
+  font-size: 15px; font-weight: 600; color: var(--color-text-2);
+  font-variant-numeric: tabular-nums; min-width: 40px; display: inline-block;
 }
 
 .task-value {
@@ -254,7 +323,7 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 }
 
 .task-title {
-  font-size: 15px; font-weight: 500; color: var(--color-text-1);
+  font-size: 18px; font-weight: 500; color: var(--color-text-1);
 }
 
 .task-title.done { text-decoration: line-through; color: var(--color-text-3); }
