@@ -52,11 +52,14 @@ async function handleClearCache() {
       const regs = await navigator.serviceWorker.getRegistrations()
       await Promise.all(regs.map(r => r.unregister()))
     }
-    // Clear localStorage app data
+    // Clear localStorage app data (keep theme setting)
+    const preserveKeys = ['cleannotes_theme']
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('cleannotes')) keysToRemove.push(key)
+      if (key && key.startsWith('cleannotes') && !preserveKeys.includes(key)) {
+        keysToRemove.push(key)
+      }
     }
     keysToRemove.forEach(k => localStorage.removeItem(k))
   } finally {
