@@ -70,12 +70,16 @@ const nextWeekDays = computed(() => buildWeekDays(nextWeekBase.value))
 function onTouchStart(e: TouchEvent) {
   swipeStartX.value = e.touches[0].clientX
   swipeDeltaX.value = 0
-  isSwiping.value = true
+  isSwiping.value = false  // 初始不是滑动，等移动后再判定
 }
 
 function onTouchMove(e: TouchEvent) {
-  if (!isSwiping.value) return
-  swipeDeltaX.value = e.touches[0].clientX - swipeStartX.value
+  const dx = e.touches[0].clientX - swipeStartX.value
+  if (Math.abs(dx) > 5) {
+    // 移动超过 5px 才算滑动
+    if (!isSwiping.value) isSwiping.value = true
+    swipeDeltaX.value = dx
+  }
 }
 
 function onTouchEnd() {
@@ -380,12 +384,12 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
 .cal-header-spacer { width: 52px; flex-shrink: 0; }
 
 .cal-title {
-  flex: 1; text-align: center; font-size: 17px; font-weight: 600; color: var(--color-text-1);
+  flex: 1; text-align: center; font-size: 18px; font-weight: 600; color: var(--color-text-1);
 }
 
 .cal-add-btn {
   width: 52px; text-align: right; background: none; border: none;
-  font-size: 15px; font-weight: 500; color: var(--color-primary); cursor: pointer; flex-shrink: 0;
+  font-size: 16px; font-weight: 500; color: var(--color-primary); cursor: pointer; flex-shrink: 0;
 }
 
 .cal-add-btn:active { opacity: 0.6; }
@@ -485,14 +489,14 @@ function openCreate() { createSheet.value?.open(selectedDate.value) }
 .task-row.is-done { opacity: 0.6; }
 
 .task-time {
-  font-size: 12px; font-weight: 600; color: var(--color-text-2);
-  width: 36px; flex-shrink: 0; font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 600; color: var(--color-text-2);
+  width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums;
 }
 
-.task-time.done { font-size: 10px; font-weight: 400; color: var(--color-text-4); }
+.task-time.done { font-size: 11px; font-weight: 400; color: var(--color-text-4); }
 
 .task-title {
-  flex: 1; font-size: 14px; font-weight: 500; color: var(--color-text-1);
+  flex: 1; font-size: 15px; font-weight: 500; color: var(--color-text-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 

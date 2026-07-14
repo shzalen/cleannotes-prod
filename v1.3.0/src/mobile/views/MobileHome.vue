@@ -292,7 +292,8 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 /* ── Header (with safe-area background) ── */
 .home-header {
   background: var(--color-primary);
-  padding-top: env(safe-area-inset-top, 0px);
+  /* 确保状态栏背景：safe-area-inset-top 可能为0，用 min-height 保证 */
+  padding-top: max(env(safe-area-inset-top, 0px), 20px);
   padding-bottom: 20px;
   flex-shrink: 0;
 }
@@ -302,14 +303,14 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 }
 
 .header-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.5px;
 }
 
 .header-date {
-  font-size: 13px;
+  font-size: 14px;
   color: rgba(255, 255, 255, 0.75);
   margin-top: 2px;
 }
@@ -369,8 +370,8 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
 }
 
-.progress-label { font-size: 14px; font-weight: 500; color: var(--color-text-2); }
-.progress-value { font-size: 15px; font-weight: 700; color: var(--color-primary); }
+.progress-label { font-size: 15px; font-weight: 500; color: var(--color-text-2); }
+.progress-value { font-size: 16px; font-weight: 700; color: var(--color-primary); }
 
 .progress-track {
   height: 6px; background: var(--color-bg-4); border-radius: 3px; overflow: hidden;
@@ -410,17 +411,17 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 .tl-dot.clickable:active { transform: translateY(-50%) scale(1.4); }
 
 .tl-time {
-  font-size: 12px; font-weight: 600; color: var(--color-text-2);
-  width: 36px; flex-shrink: 0; padding-top: 2px; font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 600; color: var(--color-text-2);
+  width: 40px; flex-shrink: 0; padding-top: 2px; font-variant-numeric: tabular-nums;
 }
 
-.tl-time.done { font-size: 10px; font-weight: 400; color: var(--color-text-4); }
-.tl-time:empty::after { content: '--:--'; color: var(--color-text-4); font-weight: 400; font-size: 10px; }
+.tl-time.done { font-size: 11px; font-weight: 400; color: var(--color-text-4); }
+.tl-time:empty::after { content: '--:--'; color: var(--color-text-4); font-weight: 400; font-size: 11px; }
 
 .tl-main { flex: 1; min-width: 0; cursor: pointer; }
 
 .tl-title {
-  font-size: 14px; font-weight: 500; color: var(--color-text-1);
+  font-size: 15px; font-weight: 500; color: var(--color-text-1);
   display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
