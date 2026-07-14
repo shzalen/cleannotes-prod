@@ -85,7 +85,7 @@ function go(tab: string) {
 <style scoped>
 .tab-bar {
   display: flex;
-  height: 56px;
+  height: 60px;
   background: var(--color-surface);
   border-top: 0.5px solid var(--color-border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -98,11 +98,11 @@ function go(tab: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   border: none;
   background: none;
   cursor: pointer;
-  padding: 6px 0;
+  padding: 8px 0;
   transition: opacity 0.15s;
 }
 
@@ -111,12 +111,12 @@ function go(tab: string) {
 }
 
 .tab-icon {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
 }
 
 .tab-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-4);
   transition: color 0.15s;

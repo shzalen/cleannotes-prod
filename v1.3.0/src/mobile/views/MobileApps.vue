@@ -146,25 +146,26 @@ function openApp(app: AppEntry) {
 }
 
 .page-header {
-  padding: 12px 20px 12px;
+  padding: 16px 20px 16px;
 }
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--color-text-1);
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 16px 16px;
-  padding: 0 12px;
-  height: 36px;
+  margin: 0 16px 20px;
+  padding: 0 14px;
+  height: 40px;
   background: var(--color-bg-2);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .search-icon {
@@ -175,7 +176,7 @@ function openApp(app: AppEntry) {
   border: none;
   background: none;
   outline: none;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-text-2);
   width: 100%;
 }
@@ -193,24 +194,24 @@ function openApp(app: AppEntry) {
 }
 
 .group-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--color-text-3);
-  margin: 16px 0 12px;
+  margin: 20px 0 14px;
 }
 
 .app-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px 0;
+  gap: 10px 0;
 }
 
 .app-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 8px;
+  padding: 10px 0;
   border: none;
   background: none;
   cursor: pointer;
@@ -222,24 +223,24 @@ function openApp(app: AppEntry) {
 }
 
 .app-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 13px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .app-label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-2);
   font-weight: 400;
 }
 
 .sort-hint {
   text-align: center;
-  padding: 24px 0;
-  font-size: 12px;
+  padding: 28px 0;
+  font-size: 13px;
   color: var(--color-text-4);
 }
 </style>

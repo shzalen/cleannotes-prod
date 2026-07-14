@@ -87,33 +87,34 @@ async function handleLogin() {
 }
 
 .logo-circle {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
+  width: 80px;
+  height: 80px;
+  border-radius: 22px;
   background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
+  margin: 0 auto 20px;
 }
 
 .login-title {
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   color: var(--color-text-1);
   margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .login-subtitle {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-3);
-  margin: 8px 0 0;
+  margin: 10px 0 0;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .input-group {
@@ -122,11 +123,11 @@ async function handleLogin() {
 
 .input-field {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
+  height: 52px;
+  padding: 0 18px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  font-size: 16px;
+  border-radius: 14px;
+  font-size: 17px;
   color: var(--color-text-1);
   background: var(--color-surface);
   outline: none;
@@ -138,20 +139,20 @@ async function handleLogin() {
 }
 
 .error-text {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-danger);
   margin: 0;
   text-align: center;
 }
 
 .login-btn {
-  height: 48px;
+  height: 52px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--color-primary);
   color: white;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
   margin-top: 8px;

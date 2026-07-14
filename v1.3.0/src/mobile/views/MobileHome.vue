@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/task'
 import type { Task, TaskPriority } from '@/types'
@@ -18,6 +18,14 @@ onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer)
 })
 
+// ── Loading state: wait for store.loaded before showing content ──
+const isLoaded = ref(false)
+watch(
+  () => store.loaded,
+  (val) => { if (val) isLoaded.value = true },
+  { immediate: true }
+)
+
 const today = computed(() => toLocalDate(now.value))
 
 const dateLabel = computed(() => {
@@ -28,24 +36,28 @@ const dateLabel = computed(() => {
   return `${month}月${day}日 ${weekdays[d.getDay()]}`
 })
 
-// ---- Today tasks filter (aligned with PC TodayProgress.vue) ----
+// ── Today tasks filter (exact same logic as PC TodayProgress.vue) ──
 const todayTasks = computed(() =>
   store.tasks.filter(t => {
     const todayStr = today.value
+    // 1. 开始日期为当天 → 计划任务
     if (t.startDate === todayStr) return true
+    // 2. 开始日期早于当天且未完成 → 延迟任务
     if (t.startDate && t.startDate < todayStr && t.status !== 'done') return true
+    // 3. 无开始日期（旧数据/未规划）→ 回退到 createdAt 逻辑
     if (!t.startDate) {
       const createdOnDay = t.createdAt.startsWith(todayStr)
       const createdBeforeAndUndone = t.createdAt.slice(0, 10) < todayStr && t.status !== 'done'
       const completedOnDay = t.completedAt && t.completedAt.startsWith(todayStr)
       return createdOnDay || createdBeforeAndUndone || completedOnDay
     }
+    // 4. 今天完成的任务（无论开始日期是什么，方便追溯）
     if (t.completedAt && t.completedAt.startsWith(todayStr)) return true
     return false
   })
 )
 
-// ---- Sort: incomplete first, then completed ----
+// ── Sort: active first (by startDate/startTime), then done (by completedAt desc) ──
 const sortedTasks = computed(() => {
   const active: Task[] = []
   const done: Task[] = []
@@ -72,7 +84,7 @@ const doneTasks = computed(() => sortedTasks.value.filter(t => t.status === 'don
 const totalCount = computed(() => sortedTasks.value.length)
 const doneCount = computed(() => doneTasks.value.length)
 
-// ---- Helpers ----
+// ── Helpers ──
 function isOverdue(task: Task) {
   return !!task.startDate && task.startDate < today.value && task.status !== 'done'
 }
@@ -110,103 +122,117 @@ function goToApps() {
 
 <template>
   <div class="home-page safe-top">
-    <!-- Header -->
-    <header class="home-header">
-      <div class="header-top">
-        <div>
-          <p class="date-text">{{ dateLabel }}</p>
-          <h1 class="page-title">今日任务</h1>
+    <!-- Loading skeleton -->
+    <template v-if="!isLoaded">
+      <div class="loading-header">
+        <div class="skeleton skeleton-date" />
+        <div class="skeleton skeleton-title" />
+      </div>
+      <div class="task-list">
+        <div v-for="i in 4" :key="i" class="skeleton skeleton-card" />
+      </div>
+    </template>
+
+    <!-- Loaded content -->
+    <template v-else>
+      <!-- Header -->
+      <header class="home-header">
+        <div class="header-top">
+          <div>
+            <p class="date-text">{{ dateLabel }}</p>
+            <h1 class="page-title">今日任务</h1>
+          </div>
+          <div class="header-right">
+            <span class="count-badge" v-if="totalCount > 0">
+              {{ doneCount }} / {{ totalCount }}
+            </span>
+          </div>
         </div>
-        <div class="header-right">
-          <span class="count-badge" v-if="totalCount > 0">
-            {{ doneCount }} / {{ totalCount }}
+      </header>
+
+      <!-- Task list -->
+      <div class="task-list" v-if="sortedTasks.length">
+        <!-- Active tasks -->
+        <div class="section-header" v-if="activeTasks.length">
+          <span>待完成 · {{ activeTasks.length }}</span>
+        </div>
+
+        <div
+          v-for="task in activeTasks"
+          :key="task.id"
+          class="task-card"
+          @click="openTaskDetail(task)"
+        >
+          <button
+            class="status-circle"
+            :class="task.status"
+            @click.stop="toggleStatus(task)"
+          >
+            <svg v-if="task.status === 'in_progress'" viewBox="0 0 24 24" width="14" height="14">
+              <circle cx="12" cy="12" r="5" fill="white" />
+            </svg>
+          </button>
+
+          <div class="task-body">
+            <div class="task-time" :class="{ overdue: isOverdue(task) }">
+              {{ timeLabel(task) }}
+            </div>
+            <div class="task-title">{{ task.title }}</div>
+          </div>
+
+          <span
+            v-if="task.priority !== 'low'"
+            class="priority-tag"
+            :style="{
+              color: priorityConfig[task.priority].color,
+              background: priorityConfig[task.priority].bg
+            }"
+          >
+            {{ priorityConfig[task.priority].label }}
           </span>
         </div>
-      </div>
-    </header>
 
-    <!-- Task list -->
-    <div class="task-list" v-if="sortedTasks.length">
-      <!-- Active tasks -->
-      <div class="section-header" v-if="activeTasks.length">
-        <span>待完成 · {{ activeTasks.length }}</span>
-      </div>
+        <!-- Completed tasks -->
+        <div class="section-header completed" v-if="doneTasks.length">
+          <span>已完成 · {{ doneTasks.length }}</span>
+        </div>
 
-      <div
-        v-for="task in activeTasks"
-        :key="task.id"
-        class="task-card"
-        @click="openTaskDetail(task)"
-      >
-        <button
-          class="status-circle"
-          :class="task.status"
-          @click.stop="toggleStatus(task)"
+        <div
+          v-for="task in doneTasks"
+          :key="task.id"
+          class="task-card completed"
+          @click="openTaskDetail(task)"
         >
-          <svg v-if="task.status === 'in_progress'" viewBox="0 0 24 24" width="12" height="12">
-            <circle cx="12" cy="12" r="5" fill="white" />
-          </svg>
-        </button>
+          <button
+            class="status-circle done"
+            @click.stop="toggleStatus(task)"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+              <path d="M5 12L10 17L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
 
-        <div class="task-body">
-          <div class="task-time" :class="{ overdue: isOverdue(task) }">
-            {{ timeLabel(task) }}
+          <div class="task-body">
+            <div class="task-time">{{ timeLabel(task) }}</div>
+            <div class="task-title done">{{ task.title }}</div>
           </div>
-          <div class="task-title">{{ task.title }}</div>
         </div>
-
-        <span
-          v-if="task.priority !== 'low'"
-          class="priority-tag"
-          :style="{
-            color: priorityConfig[task.priority].color,
-            background: priorityConfig[task.priority].bg
-          }"
-        >
-          {{ priorityConfig[task.priority].label }}
-        </span>
       </div>
 
-      <!-- Completed tasks -->
-      <div class="section-header completed" v-if="doneTasks.length">
-        <span>已完成 · {{ doneTasks.length }}</span>
-      </div>
-
-      <div
-        v-for="task in doneTasks"
-        :key="task.id"
-        class="task-card completed"
-        @click="openTaskDetail(task)"
-      >
-        <button
-          class="status-circle done"
-          @click.stop="toggleStatus(task)"
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <path d="M5 12L10 17L19 7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Empty state -->
+      <div class="empty-state" v-else>
+        <div class="empty-icon">
+          <svg viewBox="0 0 48 48" width="56" height="56" fill="none">
+            <rect x="8" y="6" width="32" height="36" rx="4" stroke="var(--color-text-4)" stroke-width="2"/>
+            <path d="M16 20H32M16 28H28" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="36" cy="36" r="8" fill="var(--color-primary)"/>
+            <path d="M33 36L35 38L39 34" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-        </button>
-
-        <div class="task-body">
-          <div class="task-time">{{ timeLabel(task) }}</div>
-          <div class="task-title done">{{ task.title }}</div>
         </div>
+        <p class="empty-text">今日暂无任务</p>
+        <button class="empty-btn" @click="goToApps">去应用看看</button>
       </div>
-    </div>
-
-    <!-- Empty state -->
-    <div class="empty-state" v-else>
-      <div class="empty-icon">
-        <svg viewBox="0 0 48 48" width="48" height="48" fill="none">
-          <rect x="8" y="6" width="32" height="36" rx="4" stroke="var(--color-text-4)" stroke-width="2"/>
-          <path d="M16 20H32M16 28H28" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="36" cy="36" r="8" fill="var(--color-primary)"/>
-          <path d="M33 36L35 38L39 34" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <p class="empty-text">今日暂无任务</p>
-      <button class="empty-btn" @click="goToApps">去应用看看</button>
-    </div>
+    </template>
 
     <!-- Reactivate confirm dialog -->
     <ConfirmDialog
@@ -229,8 +255,46 @@ function goToApps() {
   padding-bottom: 80px;
 }
 
+/* ===== Loading skeleton ===== */
+.loading-header {
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton {
+  background: var(--color-bg-2);
+  border-radius: 10px;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-date {
+  width: 120px;
+  height: 18px;
+}
+
+.skeleton-title {
+  width: 140px;
+  height: 32px;
+  border-radius: 12px;
+}
+
+.skeleton-card {
+  height: 64px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+}
+
+@keyframes shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.4; }
+}
+
+/* ===== Header ===== */
 .home-header {
-  padding: 12px 20px 16px;
+  padding: 16px 20px 20px;
   background: var(--color-bg-1);
 }
 
@@ -241,49 +305,53 @@ function goToApps() {
 }
 
 .date-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-text-3);
-  margin: 0 0 4px;
+  margin: 0 0 6px;
 }
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--color-text-1);
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .count-badge {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--color-primary);
 }
 
+/* ===== Task list ===== */
 .task-list {
   padding: 0 16px;
 }
 
 .section-header {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--color-text-3);
-  padding: 16px 4px 8px;
+  padding: 20px 4px 12px;
+  letter-spacing: 0.3px;
 }
 
 .section-header.completed {
-  padding-top: 24px;
+  padding-top: 28px;
 }
 
 .task-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   background: var(--color-surface);
-  border-radius: 14px;
-  margin-bottom: 8px;
+  border-radius: 16px;
+  margin-bottom: 10px;
   cursor: pointer;
   transition: opacity 0.15s;
+  box-shadow: 0 1px 2px var(--color-shadow);
 }
 
 .task-card:active {
@@ -291,14 +359,14 @@ function goToApps() {
 }
 
 .task-card.completed {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 .status-circle {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--color-text-4);
+  border: 2.5px solid var(--color-text-4);
   background: transparent;
   display: flex;
   align-items: center;
@@ -332,13 +400,14 @@ function goToApps() {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .task-time {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-3);
-  font-weight: 500;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .task-time.overdue {
@@ -346,12 +415,13 @@ function goToApps() {
 }
 
 .task-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--color-text-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .task-title.done {
@@ -360,42 +430,44 @@ function goToApps() {
 }
 
 .priority-tag {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 8px;
+  padding: 3px 10px;
+  border-radius: 10px;
   flex-shrink: 0;
   white-space: nowrap;
 }
 
+/* ===== Empty state ===== */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 32px;
-  gap: 16px;
+  padding: 100px 32px;
+  gap: 20px;
 }
 
 .empty-icon {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .empty-text {
-  font-size: 14px;
+  font-size: 17px;
   color: var(--color-text-3);
   margin: 0;
 }
 
 .empty-btn {
-  padding: 8px 24px;
+  padding: 12px 32px;
   border: none;
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--color-primary);
   color: white;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
+  transition: opacity 0.15s;
 }
 
 .empty-btn:active {

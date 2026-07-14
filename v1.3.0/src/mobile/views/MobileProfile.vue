@@ -233,24 +233,25 @@ async function handleLogout() {
 }
 
 .page-header {
-  padding: 12px 20px;
+  padding: 16px 20px 16px;
 }
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--color-text-1);
   margin: 0;
+  letter-spacing: -0.3px;
 }
 
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin: 0 16px 16px;
-  padding: 16px;
+  gap: 16px;
+  margin: 0 16px 20px;
+  padding: 20px 18px;
   background: var(--color-surface);
-  border-radius: 16px;
+  border-radius: 18px;
   cursor: pointer;
   transition: opacity 0.15s;
 }
@@ -260,13 +261,13 @@ async function handleLogout() {
 }
 
 .avatar {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--color-primary);
   color: white;
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 22px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,15 +280,15 @@ async function handleLogout() {
 }
 
 .profile-name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-1);
 }
 
 .profile-email {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-text-3);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .chevron {
@@ -296,8 +297,8 @@ async function handleLogout() {
 
 .stats-row {
   display: flex;
-  gap: 8px;
-  margin: 0 16px 16px;
+  gap: 10px;
+  margin: 0 16px 20px;
 }
 
 .stat-card {
@@ -305,35 +306,35 @@ async function handleLogout() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 0;
+  gap: 6px;
+  padding: 18px 0;
   background: var(--color-surface);
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .stat-value {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   color: var(--color-text-1);
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-3);
 }
 
 .menu-group {
-  margin: 0 16px 12px;
+  margin: 0 16px 14px;
   background: var(--color-surface);
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   border: none;
   background: none;
   cursor: pointer;
@@ -347,9 +348,9 @@ async function handleLogout() {
 }
 
 .menu-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -358,31 +359,31 @@ async function handleLogout() {
 
 .menu-label {
   flex: 1;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-1);
 }
 
 .menu-value {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-text-3);
 }
 
 .menu-divider {
   height: 0.5px;
   background: var(--color-border-light);
-  margin: 0 16px 0 56px;
+  margin: 0 18px 0 60px;
 }
 
 .logout-btn {
   display: block;
   width: calc(100% - 32px);
-  margin: 16px;
-  padding: 14px;
+  margin: 20px 16px;
+  padding: 16px;
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--color-surface);
   color: var(--color-danger);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.15s;
