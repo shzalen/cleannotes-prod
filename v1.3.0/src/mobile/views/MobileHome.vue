@@ -78,34 +78,35 @@ const progress = computed(() => totalCount.value === 0 ? 0 : Math.round((doneCou
 const circumference = 2 * Math.PI * 36
 const progressOffset = computed(() => circumference * (1 - progress.value / 100))
 
-function isOverdue(task: Task) {
-  return !!task.startDate && task.startDate < today.value && task.status !== 'done'
-}
-
-function timeLabel(task: Task) {
-  if (task.status === 'done') {
-    if (task.completedAt) {
-      const d = new Date(task.completedAt)
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    }
-    return ''
-  }
-  if (isOverdue(task)) return '已延期'
-  return task.startTime || '--:--'
-}
-
-const priorityConfig: Record<TaskPriority, { label: string; color: string; bg: string }> = {
-  high: { label: '高优先', color: '#FF3B30', bg: 'rgba(255,59,48,0.08)' },
-  medium: { label: '中优先', color: '#FF9500', bg: 'rgba(255,149,0,0.08)' },
-  low: { label: '低优先', color: '#34C759', bg: 'rgba(52,199,89,0.08)' },
-}
-
-function toggleStatus(task: Task) {
-  store.requestToggleStatus(task.id)
-}
+// ── Task detail sheet ──
+const showDetailSheet = ref(false)
+const detailTask = ref<Task | null>(null)
 
 function openTaskDetail(task: Task) {
-  router.push({ name: 'app-tasks', query: { id: task.id } })
+  detailTask.value = task
+  showDetailSheet.value = true
+}
+
+function closeDetailSheet() {
+  showDetailSheet.value = false
+  detailTask.value = null
+}
+
+function fmtTime(ts: string | null | undefined): string | null {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${y}-${mo}-${day} ${h}:${mi}`
+}
+
+function isFutureTask(task: Task) {
+  const todayStr = today.value
+  return task.startDate ? task.startDate > todayStr : task.createdAt.slice(0, 10) > todayStr
 }
 
 function goToApps() {
@@ -258,6 +259,78 @@ function goToApps() {
       @confirm="store.confirmReactivate()"
       @cancel="store.cancelReactivate()"
     />
+
+    <!-- Task Detail Bottom Sheet -->
+    <div v-if="showDetailSheet && detailTask" class="sheet-overlay" @click="closeDetailSheet">
+      <div class="detail-sheet safe-bottom" @click.stop>
+        <div class="sheet-handle" />
+
+        <div class="detail-header">
+          <div class="detail-status-row">
+            <span
+              class="detail-status-badge"
+              :class="detailTask.status"
+            >
+              {{ detailTask.status === 'todo' ? '待办' : detailTask.status === 'in_progress' ? '进行中' : '已完成' }}
+            </span>
+            <span
+              v-if="detailTask.priority !== 'low'"
+              class="detail-priority-badge"
+              :style="{ color: priorityConfig[detailTask.priority].color, background: priorityConfig[detailTask.priority].bg }"
+            >
+              {{ priorityConfig[detailTask.priority].label }}
+            </span>
+          </div>
+          <h2 class="detail-title">{{ detailTask.title }}</h2>
+        </div>
+
+        <div class="detail-meta-list">
+          <div v-if="detailTask.startDate" class="detail-meta-item">
+            <span class="meta-icon">📅</span>
+            <span class="meta-label">计划��始</span>
+            <span class="meta-value">{{ detailTask.startDate }} {{ detailTask.startTime || '' }}</span>
+          </div>
+          <div v-if="detailTask.dueDate" class="detail-meta-item">
+            <span class="meta-icon">⏰</span>
+            <span class="meta-label">截止日期</span>
+            <span class="meta-value">{{ detailTask.dueDate }}</span>
+          </div>
+          <div v-if="detailTask.inProgressAt" class="detail-meta-item">
+            <span class="meta-icon">▶️</span>
+            <span class="meta-label">开始执行</span>
+            <span class="meta-value">{{ fmtTime(detailTask.inProgressAt) }}</span>
+          </div>
+          <div v-if="detailTask.completedAt" class="detail-meta-item">
+            <span class="meta-icon">✅</span>
+            <span class="meta-label">完成时间</span>
+            <span class="meta-value">{{ fmtTime(detailTask.completedAt) }}</span>
+          </div>
+        </div>
+
+        <div v-if="detailTask.description" class="detail-desc">
+          <p class="desc-label">描述</p>
+          <p class="desc-text">{{ detailTask.description }}</p>
+        </div>
+
+        <div class="detail-actions">
+          <button
+            v-if="detailTask.status !== 'done' && !isFutureTask(detailTask)"
+            class="detail-btn primary"
+            @click="toggleStatus(detailTask); closeDetailSheet()"
+          >
+            {{ detailTask.status === 'todo' ? '开始执行' : '标记完成' }}
+          </button>
+          <button
+            v-if="detailTask.status === 'done'"
+            class="detail-btn primary"
+            @click="toggleStatus(detailTask); closeDetailSheet()"
+          >
+            重新激活
+          </button>
+          <button class="detail-btn secondary" @click="closeDetailSheet">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -266,7 +339,7 @@ function goToApps() {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--color-bg-0);
-  padding-bottom: 80px;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 20px);
 }
 
 /* ===== Loading ===== */
@@ -552,5 +625,180 @@ function goToApps() {
 
 .empty-btn:active {
   background: var(--color-primary-hover);
+}
+
+/* ===== Detail Sheet ===== */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detail-sheet {
+  width: 100%;
+  background: var(--color-surface);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 24px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-text-4);
+  opacity: 0.3;
+  margin: 0 auto 16px;
+}
+
+.detail-header {
+  margin-bottom: 20px;
+}
+
+.detail-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.detail-status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.detail-status-badge.todo {
+  background: var(--color-bg-2);
+  color: var(--color-text-2);
+}
+
+.detail-status-badge.in_progress {
+  background: var(--color-warning-light);
+  color: var(--color-warning-text);
+}
+
+.detail-status-badge.done {
+  background: var(--color-success-light);
+  color: var(--color-success-text);
+}
+
+.detail-priority-badge {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-1);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.detail-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.detail-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.meta-icon {
+  font-size: 16px;
+  width: 24px;
+  text-align: center;
+}
+
+.meta-label {
+  color: var(--color-text-3);
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  color: var(--color-text-1);
+  font-weight: 500;
+  flex: 1;
+}
+
+.detail-desc {
+  margin-bottom: 20px;
+  padding: 14px;
+  background: var(--color-bg-1);
+  border-radius: 12px;
+}
+
+.desc-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-3);
+  margin: 0 0 8px;
+}
+
+.desc-text {
+  font-size: 14px;
+  color: var(--color-text-2);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.detail-btn {
+  flex: 1;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.detail-btn.primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.detail-btn.primary:active {
+  opacity: 0.8;
+}
+
+.detail-btn.secondary {
+  background: var(--color-bg-2);
+  color: var(--color-text-2);
+}
+
+.detail-btn.secondary:active {
+  background: var(--color-bg-3);
 }
 </style>

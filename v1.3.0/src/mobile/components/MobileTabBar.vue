@@ -98,8 +98,11 @@ function go(tab: string) {
   border-top: 0.5px solid var(--color-separator);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   flex-shrink: 0;
-  position: relative;
-  z-index: 100;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
 }
 
 .tab-item {
