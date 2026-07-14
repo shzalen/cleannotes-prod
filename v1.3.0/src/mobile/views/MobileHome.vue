@@ -195,24 +195,10 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   padding-top: max(env(safe-area-inset-top, 0px), 28px);
   padding-bottom: 24px;
   flex-shrink: 0;
-  position: relative;
-}
-
-/* 底部圆角过渡 */
-.home-header::after {
-  content: '';
-  position: absolute;
-  bottom: -16px;
-  left: 0; right: 0;
-  height: 32px;
-  background: var(--color-bg-0, #fff);
-  border-radius: 16px 16px 0 0;
 }
 
 .header-content {
   padding: 0 20px;
-  position: relative;
-  z-index: 1;
 }
 
 .header-top {
@@ -262,7 +248,7 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   border-radius: 16px 16px 0 0;
   margin-top: -16px;
   position: relative;
-  z-index: 2;
+  z-index: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
