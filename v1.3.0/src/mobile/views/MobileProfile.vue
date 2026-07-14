@@ -9,6 +9,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const taskStore = useTaskStore()
 const showLogoutConfirm = ref(false)
+const clearingCache = ref(false)
 
 const email = computed(() => auth.user?.email || '')
 const namePrefix = computed(() => (email.value?.[0] || 'U').toUpperCase())
@@ -17,6 +18,35 @@ const doneCount = computed(() => taskStore.doneTasks.length)
 
 function goToApp(route: string) {
   router.push(route)
+}
+
+async function handleClearCache() {
+  clearingCache.value = true
+  try {
+    // 清除所有 Service Worker 缓存
+    if ('caches' in window) {
+      const keys = await caches.keys()
+      await Promise.all(keys.map(k => caches.delete(k)))
+    }
+    // 注销 Service Worker
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    }
+    // 清除 localStorage 中的缓存标记
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.includes('cache') || key.includes('lastSync') || key.includes('sync'))) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k))
+    // 强制刷新
+    window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now()
+  } catch {
+    window.location.reload()
+  }
 }
 
 async function handleLogout() {
@@ -108,6 +138,16 @@ async function handleLogout() {
     <!-- Logout -->
     <button class="logout-btn" @click="showLogoutConfirm = true">
       退出登录
+    </button>
+
+    <!-- Clear cache -->
+    <button class="clear-cache-btn" :disabled="clearingCache" @click="handleClearCache">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" class="clear-icon">
+        <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      {{ clearingCache ? '清理中...' : '清除缓存' }}
     </button>
 
     <ConfirmDialog
@@ -304,5 +344,37 @@ async function handleLogout() {
 
 .logout-btn:active {
   background: var(--color-bg-2);
+}
+
+/* ===== Clear cache ===== */
+.clear-cache-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 8px 16px 20px;
+  padding: 13px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--color-text-3);
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.clear-cache-btn:active:not(:disabled) {
+  color: var(--color-text-2);
+}
+
+.clear-cache-btn:disabled {
+  opacity: 0.5;
+}
+
+.clear-icon {
+  opacity: 0.6;
 }
 </style>
