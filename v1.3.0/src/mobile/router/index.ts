@@ -1,61 +1,78 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-
-const MobileLayout = () => import('@/mobile/layouts/MobileLayout.vue')
-const MobileLogin = () => import('@/mobile/views/MobileLogin.vue')
-const MobileHome = () => import('@/mobile/views/MobileHome.vue')
-const MobileApps = () => import('@/mobile/views/MobileApps.vue')
-const MobileProfile = () => import('@/mobile/views/MobileProfile.vue')
-const MobileTaskApp = () => import('@/mobile/views/apps/MobileTaskApp.vue')
-
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/login',
-    name: 'login',
-    component: MobileLogin,
-  },
-  {
-    path: '/',
-    component: MobileLayout,
-    children: [
-      { path: '', redirect: '/home' },
-      { path: 'home', name: 'home', component: MobileHome, meta: { tab: 'home' } },
-      { path: 'apps', name: 'apps', component: MobileApps, meta: { tab: 'apps' } },
-      { path: 'profile', name: 'profile', component: MobileProfile, meta: { tab: 'profile' } },
-    ],
-  },
-  // Sub-apps: full-screen, no tab bar
-  {
-    path: '/app/tasks',
-    name: 'app-tasks',
-    component: MobileTaskApp,
-  },
-  // Placeholder routes for other sub-apps
-  {
-    path: '/app/:name',
-    name: 'app-placeholder',
-    component: () => import('@/mobile/views/apps/MobilePlaceholderApp.vue'),
-  },
-]
+import { switchUser } from '@/services/storage'
+import MobileLayout from '@/mobile/layouts/MobileLayout.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes,
+  routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/mobile/views/MobileLogin.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/',
+      component: MobileLayout,
+      children: [
+        {
+          path: '',
+          redirect: { name: 'home' },
+        },
+        {
+          path: 'home',
+          name: 'home',
+          component: () => import('@/mobile/views/MobileHome.vue'),
+          meta: { tab: 'home' },
+        },
+        {
+          path: 'calendar',
+          name: 'calendar',
+          component: () => import('@/mobile/views/MobileCalendar.vue'),
+          meta: { tab: 'calendar' },
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: () => import('@/mobile/views/MobileProfile.vue'),
+          meta: { tab: 'profile' },
+        },
+      ],
+    },
+  ],
 })
 
-router.beforeEach(async (to) => {
+let authReady = false
+
+router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
-  // Wait for session restore on first navigation
-  if (!auth.initialized) {
+
+  if (!authReady) {
     await auth.init()
+    authReady = true
   }
-  if (!auth.isAuthenticated && to.name !== 'login') {
-    return { name: 'login' }
+
+  if (to.meta.public) {
+    if (auth.isAuthenticated) {
+      next({ name: 'home' })
+    } else {
+      next()
+    }
+    return
   }
-  if (auth.isAuthenticated && to.name === 'login') {
-    return { name: 'home' }
+
+  if (!auth.isAuthenticated) {
+    next({ name: 'login' })
+    return
   }
+
+  // Set user context for data stores
+  if (auth.userId) {
+    switchUser(auth.userId)
+  }
+
+  next()
 })
 
 export default router

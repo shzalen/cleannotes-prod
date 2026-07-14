@@ -8,9 +8,9 @@ const router = useRouter()
 const activeTab = computed(() => (route.meta.tab as string) || '')
 
 const tabs = [
-  { key: 'home', label: '首页', icon: 'home' },
-  { key: 'apps', label: '应用', icon: 'apps' },
-  { key: 'profile', label: '我的', icon: 'profile' },
+  { key: 'home', label: '首页' },
+  { key: 'calendar', label: '日历' },
+  { key: 'profile', label: '我的' },
 ] as const
 
 function go(tab: string) {
@@ -19,7 +19,7 @@ function go(tab: string) {
 </script>
 
 <template>
-  <nav class="tab-bar safe-bottom">
+  <nav class="tab-bar">
     <button
       v-for="tab in tabs"
       :key="tab.key"
@@ -27,24 +27,23 @@ function go(tab: string) {
       :class="{ active: activeTab === tab.key }"
       @click="go(tab.key)"
     >
-      <!-- Home -->
-      <svg v-if="tab.icon === 'home'" class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
-        <path v-if="activeTab === tab.key" d="M12 3L4 9V21H10V14H14V21H20V9L12 3Z"/>
-        <path v-else d="M3 10.5L12 3L21 10.5V20C21 20.5523 20.5523 21 20 21H15V14H9V21H4C3.44772 21 3 20.5523 3 20V10.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <!-- Home icon -->
+      <svg v-if="tab.key === 'home'" class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3L4 9V21H10V14H14V21H20V9L12 3Z" />
       </svg>
 
-      <!-- Apps -->
-      <svg v-else-if="tab.icon === 'apps'" class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
-        <rect x="3" y="3" width="7.5" height="7.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <rect x="3" y="13.5" width="7.5" height="7.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <!-- Calendar icon -->
+      <svg v-else-if="tab.key === 'calendar'" class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+        <rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <path d="M3 10H21" stroke="currentColor" stroke-width="1.8" />
+        <path d="M8 2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        <path d="M16 2V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
       </svg>
 
-      <!-- Profile -->
+      <!-- Profile icon -->
       <svg v-else class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
-        <circle cx="12" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-        <path d="M4 21C4 16.5817 7.58172 13 12 13C16.4183 13 20 16.5817 20 21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21C4 16.5817 7.58172 13 12 13C16.4183 13 20 16.5817 20 21" />
       </svg>
 
       <span class="tab-label">{{ tab.label }}</span>
@@ -56,17 +55,12 @@ function go(tab: string) {
 .tab-bar {
   display: flex;
   height: 56px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--color-navbar-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--color-separator);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   flex-shrink: 0;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
 }
 
 .tab-item {
@@ -75,14 +69,14 @@ function go(tab: string) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   border: none;
   background: none;
   cursor: pointer;
-  padding: 6px 0;
-  transition: opacity 0.15s;
-  position: relative;
+  padding: 4px 0;
   color: var(--color-text-4);
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-item:active {
@@ -94,31 +88,19 @@ function go(tab: string) {
 }
 
 .tab-icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   transition: transform 0.2s ease;
-  color: inherit;
 }
 
 .tab-item.active .tab-icon {
   transform: scale(1.08);
 }
 
-/* Active apps icon: fill the rects */
-.tab-item.active svg[viewBox="0 0 24 24"] rect {
-  fill: currentColor;
-}
-
-/* Active profile icon: fill the circle */
-.tab-item.active svg[viewBox="0 0 24 24"] circle {
-  fill: currentColor;
-}
-
 .tab-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  color: inherit;
-  transition: color 0.15s, font-weight 0.15s;
+  transition: font-weight 0.15s;
 }
 
 .tab-item.active .tab-label {

@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
-import { useGrowthStore } from '@/stores/growth'
-import { useAiStore } from '@/stores/ai'
 import { useTodoStore } from '@/stores/todo'
 import { useMemoStore } from '@/stores/memo'
+import { useGrowthStore } from '@/stores/growth'
+import { useAiStore } from '@/stores/ai'
 import { useWeeklyReportStore } from '@/stores/weeklyReport'
 import { switchUser } from '@/services/storage'
-import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushTaskWrites, cleanupTaskListeners, clearOnTaskDone } from '@/stores/task'
+import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
 import { onCrossTabSync, broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
@@ -19,33 +19,37 @@ import { useTheme } from '@/composables/useTheme'
 
 const auth = useAuthStore()
 const taskStore = useTaskStore()
-const growthStore = useGrowthStore()
-const aiStore = useAiStore()
 const todoStore = useTodoStore()
 const memoStore = useMemoStore()
+const growthStore = useGrowthStore()
+const aiStore = useAiStore()
 const weeklyReportStore = useWeeklyReportStore()
 const router = useRouter()
 
+// Apply theme system (sets data-theme on document)
 useTheme()
-
-const showApp = computed(() => auth.isAuthenticated)
 
 let unsubCrossTab: (() => void) | null = null
 
 onMounted(async () => {
   await auth.init()
+
   if (auth.isAuthenticated && auth.userId) {
     switchUser(auth.userId)
+
+    // Load all stores in parallel
     await Promise.all([
       taskStore.load(),
-      growthStore.load(),
-      aiStore.load(),
       todoStore.load(),
       memoStore.load(),
+      growthStore.load(),
+      aiStore.load(),
       weeklyReportStore.load(),
     ])
+
     useGrowthIntegration()
 
+    // Cross-tab sync
     unsubCrossTab = onCrossTabSync((msg) => {
       switch (msg.type) {
         case 'tasks-updated': taskStore.reload().catch(() => {}); break
@@ -59,10 +63,6 @@ onMounted(async () => {
           break
       }
     })
-
-    if (router.currentRoute.value.name === 'login' || !router.currentRoute.value.name) {
-      router.push({ name: 'home' })
-    }
   }
 })
 
@@ -87,11 +87,10 @@ onUnmounted(() => {
   if (unsubCrossTab) unsubCrossTab()
 })
 
-// Expose logout globally for child components
-defineExpose({ handleLogout })
+// Provide logout to child components
+provide('appLogout', handleLogout)
 </script>
 
 <template>
-  <router-view v-if="showApp" />
-  <router-view v-else />
+  <router-view />
 </template>

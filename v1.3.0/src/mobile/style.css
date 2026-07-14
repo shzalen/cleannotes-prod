@@ -1,229 +1,9 @@
-@import "tailwindcss";
+/* ===== CleanNotes Mobile — Theme System ===== */
+/* Three themes: Tencent Blue (default), ZURU, Dark */
 
-/* ===== Mobile App Global Styles =====
-   Design references: WeChat, Notion Mobile, iOS Settings, Douyin */
-
-* {
-  -webkit-tap-highlight-color: transparent;
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--color-bg-0);
-  color: var(--color-text-1);
-  overscroll-behavior: none;
-  /* Prevent pull-to-refresh on body (handled per-page if needed) */
-  overflow: hidden;
-}
-
-#app {
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-input, textarea, button {
-  font-family: inherit;
-}
-
-/* Native-like tap feedback */
-button:active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
-}
-
-/* ===== Theme CSS Variables ===== */
-
-/* Mobile base overrides — pure white background for app feel */
-:root {
-  /* App background — pure white for native app feel */
-  --color-bg-0: #ffffff;
-
-  /* Primary & Semantic */
-  --color-primary: #4f6cf7;
-  --color-primary-light: #eef2ff;
-  --color-success: #22c55e;
-  --color-success-light: #ecfdf5;
-  --color-success-lighter: #f0fdf4;
-  --color-success-text: #16a34a;
-  --color-warning: #f59e0b;
-  --color-warning-light: #fffbeb;
-  --color-danger: #ef4444;
-  --color-danger-light: #fef2f2;
-  --color-danger-text: #dc2626;
-  --color-info: #3b82f6;
-  --color-info-light: #eff6ff;
-  --color-info-lighter: #f0f9ff;
-  --color-info-text: #2563eb;
-  --color-warning-text: #d97706;
-  --color-accent: #7c3aed;
-  --color-accent-light: #faf5ff;
-  --color-accent-text: #5b21b6;
-  --color-white: #ffffff;
-
-  /* Primary interactive states */
-  --color-primary-hover: #3b5de7;
-  --color-primary-disabled: #b4c4f9;
-
-  /* Text */
-  --color-text-1: #0f172a;
-  --color-text-2: #475569;
-  --color-text-3: #64748b;
-  --color-text-4: #9ca3af;
-
-  /* Background layers */
-  --color-bg-1: #f5f5f7;
-  --color-bg-2: #f0f0f2;
-  --color-bg-3: #f9fafb;
-  --color-bg-4: #f3f4f6;
-  --color-surface: #ffffff;
-
-  /* Border */
-  --color-border: #e5e5ea;
-  --color-border-light: #eaeaeb;
-
-  /* Effects */
-  --color-focus-ring: rgba(79, 108, 247, 0.1);
-  --color-shadow: rgba(0, 0, 0, 0.04);
-  --color-shadow-md: rgba(0, 0, 0, 0.1);
-  --color-overlay: rgba(0, 0, 0, 0.25);
-  --color-overlay-md: rgba(0, 0, 0, 0.35);
-
-  /* Code */
-  --color-code-bg: #f3f4f6;
-  --color-code-text: #4b5563;
-  --color-pre-bg: #1e293b;
-  --color-pre-text: #e2e8f0;
-
-  /* App-specific */
-  --color-separator: rgba(60, 60, 67, 0.08);
-  --color-navbar-bg: rgba(255, 255, 255, 0.85);
-}
-
-/* Dark Theme */
-[data-theme="dark"] {
-  --color-bg-0: #000000;
-
-  --color-primary: #6b81f8;
-  --color-primary-light: #1c1f3d;
-  --color-success: #4d8fff;
-  --color-success-light: #0d1a36;
-  --color-success-lighter: #0f1e3d;
-  --color-success-text: #6aabff;
-  --color-warning: #fbbf24;
-  --color-warning-light: #2d2006;
-  --color-warning-text: #fbbf24;
-  --color-danger: #f87171;
-  --color-danger-light: #2d1516;
-  --color-danger-text: #fca5a5;
-  --color-info: #60a5fa;
-  --color-info-light: #162032;
-  --color-info-lighter: #131d2d;
-  --color-info-text: #93bbfd;
-
-  --color-accent: #a78bfa;
-  --color-accent-light: #1e1538;
-  --color-accent-text: #c4b5fd;
-  --color-white: #ffffff;
-
-  --color-primary-hover: #5a73f0;
-  --color-primary-disabled: #3a4060;
-
-  --color-text-1: #f1f5f9;
-  --color-text-2: #cbd5e1;
-  --color-text-3: #94a3b8;
-  --color-text-4: #64748b;
-
-  --color-bg-1: #0f1115;
-  --color-bg-2: #1a1b20;
-  --color-bg-3: #1e2028;
-  --color-bg-4: #252730;
-  --color-surface: #1c1c1e;
-
-  --color-border: #2e3038;
-  --color-border-light: #252730;
-
-  --color-focus-ring: rgba(107, 129, 248, 0.15);
-  --color-shadow: rgba(0, 0, 0, 0.25);
-  --color-shadow-md: rgba(0, 0, 0, 0.4);
-  --color-overlay: rgba(0, 0, 0, 0.55);
-  --color-overlay-md: rgba(0, 0, 0, 0.65);
-
-  --color-code-bg: #252730;
-  --color-code-text: #cbd5e1;
-  --color-pre-bg: #111318;
-  --color-pre-text: #e2e8f0;
-
-  --color-separator: rgba(84, 84, 88, 0.4);
-  --color-navbar-bg: rgba(0, 0, 0, 0.85);
-}
-
-/* ZURU Theme */
-[data-theme="zuru"] {
-  --color-bg-0: #ffffff;
-
-  --color-primary: #CB312D;
-  --color-primary-light: #F9EBEB;
-  --color-primary-hover: #AD2A26;
-  --color-primary-disabled: #E59895;
-
-  --color-success: #CB312D;
-  --color-success-light: #F9EBEB;
-  --color-success-lighter: #FDF6F6;
-  --color-success-text: #AD2A26;
-  --color-warning: #CB312D;
-  --color-warning-light: #FFF5F5;
-  --color-warning-text: #AD2A26;
-  --color-danger: #CB312D;
-  --color-danger-light: #F9EBEB;
-  --color-danger-text: #AD2A26;
-  --color-info: #999999;
-  --color-info-light: #F5F5F5;
-  --color-info-lighter: #FAFAFA;
-  --color-info-text: #666666;
-  --color-accent: #CB312D;
-  --color-accent-light: #F9EBEB;
-  --color-accent-text: #AD2A26;
-  --color-white: #ffffff;
-
-  --color-text-1: #1A1A1A;
-  --color-text-2: #666666;
-  --color-text-3: #999999;
-  --color-text-4: #BFBFBF;
-
-  --color-bg-1: #F1F3F6;
-  --color-bg-2: #F5F6F8;
-  --color-bg-3: #F8F9FB;
-  --color-bg-4: #EBEDF0;
-  --color-surface: #FFFFFF;
-
-  --color-border: #DFE2E6;
-  --color-border-light: #E8EBEF;
-
-  --color-focus-ring: rgba(203, 49, 45, 0.12);
-  --color-shadow: rgba(0, 0, 0, 0.04);
-  --color-shadow-md: rgba(0, 0, 0, 0.08);
-  --color-overlay: rgba(0, 0, 0, 0.25);
-  --color-overlay-md: rgba(0, 0, 0, 0.35);
-
-  --color-code-bg: #F1F3F6;
-  --color-code-text: #1A1A1A;
-  --color-pre-bg: #F8F9FB;
-  --color-pre-text: #1A1A1A;
-
-  --color-separator: rgba(60, 60, 67, 0.08);
-  --color-navbar-bg: rgba(255, 255, 255, 0.85);
-}
-
-/* Tencent Theme */
+/* ── Base (Tencent Blue, default) ── */
+:root,
 [data-theme="tencent"] {
-  --color-bg-0: #ffffff;
-
   --color-primary: #0052D9;
   --color-primary-light: #EDF1FF;
   --color-primary-hover: #003CAB;
@@ -233,207 +13,232 @@ button:active {
   --color-success-light: #EDF1FF;
   --color-success-lighter: #F2F3FF;
   --color-success-text: #003CAB;
+
   --color-warning: #E37318;
   --color-warning-light: #FFF4E8;
   --color-warning-text: #BE5A00;
+
   --color-danger: #D54941;
   --color-danger-light: #FFECEB;
   --color-danger-text: #AD352F;
+
   --color-info: #0052D9;
   --color-info-light: #EDF1FF;
-  --color-info-lighter: #F2F3FF;
-  --color-info-text: #003CAB;
-  --color-accent: #7C3AED;
-  --color-accent-light: #F5F0FF;
-  --color-accent-text: #5B21B6;
-  --color-white: #ffffff;
 
   --color-text-1: #0F172A;
   --color-text-2: #475569;
   --color-text-3: #64748B;
   --color-text-4: #9CA3AF;
 
+  --color-bg-0: #FFFFFF;
   --color-bg-1: #F3F3F4;
   --color-bg-2: #EEEEF0;
   --color-bg-3: #E7E8EB;
-  --color-bg-4: #DCDDE1;
+  --color-bg-4: #DCDEE0;
   --color-surface: #FFFFFF;
 
-  --color-border: #D5D6DA;
-  --color-border-light: #E0E1E5;
+  --color-border: #DCDEE0;
+  --color-border-light: #E7E8EB;
 
-  --color-focus-ring: rgba(0, 82, 217, 0.10);
-  --color-shadow: rgba(0, 0, 0, 0.04);
-  --color-shadow-md: rgba(0, 0, 0, 0.10);
-  --color-overlay: rgba(0, 0, 0, 0.25);
-  --color-overlay-md: rgba(0, 0, 0, 0.35);
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-shadow: rgba(0, 0, 0, 0.06);
 
-  --color-code-bg: #F3F3F4;
-  --color-code-text: #0F172A;
-  --color-pre-bg: #1E293B;
-  --color-pre-text: #E2E8F0;
-
-  --color-separator: rgba(60, 60, 67, 0.08);
   --color-navbar-bg: rgba(255, 255, 255, 0.85);
+  --color-separator: rgba(0, 0, 0, 0.08);
+
+  --color-white: #FFFFFF;
 }
 
-/* ===== Mobile UI Helpers ===== */
+/* ── ZURU Theme ── */
+[data-theme="zuru"] {
+  --color-primary: #CB312D;
+  --color-primary-light: #F9EBEB;
+  --color-primary-hover: #AD2A26;
+  --color-primary-disabled: #E59895;
 
-/* Page transitions — smooth horizontal slide like native iOS */
-.page-enter-active {
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --color-success: #CB312D;
+  --color-success-light: #F9EBEB;
+  --color-success-lighter: #FDF6F6;
+  --color-success-text: #AD2A26;
+
+  --color-warning: #CB312D;
+  --color-warning-light: #FFF5F5;
+  --color-warning-text: #AD2A26;
+
+  --color-danger: #CB312D;
+  --color-danger-light: #F9EBEB;
+  --color-danger-text: #AD2A26;
+
+  --color-info: #999999;
+  --color-info-light: #F5F5F5;
+
+  --color-text-1: #1A1A1A;
+  --color-text-2: #666666;
+  --color-text-3: #999999;
+  --color-text-4: #BFBFBF;
+
+  --color-bg-0: #FFFFFF;
+  --color-bg-1: #F1F3F6;
+  --color-bg-2: #F5F6F8;
+  --color-bg-3: #F8F9FB;
+  --color-bg-4: #EBEDF0;
+  --color-surface: #FFFFFF;
+
+  --color-border: #DFE2E6;
+  --color-border-light: #E8EBEF;
+
+  --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-shadow: rgba(0, 0, 0, 0.04);
+
+  --color-navbar-bg: rgba(255, 255, 255, 0.85);
+  --color-separator: rgba(0, 0, 0, 0.08);
+
+  --color-white: #FFFFFF;
 }
-.page-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+
+/* ── Dark Theme ── */
+[data-theme="dark"] {
+  --color-primary: #6b81f8;
+  --color-primary-light: #1c1f3d;
+  --color-primary-hover: #5a73f0;
+  --color-primary-disabled: #3a4060;
+
+  --color-success: #4d8fff;
+  --color-success-light: #0d1a36;
+  --color-success-lighter: #0f1e3d;
+  --color-success-text: #6aabff;
+
+  --color-warning: #fbbf24;
+  --color-warning-light: #2d2006;
+  --color-warning-text: #fbbf24;
+
+  --color-danger: #f87171;
+  --color-danger-light: #2d1516;
+  --color-danger-text: #fca5a5;
+
+  --color-info: #60a5fa;
+  --color-info-light: #162032;
+
+  --color-text-1: #f1f5f9;
+  --color-text-2: #cbd5e1;
+  --color-text-3: #94a3b8;
+  --color-text-4: #64748b;
+
+  --color-bg-0: #000000;
+  --color-bg-1: #0f1115;
+  --color-bg-2: #1a1b20;
+  --color-bg-3: #1e2028;
+  --color-bg-4: #252730;
+  --color-surface: #1a1b20;
+
+  --color-border: #2e3038;
+  --color-border-light: #252730;
+
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --color-shadow: rgba(0, 0, 0, 0.3);
+
+  --color-navbar-bg: rgba(15, 17, 21, 0.85);
+  --color-separator: rgba(255, 255, 255, 0.06);
+
+  --color-white: #FFFFFF;
 }
-.page-enter-from {
+
+/* ===== Global Reset ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  color: var(--color-text-1);
+  background: var(--color-bg-0);
+}
+
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+input, textarea, button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* ===== Bottom Sheet Animation ===== */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.sheet-overlay-enter-active,
+.sheet-overlay-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.sheet-overlay-enter-from,
+.sheet-overlay-leave-to {
   opacity: 0;
-  transform: translateX(30px);
-}
-.page-leave-to {
-  opacity: 0;
-  transform: translateX(-30px);
 }
 
-/* Sub-app slide transition */
-.subapp-enter-active,
-.subapp-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
-}
-.subapp-enter-from {
-  opacity: 0;
-  transform: translateX(100%);
-}
-.subapp-leave-to {
-  opacity: 0;
-  transform: translateX(100%);
+.sheet-panel {
+  background: var(--color-surface);
+  border-radius: 16px 16px 0 0;
+  max-height: 85vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Hide scrollbar but keep functionality */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+.sheet-overlay-enter-active .sheet-panel,
+.sheet-overlay-leave-active .sheet-panel {
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Safe area helpers */
+.sheet-overlay-enter-to .sheet-panel {
+  transform: translateY(0);
+}
+
+.sheet-overlay-leave-to .sheet-panel {
+  transform: translateY(100%);
+}
+
+/* Sheet handle */
+.sheet-handle {
+  width: 36px;
+  height: 5px;
+  background: var(--color-text-4);
+  border-radius: 3px;
+  margin: 8px auto 0;
+  opacity: 0.3;
+}
+
+/* ===== Utility Classes ===== */
 .safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ===== Native App-style Reusable Components ===== */
-
-/* iOS-style grouped table view (used in Profile, Settings) */
-.app-group {
-  margin: 0 16px 16px;
-  background: var(--color-surface);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.app-group-header {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 20px 16px 8px;
-  margin: 0;
-}
-
-.app-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 15px 16px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 16px;
-  color: var(--color-text-1);
-  transition: background 0.15s;
-}
-
-.app-row:active {
-  background: var(--color-bg-2);
-}
-
-.app-row + .app-row {
-  border-top: 0.5px solid var(--color-separator);
-}
-
-.app-row-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.app-row-label {
-  flex: 1;
-  font-weight: 400;
-}
-
-.app-row-value {
-  font-size: 15px;
-  color: var(--color-text-3);
-}
-
-.app-row-arrow {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  color: var(--color-text-4);
-}
-
-/* Large section header (Home, Apps) */
-.app-section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-1);
-  margin: 0;
-  letter-spacing: -0.3px;
-  line-height: 1.2;
-}
-
-.app-section-subtitle {
-  font-size: 15px;
-  color: var(--color-text-3);
-  margin: 4px 0 0;
-}
-
-/* Floating action button style */
-.app-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(79, 108, 247, 0.35);
-  cursor: pointer;
-  z-index: 10;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.app-fab:active {
-  transform: scale(0.92);
-  box-shadow: 0 2px 8px rgba(79, 108, 247, 0.25);
+.tap-active:active {
+  opacity: 0.6;
+  transition: opacity 0.1s;
 }
