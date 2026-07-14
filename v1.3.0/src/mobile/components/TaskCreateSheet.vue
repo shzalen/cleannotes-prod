@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
+import { Popup as VanPopup, Field as VanField, Button as VanButton, Toast } from 'vant'
 
 const store = useTaskStore()
 
@@ -33,7 +34,7 @@ function openEdit(t: Task) {
 }
 
 async function save() {
-  if (!title.value.trim()) return
+  if (!title.value.trim()) { Toast('请输入任务标题'); return }
   saving.value = true
   try {
     if (task.value) {
@@ -51,215 +52,70 @@ async function save() {
         priority: priority.value,
       })
     }
+    Toast.success(task.value ? '已保存' : '已创建')
     visible.value = false
   } finally {
     saving.value = false
   }
 }
 
-function close() {
-  visible.value = false
-}
-
 defineExpose({ open, openEdit })
 </script>
 
 <template>
-  <teleport to="body">
-    <div v-if="visible" class="sheet-overlay" @click.self="close">
-      <div class="sheet-panel">
-        <div class="sheet-handle" />
-        <div class="sheet-content">
-          <h3 class="sheet-title">{{ task ? '编辑任务' : '新增任务' }}</h3>
+  <VanPopup v-model:show="visible" position="bottom" round :style="{ maxHeight: '85%' }">
+    <div class="sheet-content">
+      <h3 class="sheet-title">{{ task ? '编辑任务' : '新增任务' }}</h3>
 
-          <input
-            v-model="title"
-            class="sheet-input"
-            placeholder="任务标题"
-            :disabled="saving"
-          />
+      <VanField v-model="title" placeholder="任务标题" class="sheet-field" />
 
-          <textarea
-            v-model="description"
-            class="sheet-textarea"
-            placeholder="任务描述（可选）"
-            rows="3"
-            :disabled="saving"
-          />
+      <VanField v-model="description" type="textarea" placeholder="任务描述（可选）" rows="2" class="sheet-field" />
 
-          <div class="field-row">
-            <label class="field-label">计划日期</label>
-            <input
-              v-model="startDate"
-              type="date"
-              class="sheet-input compact"
-              :disabled="saving"
-            />
-          </div>
+      <VanField v-model="startDate" type="date" label="计划日期" class="sheet-field" />
 
-          <div class="field-row">
-            <label class="field-label">优先级</label>
-            <div class="pri-group">
-              <button
-                v-for="p in (['low', 'medium', 'high'] as const)"
-                :key="p"
-                class="pri-btn"
-                :class="[p, { active: priority === p }]"
-                :disabled="saving"
-                @click="priority = p"
-              >{{ { low: '低', medium: '中', high: '高' }[p] }}</button>
-            </div>
-          </div>
-
-          <div class="sheet-actions">
-            <button class="sheet-btn cancel" @click="close">取消</button>
-            <button class="sheet-btn confirm" :disabled="!title.trim() || saving" @click="save">
-              {{ saving ? '保存中...' : task ? '保存' : '创建' }}
-            </button>
-          </div>
+      <div class="pri-row">
+        <span class="pri-label">优先级</span>
+        <div class="pri-group">
+          <VanButton
+            v-for="p in (['low', 'medium', 'high'] as const)"
+            :key="p"
+            :type="priority === p ? 'primary' : 'default'"
+            size="small"
+            @click="priority = p"
+          >{{ { low: '低', medium: '中', high: '高' }[p] }}</VanButton>
         </div>
       </div>
+
+      <div class="sheet-actions">
+        <VanButton block @click="visible = false">取消</VanButton>
+        <VanButton type="primary" block :loading="saving" @click="save">{{ task ? '保存' : '创建' }}</VanButton>
+      </div>
     </div>
-  </teleport>
+  </VanPopup>
 </template>
 
 <style scoped>
-.sheet-content {
-  padding: 8px 20px 24px;
-}
+.sheet-content { padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
 .sheet-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--color-text-1);
-  margin-bottom: 16px;
-  text-align: center;
+  font-size: 17px; font-weight: 600; text-align: center;
+  color: var(--color-text-1); margin-bottom: 16px;
 }
 
-.sheet-input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
+.sheet-field {
+  margin-bottom: 12px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  font-size: 15px;
-  color: var(--color-text-1);
-  background: var(--color-bg-1);
-  outline: none;
-  margin-bottom: 12px;
 }
 
-.sheet-input:focus {
-  border-color: var(--color-primary);
+.pri-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
 }
 
-.sheet-input.compact {
-  width: auto;
-  flex: 1;
-  margin-bottom: 0;
-}
+.pri-label { font-size: 14px; color: var(--color-text-2); }
 
-.sheet-textarea {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--color-text-1);
-  background: var(--color-bg-1);
-  outline: none;
-  resize: none;
-  margin-bottom: 12px;
-}
+.pri-group { display: flex; gap: 8px; }
 
-.sheet-textarea:focus {
-  border-color: var(--color-primary);
-}
-
-.field-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.field-label {
-  font-size: 14px;
-  color: var(--color-text-2);
-  flex-shrink: 0;
-  width: 64px;
-}
-
-.pri-group {
-  display: flex;
-  gap: 8px;
-}
-
-.pri-btn {
-  padding: 6px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-1);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-2);
-  cursor: pointer;
-}
-
-.pri-btn:active {
-  opacity: 0.7;
-}
-
-.pri-btn.low.active {
-  border-color: var(--color-primary);
-  background: var(--color-success-lighter);
-  color: var(--color-primary);
-}
-
-.pri-btn.medium.active {
-  border-color: var(--color-info);
-  background: var(--color-info-light);
-  color: var(--color-info);
-}
-
-.pri-btn.high.active {
-  border-color: var(--color-danger);
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-}
-
-.sheet-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.sheet-btn {
-  flex: 1;
-  height: 44px;
-  border: none;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.sheet-btn:active {
-  opacity: 0.7;
-}
-
-.sheet-btn.cancel {
-  background: var(--color-bg-2);
-  color: var(--color-text-2);
-}
-
-.sheet-btn.confirm {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.sheet-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.sheet-actions { display: flex; gap: 12px; }
 </style>

@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './mobile/router'
 import MobileApp from './MobileApp.vue'
+import 'vant/lib/index.css'
 import './mobile/style.css'
 import { isMobileDevice } from './utils/device'
 

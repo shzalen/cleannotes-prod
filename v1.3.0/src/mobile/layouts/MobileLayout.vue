@@ -14,7 +14,7 @@ import MobileTabBar from '@/mobile/components/MobileTabBar.vue'
   display: flex;
   flex-direction: column;
   height: 100%;
+  background: var(--van-background);
   overflow: hidden;
-  background: var(--color-bg-0);
 }
 </style>
