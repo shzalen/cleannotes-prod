@@ -4,9 +4,7 @@ import MobileTabBar from '@/mobile/components/MobileTabBar.vue'
 
 <template>
   <div class="mobile-layout">
-    <div class="mobile-content">
-      <router-view />
-    </div>
+    <router-view />
     <MobileTabBar />
   </div>
 </template>
@@ -16,13 +14,7 @@ import MobileTabBar from '@/mobile/components/MobileTabBar.vue'
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
   background: var(--color-bg-0);
-}
-
-.mobile-content {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
 }
 </style>

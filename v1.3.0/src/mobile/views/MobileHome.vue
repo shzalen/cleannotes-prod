@@ -42,7 +42,7 @@ const todayTasks = computed(() =>
   })
 )
 
-// ── 排序（对齐 PC 端） ──
+// ── 排序 ──
 const sortedTasks = computed(() => {
   const active: Task[] = []
   const done: Task[] = []
@@ -64,7 +64,6 @@ const sortedTasks = computed(() => {
   return [...active, ...done]
 })
 
-// ── 完成率 ──
 const rate = computed(() => {
   const total = sortedTasks.value.length
   if (total === 0) return 0
@@ -72,15 +71,10 @@ const rate = computed(() => {
   return Math.round((doneCount / total) * 100)
 })
 
-// ── 辅助函数（对齐 PC 端） ──
-function formatDate(dateStr: string) {
-  return dateStr.slice(5, 10)
-}
+function formatDate(dateStr: string) { return dateStr.slice(5, 10) }
 
 function timeLabel(task: Task) {
-  if (task.status === 'done') {
-    return task.completedAt ? formatDate(task.completedAt.slice(0, 10)) : ''
-  }
+  if (task.status === 'done') return task.completedAt ? formatDate(task.completedAt.slice(0, 10)) : ''
   return task.startTime || '--:--'
 }
 
@@ -90,9 +84,7 @@ function showDueDate(task: Task) {
   return task.dueDate < today.value
 }
 
-function isOverdue(task: Task) {
-  return !!task.dueDate && task.dueDate < today.value
-}
+function isOverdue(task: Task) { return !!task.dueDate && task.dueDate < today.value }
 
 function showPlannedDate(task: Task) {
   if (task.status !== 'done') return false
@@ -111,14 +103,12 @@ function isTimeReached(task: Task) {
   const dateToCheck = task.startDate ?? task.createdAt.slice(0, 10)
   if (dateToCheck > today.value) return false
   if (dateToCheck < today.value) return true
-  const currentMinutes = now.value.getHours() * 60 + now.value.getMinutes()
+  const cm = now.value.getHours() * 60 + now.value.getMinutes()
   const [h, m] = task.startTime.split(':').map(Number)
-  return currentMinutes >= h * 60 + m
+  return cm >= h * 60 + m
 }
 
-const statusLabel: Record<string, string> = {
-  todo: '待办', in_progress: '进行中', done: '已完成',
-}
+const statusLabel: Record<string, string> = { todo: '待办', in_progress: '进行中', done: '已完成' }
 
 const priorityColorMap = computed(() => ({
   high: isDark.value ? '#f87171' : isZuru.value ? '#CB312D' : isTencent.value ? '#f87171' : '#ef4444',
@@ -126,27 +116,57 @@ const priorityColorMap = computed(() => ({
   low: isDark.value ? '#4ade80' : isZuru.value ? '#BFBFBF' : isTencent.value ? '#00a870' : '#22c55e',
 }))
 
-const priorityLabelMap: Record<TaskPriority, string> = {
-  high: '高', medium: '中', low: '低',
+const priorityLabelMap: Record<TaskPriority, string> = { high: '高', medium: '中', low: '低' }
+
+// ── 下拉刷新 ──
+const scrollEl = ref<HTMLElement | null>(null)
+const pullDistance = ref(0)
+const isPulling = ref(false)
+const refreshing = ref(false)
+const pullStartY = ref(0)
+
+function onTouchStart(e: TouchEvent) {
+  if (!scrollEl.value || scrollEl.value.scrollTop > 0) return
+  pullStartY.value = e.touches[0].clientY
+  isPulling.value = true
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!isPulling.value || refreshing.value) return
+  const dy = e.touches[0].clientY - pullStartY.value
+  if (dy <= 0) { pullDistance.value = 0; return }
+  pullDistance.value = Math.min(dy * 0.4, 60)
+}
+
+async function onTouchEnd() {
+  if (!isPulling.value) return
+  isPulling.value = false
+  if (pullDistance.value >= 40 && !refreshing.value) {
+    refreshing.value = true
+    pullDistance.value = 40
+    try {
+      await store.load(true)
+      now.value = new Date()
+    } finally {
+      refreshing.value = false
+      pullDistance.value = 0
+    }
+  } else {
+    pullDistance.value = 0
+  }
 }
 
 // ── 弹窗 ──
 const detailSheet = ref<InstanceType<typeof TaskDetailSheet> | null>(null)
 const progressSheet = ref<InstanceType<typeof TaskProgressSheet> | null>(null)
 
-function showDetail(task: Task) {
-  detailSheet.value?.open(task)
-}
-
-function openProgress(task: Task) {
-  if (isFutureTask(task)) return
-  progressSheet.value?.open(task)
-}
+function showDetail(task: Task) { detailSheet.value?.open(task) }
+function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value?.open(task) }
 </script>
 
 <template>
   <div class="home-page">
-    <!-- Immersive Header (background extends to status bar) -->
+    <!-- Status bar + Header (extends to top safe area) -->
     <div class="home-header">
       <div class="header-content">
         <h1 class="header-title">清记</h1>
@@ -154,64 +174,68 @@ function openProgress(task: Task) {
       </div>
     </div>
 
-    <!-- Content -->
-    <div class="content-area">
-      <!-- Progress Card -->
-      <div class="progress-card">
-        <div class="progress-top">
-          <span class="progress-label">今日完成率</span>
-          <span class="progress-value">{{ rate }}%</span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" :style="{ width: rate + '%' }" />
-        </div>
+    <!-- Scrollable content -->
+    <div
+      ref="scrollEl"
+      class="home-scroll"
+      @touchstart.passive="onTouchStart"
+      @touchmove.passive="onTouchMove"
+      @touchend="onTouchEnd"
+    >
+      <!-- Pull-refresh indicator -->
+      <div class="pull-indicator" :style="{ height: pullDistance + 'px', opacity: pullDistance / 40 }">
+        <span v-if="!refreshing" class="pull-text">{{ pullDistance >= 40 ? '松开刷新' : '下拉刷新' }}</span>
+        <span v-else class="pull-spinner" />
       </div>
 
-      <!-- Timeline (PC-style) -->
-      <div v-if="sortedTasks.length" class="timeline">
-        <div
-          v-for="task in sortedTasks"
-          :key="task.id"
-          class="tl-item"
-          :class="{ 'is-done': task.status === 'done' }"
-        >
-          <!-- Dot -->
-          <div
-            class="tl-dot"
-            :class="[
-              task.status,
-              { clickable: task.status !== 'done' && !isFutureTask(task), 'is-due': isTimeReached(task) && task.status !== 'todo', 'is-due-urgent': isTimeReached(task) && task.status === 'todo' }
-            ]"
-            @click="openProgress(task)"
-          />
-
-          <!-- Time -->
-          <span class="tl-time" :class="task.status">{{ timeLabel(task) }}</span>
-
-          <!-- Main content -->
-          <div class="tl-main" @click="showDetail(task)">
-            <span class="tl-title" :class="task.status">{{ task.title }}</span>
-            <div class="tl-meta">
-              <span v-if="showDueDate(task)" class="tl-tag due" :class="{ overdue: isOverdue(task) }">
-                {{ isOverdue(task) ? `延期 ${formatDate(task.dueDate!)}` : `截止 ${formatDate(task.dueDate!)}` }}
-              </span>
-              <span v-if="showPlannedDate(task)" class="tl-tag planned">
-                计划 {{ formatDate(task.startDate || task.createdAt.slice(0, 10)) }}
-              </span>
-              <span class="tl-tag pri" :class="task.priority">{{ priorityLabelMap[task.priority] }}</span>
-            </div>
+      <div class="content-area">
+        <!-- Progress Card -->
+        <div class="progress-card">
+          <div class="progress-top">
+            <span class="progress-label">今日完成率</span>
+            <span class="progress-value">{{ rate }}%</span>
           </div>
-
-          <!-- Status tag -->
-          <span
-            v-if="task.status !== 'done'"
-            class="tl-status"
-            :class="[task.status, { locked: isFutureTask(task) }]"
-            @click="openProgress(task)"
-          >{{ statusLabel[task.status] }}</span>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: rate + '%' }" />
+          </div>
         </div>
+
+        <!-- Timeline -->
+        <div v-if="sortedTasks.length" class="timeline">
+          <div
+            v-for="task in sortedTasks"
+            :key="task.id"
+            class="tl-item"
+            :class="{ 'is-done': task.status === 'done' }"
+          >
+            <div
+              class="tl-dot"
+              :class="[task.status, { clickable: task.status !== 'done' && !isFutureTask(task), 'is-due': isTimeReached(task) && task.status !== 'todo', 'is-due-urgent': isTimeReached(task) && task.status === 'todo' }]"
+              @click="openProgress(task)"
+            />
+            <span class="tl-time" :class="task.status">{{ timeLabel(task) }}</span>
+            <div class="tl-main" @click="showDetail(task)">
+              <span class="tl-title" :class="task.status">{{ task.title }}</span>
+              <div class="tl-meta">
+                <span v-if="showDueDate(task)" class="tl-tag due" :class="{ overdue: isOverdue(task) }">
+                  {{ isOverdue(task) ? `延期 ${formatDate(task.dueDate!)}` : `截止 ${formatDate(task.dueDate!)}` }}
+                </span>
+                <span v-if="showPlannedDate(task)" class="tl-tag planned">
+                  计划 {{ formatDate(task.startDate || task.createdAt.slice(0, 10)) }}
+                </span>
+                <span class="tl-tag pri" :class="task.priority">{{ priorityLabelMap[task.priority] }}</span>
+              </div>
+            </div>
+            <span
+              v-if="task.status !== 'done'"
+              class="tl-status"
+              :class="[task.status, { locked: isFutureTask(task) }]"
+              @click="openProgress(task)"
+            >{{ statusLabel[task.status] }}</span>
+          </div>
+        </div>
+        <div v-else class="empty-state">今日暂无任务</div>
       </div>
-      <div v-else class="empty-state">今日暂无任务</div>
     </div>
 
     <TaskDetailSheet ref="detailSheet" />
@@ -221,17 +245,18 @@ function openProgress(task: Task) {
 
 <style scoped>
 .home-page {
-  min-height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-1);
+  overflow: hidden;
 }
 
-/* ── Immersive Header ── */
+/* ── Header (with safe-area background) ── */
 .home-header {
   background: var(--color-primary);
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: 24px;
+  padding-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -251,9 +276,41 @@ function openProgress(task: Task) {
   margin-top: 2px;
 }
 
+/* ── Scroll ── */
+.home-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Pull Refresh ── */
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: height 0.15s;
+}
+
+.pull-text {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
+.pull-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── Content ── */
 .content-area {
-  flex: 1;
   padding: 16px;
   padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
@@ -268,238 +325,88 @@ function openProgress(task: Task) {
 }
 
 .progress-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
 }
 
-.progress-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-2);
-}
-
-.progress-value {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
+.progress-label { font-size: 14px; font-weight: 500; color: var(--color-text-2); }
+.progress-value { font-size: 15px; font-weight: 700; color: var(--color-primary); }
 
 .progress-track {
-  height: 6px;
-  background: var(--color-bg-4);
-  border-radius: 3px;
-  overflow: hidden;
+  height: 6px; background: var(--color-bg-4); border-radius: 3px; overflow: hidden;
 }
 
 .progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: 3px;
-  transition: width 0.5s ease;
+  height: 100%; background: var(--color-primary); border-radius: 3px; transition: width 0.5s ease;
 }
 
 /* ── Timeline ── */
-.timeline {
-  position: relative;
-  padding-left: 24px;
-}
-
+.timeline { position: relative; padding-left: 24px; }
 .timeline::before {
-  content: '';
-  position: absolute;
-  left: 10px;
-  top: 4px;
-  bottom: 4px;
-  width: 1px;
-  background: var(--color-border);
+  content: ''; position: absolute; left: 10px; top: 4px; bottom: 4px;
+  width: 1px; background: var(--color-border);
 }
 
 .tl-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--color-surface);
-  margin-bottom: 6px;
-  position: relative;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--color-surface); margin-bottom: 6px; position: relative;
   box-shadow: 0 1px 2px var(--color-shadow);
 }
 
-.tl-item:active {
-  background: var(--color-bg-2);
-}
+.tl-item:active { background: var(--color-bg-2); }
+.tl-item.is-done { opacity: 0.6; }
 
-.tl-item.is-done {
-  opacity: 0.6;
-}
-
-/* ── Dot ── */
 .tl-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  position: absolute;
-  left: -19px;
-  top: 16px;
-  transform: translateY(-50%);
-  z-index: 1;
-  box-shadow: 0 0 0 3px var(--color-surface);
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  position: absolute; left: -19px; top: 16px; transform: translateY(-50%);
+  z-index: 1; box-shadow: 0 0 0 3px var(--color-surface);
 }
 
-.tl-dot.todo {
-  background: var(--color-text-4);
-  border: 1.5px solid var(--color-border);
-}
+.tl-dot.todo { background: var(--color-text-4); border: 1.5px solid var(--color-border); }
+.tl-dot.in_progress { background: var(--color-warning); border: 1.5px solid var(--color-warning); }
+.tl-dot.done { background: var(--color-primary); }
+.tl-dot.clickable { cursor: pointer; }
+.tl-dot.clickable:active { transform: translateY(-50%) scale(1.4); }
 
-.tl-dot.in_progress {
-  background: var(--color-warning);
-  border: 1.5px solid var(--color-warning);
-}
-
-.tl-dot.done {
-  background: var(--color-primary);
-}
-
-.tl-dot.clickable {
-  cursor: pointer;
-}
-
-.tl-dot.clickable:active {
-  transform: translateY(-50%) scale(1.4);
-}
-
-/* ── Time ── */
 .tl-time {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-2);
-  width: 36px;
-  flex-shrink: 0;
-  padding-top: 2px;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px; font-weight: 600; color: var(--color-text-2);
+  width: 36px; flex-shrink: 0; padding-top: 2px; font-variant-numeric: tabular-nums;
 }
 
-.tl-time.done {
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--color-text-4);
-}
+.tl-time.done { font-size: 10px; font-weight: 400; color: var(--color-text-4); }
+.tl-time:empty::after { content: '--:--'; color: var(--color-text-4); font-weight: 400; font-size: 10px; }
 
-.tl-time:empty::after {
-  content: '--:--';
-  color: var(--color-text-4);
-  font-weight: 400;
-  font-size: 10px;
-}
-
-/* ── Main ── */
-.tl-main {
-  flex: 1;
-  min-width: 0;
-  cursor: pointer;
-}
+.tl-main { flex: 1; min-width: 0; cursor: pointer; }
 
 .tl-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-1);
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 14px; font-weight: 500; color: var(--color-text-1);
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.tl-title.done {
-  text-decoration: line-through;
-  color: var(--color-text-3);
-}
+.tl-title.done { text-decoration: line-through; color: var(--color-text-3); }
 
-.tl-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
+.tl-meta { display: flex; align-items: center; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
 
 .tl-tag {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-  white-space: nowrap;
+  font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; white-space: nowrap;
 }
 
-.tl-tag.due {
-  background: var(--color-info-light);
-  color: var(--color-info);
-}
+.tl-tag.due { background: var(--color-info-light); color: var(--color-info); }
+.tl-tag.due.overdue { background: var(--color-danger-light); color: var(--color-danger); font-weight: 600; }
+.tl-tag.planned { background: var(--color-success-lighter); color: var(--color-primary); }
+.tl-tag.pri.high { background: var(--color-danger-light); color: var(--color-danger); }
+.tl-tag.pri.medium { background: var(--color-info-light); color: var(--color-info); }
+.tl-tag.pri.low { background: var(--color-success-lighter); color: var(--color-primary); }
 
-.tl-tag.due.overdue {
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-  font-weight: 600;
-}
-
-.tl-tag.planned {
-  background: var(--color-success-lighter);
-  color: var(--color-primary);
-}
-
-.tl-tag.pri.high {
-  background: var(--color-danger-light);
-  color: var(--color-danger);
-}
-
-.tl-tag.pri.medium {
-  background: var(--color-info-light);
-  color: var(--color-info);
-}
-
-.tl-tag.pri.low {
-  background: var(--color-success-lighter);
-  color: var(--color-primary);
-}
-
-/* ── Status ── */
 .tl-status {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 5px;
-  font-weight: 500;
-  flex-shrink: 0;
-  cursor: pointer;
-  align-self: center;
+  font-size: 11px; padding: 3px 8px; border-radius: 5px; font-weight: 500;
+  flex-shrink: 0; cursor: pointer; align-self: center;
 }
 
-.tl-status.todo {
-  background: var(--color-bg-2);
-  color: var(--color-text-2);
-}
+.tl-status.todo { background: var(--color-bg-2); color: var(--color-text-2); }
+.tl-status.in_progress { background: var(--color-warning-light); color: var(--color-warning-text); }
+.tl-status:active { opacity: 0.6; }
+.tl-status.locked { cursor: not-allowed; opacity: 0.4; }
 
-.tl-status.in_progress {
-  background: var(--color-warning-light);
-  color: var(--color-warning-text);
-}
-
-.tl-status:active {
-  opacity: 0.6;
-}
-
-.tl-status.locked {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-/* ── Empty ── */
-.empty-state {
-  text-align: center;
-  color: var(--color-text-3);
-  font-size: 14px;
-  padding: 48px 0;
-}
+.empty-state { text-align: center; color: var(--color-text-3); font-size: 14px; padding: 48px 0; }
 </style>
