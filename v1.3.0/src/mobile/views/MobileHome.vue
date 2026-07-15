@@ -40,6 +40,18 @@ const progress = computed(() => (totalCount.value === 0 ? 0 : Math.round((doneCo
 
 const nickname = computed(() => auth.user?.nickname || '用户')
 
+// ── 时段问候语（移到头部标题栏） ──
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 6) return '夜深了'
+  if (h < 9) return '早上好'
+  if (h < 12) return '上午好'
+  if (h < 14) return '中午好'
+  if (h < 18) return '下午好'
+  if (h < 22) return '晚上好'
+  return '夜深了'
+})
+
 const priorityMeta: Record<string, { label: string; color: string }> = {
   high: { label: '高', color: 'var(--color-danger)' },
   medium: { label: '中', color: 'var(--color-warning)' },
@@ -94,10 +106,7 @@ function openTaskCreate() {
       <div class="home-header__content">
         <!-- 顶部行 -->
         <div class="home-header__top">
-          <div>
-            <h1 class="home-header__title">清记</h1>
-          </div>
-          <div class="home-header__user">{{ nickname }}</div>
+          <h1 class="home-header__title">{{ greeting }}，{{ nickname }}</h1>
         </div>
 
         <!-- 问候语卡片区域（原完成率位置） -->
@@ -242,16 +251,10 @@ function openTaskCreate() {
 
 .home-header__title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   color: #fff;
   line-height: 1.2;
-}
-
-.home-header__user {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  padding-bottom: 2px;
 }
 
 .home-header__greeting {

@@ -1,14 +1,11 @@
 <script setup lang="ts">
 /**
- * 移动端问候卡片 — 显示时段问候语 + 日期 + 随机激励语
- * 逻辑与 PC 端 GreetingCard.vue 保持一致
+ * 移动端问候卡片 — 日期 + 随机激励语 + 天气
+ * 问候语已移至首页头部标题栏
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { isOnline } from '@/services/storage'
-import { useAuthStore } from '@/stores/auth'
 import MobileWeatherWidget from './MobileWeatherWidget.vue'
-
-const auth = useAuthStore()
 
 const now = ref(new Date())
 let timer: ReturnType<typeof setInterval> | null = null
@@ -18,21 +15,6 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (timer) clearInterval(timer)
-})
-
-const username = computed(() => {
-  return auth.user?.nickname || auth.user?.email?.split('@')[0] || '用户'
-})
-
-const greeting = computed(() => {
-  const h = now.value.getHours()
-  if (h < 6) return '夜深了'
-  if (h < 9) return '早上好'
-  if (h < 12) return '上午好'
-  if (h < 14) return '中午好'
-  if (h < 18) return '下午好'
-  if (h < 22) return '晚上好'
-  return '夜深了'
 })
 
 function getDayInfo(d: Date) {
@@ -122,7 +104,6 @@ const quote = computed(() => {
   <div class="m-greeting">
     <div class="m-greeting__row">
       <div class="m-greeting__main">
-        <span class="m-greeting__text">{{ greeting }}，{{ username }}</span>
         <span v-if="dayInfo.holiday" class="m-greeting__badge m-greeting__badge--holiday">{{ dayInfo.holiday }}</span>
         <span v-else-if="dayInfo.isWeekend" class="m-greeting__badge m-greeting__badge--weekend">周末</span>
         <span v-if="!isOnline" class="m-greeting__badge m-greeting__badge--offline">离线</span>
@@ -154,12 +135,6 @@ const quote = computed(() => {
   gap: 6px;
   flex-wrap: wrap;
   min-width: 0;
-}
-
-.m-greeting__text {
-  font-size: 17px;
-  font-weight: 500;
-  color: #fff;
 }
 
 .m-greeting__date {

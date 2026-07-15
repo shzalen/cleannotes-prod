@@ -5,8 +5,10 @@
  * - Open-Meteo 免费 API 获取天气（无需 key）
  * - 坐标缓存到 localStorage（10 分钟有效），避免 PWA 重开重复请求定位权限
  * - 定位失败时显示刷新按钮
+ * - 点击成功天气 → 弹窗显示 定位详情 + 近 7 天预报
  */
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { Popup as VanPopup } from 'vant'
 
 interface WeatherData {
   temp: number
@@ -15,11 +17,21 @@ interface WeatherData {
   description: string
 }
 
+interface DailyForecast {
+  date: string          // YYYY-MM-DD
+  dayLabel: string      // "周一"
+  dayNum: string        // "7/15"
+  tempMax: number
+  tempMin: number
+  code: number
+  description: string
+  isToday: boolean
+}
+
 const LS_KEY = 'cleannotes_weather_coords'
-const CACHE_MAX_AGE = 10 * 60 * 1000 // 10 分钟
+const CACHE_MAX_AGE = 10 * 60 * 1000
 
 // ── 天气码映射 ──
-// Open-Meteo WMO codes: https://open-meteo.com/en/docs
 const weatherMap: Record<number, { label: string; icon: string }> = {
   0:  { label: '晴',      icon: 'sun' },
   1:  { label: '少云',    icon: 'cloud-sun' },
@@ -50,7 +62,16 @@ const weatherMap: Record<number, { label: string; icon: string }> = {
 const weather = ref<WeatherData | null>(null)
 const loading = ref(true)
 const errorMsg = ref('')
-const locationFailed = ref(false) // true 时显示刷新按钮
+const locationFailed = ref(false)
+const currentLat = ref(0)
+const currentLon = ref(0)
+
+// ── 详情弹窗 ──
+const showDetail = ref(false)
+const dailyForecast = ref<DailyForecast[]>([])
+const forecastLoading = ref(false)
+const detailAddress = ref('')
+const addressLoading = ref(false)
 
 // ── localStorage 坐标缓存 ──
 interface CachedCoords {
@@ -77,10 +98,10 @@ function readCachedCoords(): CachedCoords | null {
 function saveCachedCoords(lat: number, lon: number) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({ lat, lon, ts: Date.now() }))
-  } catch { /* quota exceeded, ignore */ }
+  } catch { /* quota exceeded */ }
 }
 
-// ── 获取天气 ──
+// ── 获取实时天气 ──
 async function fetchWeather(lat: number, lon: number) {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`
@@ -95,6 +116,8 @@ async function fetchWeather(lat: number, lon: number) {
       wind: Math.round(curr.wind_speed_10m),
       description: weatherMap[code]?.label ?? '未知',
     }
+    currentLat.value = lat
+    currentLon.value = lon
     errorMsg.value = ''
     locationFailed.value = false
   } catch (e: any) {
@@ -108,7 +131,7 @@ async function fetchWeather(lat: number, lon: number) {
   }
 }
 
-// ── 请求定位（优先缓存，避免重复弹权限） ──
+// ── 请求定位 ──
 function requestLocation() {
   if (!navigator.geolocation) {
     errorMsg.value = '位置不可用'
@@ -117,7 +140,6 @@ function requestLocation() {
     return
   }
 
-  // 1. 优先使用 localStorage 缓存
   const cached = readCachedCoords()
   if (cached) {
     loading.value = false
@@ -125,7 +147,6 @@ function requestLocation() {
     return
   }
 
-  // 2. 无缓存则请求定位
   loading.value = true
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -146,19 +167,104 @@ onMounted(() => {
   requestLocation()
 })
 
-// ── 是否为下雨相关天气 ──
+// ── 天气图标判断 ──
 const isRainy = (code: number) => [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code)
 const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
+
+// ── 展开详情弹窗 ──
+const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+
+async function openDetail() {
+  if (!weather.value || !currentLat.value) return
+  showDetail.value = true
+  // 并行请求
+  fetchForecast()
+  reverseGeocode()
+}
+
+// ── 获取 7 天预报 ──
+async function fetchForecast() {
+  if (dailyForecast.value.length > 0) return // 已缓存
+  forecastLoading.value = true
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat.value.toFixed(4)}&longitude=${currentLon.value.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=7`
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const daily = data.daily
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    dailyForecast.value = daily.time.map((date: string, i: number) => {
+      const d = new Date(date + 'T12:00:00')
+      const month = d.getMonth() + 1
+      const dayNum = d.getDate()
+      const isToday = date === todayStr
+      const code = daily.weather_code[i] as number
+      return {
+        date,
+        dayLabel: isToday ? '今天' : `周${weekDays[d.getDay()]}`,
+        dayNum: `${month}/${dayNum}`,
+        tempMax: Math.round(daily.temperature_2m_max[i]),
+        tempMin: Math.round(daily.temperature_2m_min[i]),
+        code,
+        description: weatherMap[code]?.label ?? '未知',
+        isToday,
+      }
+    })
+  } catch {
+    // 预报失败不阻塞弹窗
+  } finally {
+    forecastLoading.value = false
+  }
+}
+
+// ── 逆地理编码 ──
+async function reverseGeocode() {
+  if (detailAddress.value) return // 已缓存
+  addressLoading.value = true
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat.value.toFixed(5)}&lon=${currentLon.value.toFixed(5)}&zoom=12&accept-language=zh`
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': 'CleanNotes-PWA/1.0' },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    detailAddress.value = data.display_name || '未知位置'
+  } catch {
+    detailAddress.value = ''
+  } finally {
+    addressLoading.value = false
+  }
+}
+
+// ── 天气小图标 SVG ──
+function getSmallWeatherIcon(code: number): string {
+  const desc = weatherMap[code]?.label ?? ''
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return '🌧️'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return '❄️'
+  if ([95, 96, 99].includes(code)) return '⛈️'
+  if (code === 0) return '☀️'
+  if (code === 1) return '🌤️'
+  if (code === 2) return '⛅'
+  if (code === 3) return '☁️'
+  if ([45, 48].includes(code)) return '🌫️'
+  return '🌡️'
+}
 </script>
 
 <template>
-  <div class="weather-widget" :class="{ 'weather-widget--loading': loading }">
+  <div
+    class="weather-widget"
+    :class="{ 'weather-widget--loading': loading, 'weather-widget--tappable': !!weather }"
+    @click="weather ? openDetail() : undefined"
+  >
     <template v-if="loading">
       <span class="weather-widget__placeholder">天气加载中</span>
     </template>
     <template v-else-if="errorMsg">
       <span class="weather-widget__error">{{ errorMsg }}</span>
-      <button v-if="locationFailed" class="weather-widget__retry" @click="requestLocation" title="刷新定位">
+      <button v-if="locationFailed" class="weather-widget__retry" @click.stop="requestLocation" title="刷新定位">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 4v6h6" />
           <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
@@ -168,7 +274,6 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
     <template v-else-if="weather">
       <!-- 天气图标 -->
       <div class="weather-widget__icon">
-        <!-- 下雨：动态雨滴 -->
         <svg v-if="isRainy(weather.code)" class="weather-svg weather-svg--rain" viewBox="0 0 40 40">
           <defs>
             <line id="raindrop" x1="20" y1="2" x2="20" y2="10" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round" />
@@ -178,15 +283,12 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
           <use href="#raindrop" class="rain-d3" />
           <use href="#raindrop" class="rain-d4" />
           <use href="#raindrop" class="rain-d5" />
-          <!-- 云 -->
           <g opacity="0.7">
             <ellipse cx="20" cy="18" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
             <ellipse cx="13" cy="14" rx="8" ry="7" fill="rgba(255,255,255,0.45)" />
             <ellipse cx="26" cy="13" rx="9" ry="6" fill="rgba(255,255,255,0.4)" />
           </g>
         </svg>
-
-        <!-- 雪：动态雪花 -->
         <svg v-else-if="isSnowy(weather.code)" class="weather-svg weather-svg--snow" viewBox="0 0 40 40">
           <defs>
             <g id="snowflake">
@@ -199,15 +301,12 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
           <use href="#snowflake" class="snow-s4" />
           <use href="#snowflake" class="snow-s5" />
           <use href="#snowflake" class="snow-s6" />
-          <!-- 云 -->
           <g opacity="0.7">
             <ellipse cx="20" cy="18" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
             <ellipse cx="13" cy="14" rx="8" ry="7" fill="rgba(255,255,255,0.45)" />
             <ellipse cx="26" cy="13" rx="9" ry="6" fill="rgba(255,255,255,0.4)" />
           </g>
         </svg>
-
-        <!-- 雷暴 -->
         <svg v-else-if="weather.code >= 95" class="weather-svg weather-svg--thunder" viewBox="0 0 40 40">
           <polygon class="thunder-bolt" points="22,2 13,18 19,18 15,28 27,12 21,12" fill="rgba(255,220,60,0.9)" />
           <g opacity="0.6">
@@ -216,8 +315,6 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
             <ellipse cx="28" cy="14" rx="9" ry="6" fill="rgba(255,255,255,0.3)" />
           </g>
         </svg>
-
-        <!-- 多云 -->
         <svg v-else-if="weather.code >= 1 && weather.code <= 3" class="weather-svg" viewBox="0 0 40 40">
           <circle cx="14" cy="12" r="7" fill="rgba(255,255,255,0.7)" />
           <g v-if="weather.code >= 2" opacity="0.6">
@@ -226,15 +323,11 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
             <ellipse cx="27" cy="17" rx="8" ry="6" fill="rgba(255,255,255,0.4)" />
           </g>
         </svg>
-
-        <!-- 雾 -->
         <svg v-else-if="weather.code >= 45 && weather.code <= 48" class="weather-svg" viewBox="0 0 40 40">
           <line x1="6" y1="14" x2="34" y2="14" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round" />
           <line x1="10" y1="20" x2="30" y2="20" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-linecap="round" />
           <line x1="8" y1="26" x2="32" y2="26" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round" />
         </svg>
-
-        <!-- 晴天（默认） -->
         <svg v-else class="weather-svg weather-svg--sun" viewBox="0 0 40 40">
           <circle cx="20" cy="20" r="9" fill="rgba(255,255,255,0.85)" />
           <g stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round">
@@ -249,17 +342,95 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
           </g>
         </svg>
       </div>
-
-      <!-- 温度 + 描述 -->
       <div class="weather-widget__info">
         <span class="weather-widget__temp">{{ weather.temp }}°</span>
         <span class="weather-widget__desc">{{ weather.description }}</span>
       </div>
     </template>
+
+    <!-- ── 天气详情弹窗 ── -->
+    <van-popup
+      v-model:show="showDetail"
+      position="bottom"
+      round
+      :style="{ background: 'var(--color-surface)', maxHeight: '80vh' }"
+      teleport="body"
+    >
+      <div class="weather-detail">
+        <!-- 拖动条 -->
+        <div class="weather-detail__handle">
+          <div class="weather-detail__handle-bar" />
+        </div>
+
+        <!-- A 区块：定位信息 -->
+        <div class="weather-detail__section">
+          <h3 class="weather-detail__title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            当前位置
+          </h3>
+          <div class="weather-detail__location">
+            <template v-if="addressLoading">
+              <span class="weather-detail__loc-loading">获取地址中…</span>
+            </template>
+            <template v-else-if="detailAddress">
+              <p class="weather-detail__loc-text">{{ detailAddress }}</p>
+            </template>
+            <template v-else>
+              <p class="weather-detail__loc-text weather-detail__loc-text--fallback">无法获取详细地址</p>
+            </template>
+            <p class="weather-detail__coords">{{ currentLat.toFixed(4) }}, {{ currentLon.toFixed(4) }}</p>
+          </div>
+        </div>
+
+        <!-- B 区块：7 天预报 -->
+        <div class="weather-detail__section">
+          <h3 class="weather-detail__title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            近 7 天预报
+          </h3>
+
+          <template v-if="forecastLoading">
+            <div class="weather-detail__fc-loading">加载预报中…</div>
+          </template>
+          <template v-else-if="dailyForecast.length > 0">
+            <div class="weather-detail__fc-list">
+              <div
+                v-for="day in dailyForecast"
+                :key="day.date"
+                class="fc-card"
+                :class="{ 'fc-card--today': day.isToday }"
+              >
+                <div class="fc-card__day">
+                  <span class="fc-card__label">{{ day.dayLabel }}</span>
+                  <span class="fc-card__date">{{ day.dayNum }}</span>
+                </div>
+                <span class="fc-card__icon">{{ getSmallWeatherIcon(day.code) }}</span>
+                <div class="fc-card__temps">
+                  <span class="fc-card__high">{{ day.tempMax }}°</span>
+                  <span class="fc-card__sep">/</span>
+                  <span class="fc-card__low">{{ day.tempMin }}°</span>
+                </div>
+                <span class="fc-card__desc">{{ day.description }}</span>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="weather-detail__fc-empty">预报数据暂不可用</div>
+          </template>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <style scoped>
+/* ── Widget 本体 ── */
 .weather-widget {
   display: flex;
   align-items: center;
@@ -269,6 +440,17 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
 
 .weather-widget--loading {
   opacity: 0.6;
+}
+
+.weather-widget--tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.weather-widget--tappable:active {
+  opacity: 0.7;
 }
 
 .weather-widget__placeholder,
@@ -303,7 +485,7 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
   height: 14px;
 }
 
-/* ── 图标容器 ── */
+/* ── 图标 ── */
 .weather-widget__icon {
   width: 32px;
   height: 32px;
@@ -390,5 +572,167 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
 .weather-widget__desc {
   font-size: 9px;
   color: rgba(255, 255, 255, 0.65);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   详情弹窗
+   ══════════════════════════════════════════════════════════════ */
+
+.weather-detail {
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.weather-detail__handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+
+.weather-detail__handle-bar {
+  width: 36px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+.weather-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.weather-detail__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.weather-detail__title-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-primary);
+}
+
+/* ── A 区块：定位信息 ── */
+.weather-detail__location {
+  background: var(--color-bg-3);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.weather-detail__loc-loading {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
+.weather-detail__loc-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text-1);
+  word-break: break-word;
+}
+
+.weather-detail__loc-text--fallback {
+  color: var(--color-text-3);
+  font-style: italic;
+}
+
+.weather-detail__coords {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--color-text-4);
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+}
+
+/* ── B 区块：7 天预报 ── */
+.weather-detail__fc-loading,
+.weather-detail__fc-empty {
+  font-size: 13px;
+  color: var(--color-text-3);
+  padding: 8px 0;
+  text-align: center;
+}
+
+.weather-detail__fc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fc-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--color-bg-3);
+  transition: background 0.15s;
+}
+
+.fc-card--today {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-3));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.fc-card__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+}
+
+.fc-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.fc-card__date {
+  font-size: 10px;
+  color: var(--color-text-3);
+  margin-top: 1px;
+}
+
+.fc-card__icon {
+  font-size: 20px;
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.fc-card__temps {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: center;
+}
+
+.fc-card__high {
+  color: var(--color-text-1);
+}
+
+.fc-card__sep {
+  color: var(--color-text-4);
+  margin: 0 1px;
+}
+
+.fc-card__low {
+  color: var(--color-text-3);
+}
+
+.fc-card__desc {
+  font-size: 12px;
+  color: var(--color-text-2);
+  margin-left: auto;
 }
 </style>
