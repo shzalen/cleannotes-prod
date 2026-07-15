@@ -71,6 +71,11 @@ const version = '1.3.0'
 
 <template>
   <div class="profile-page safe-top">
+    <!-- 页面标题 -->
+    <div class="profile-header">
+      <h1 class="profile-title">我的</h1>
+    </div>
+
     <!-- 用户信息 -->
     <div class="user-section">
       <div class="user-card">
@@ -135,32 +140,52 @@ const version = '1.3.0'
   padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
+.profile-header {
+  padding: 16px 20px 8px;
+}
+
+.profile-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-1);
+  letter-spacing: -0.3px;
+}
+
 .user-section {
-  padding: 20px 16px;
+  padding: 12px 16px 20px;
 }
 
 .user-card {
-  display: flex; align-items: center; gap: 14px;
-  padding: 20px 16px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 22px 18px;
   background: var(--color-surface, #fff);
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .avatar {
-  width: 52px; height: 52px; border-radius: 50%;
+  width: 60px; height: 60px; border-radius: 50%;
   background: var(--color-primary, #0052D9);
-  color: #fff; font-size: 22px; font-weight: 700;
+  color: #fff; font-size: 24px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
-.user-info { display: flex; flex-direction: column; gap: 2px; }
+.user-info { display: flex; flex-direction: column; gap: 4px; }
 
-.user-name { font-size: 18px; font-weight: 600; color: var(--color-text-1); }
-.user-email { font-size: 13px; color: var(--color-text-3); }
+.user-name { font-size: 20px; font-weight: 600; color: var(--color-text-1); }
+.user-email { font-size: 14px; color: var(--color-text-3); }
 
 .cell-group { margin: 12px 16px; }
 
-.version-text { color: var(--color-text-3); }
+.cell-group :deep(.van-cell) {
+  padding: 18px 16px;
+  font-size: 17px;
+}
+
+.cell-group :deep(.van-cell__title) {
+  font-weight: 500;
+}
+
+.version-text { color: var(--color-text-3); font-size: 15px; }
 
 .logout-cell {
   text-align: center;
@@ -169,6 +194,8 @@ const version = '1.3.0'
 :deep(.logout-cell .van-cell__title) {
   text-align: center;
   color: var(--color-danger);
+  font-size: 17px;
+  font-weight: 500;
 }
 
 .dialog-field {

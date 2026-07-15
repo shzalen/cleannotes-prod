@@ -187,12 +187,13 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: linear-gradient(135deg, #4a90d9 0%, #0052D9 100%);
 }
 
 /* ── 蓝色渐变头部，延伸到状态栏 ── */
 .home-header {
-  background: linear-gradient(135deg, #4a90d9 0%, #0052D9 100%);
-  padding-top: max(env(safe-area-inset-top, 0px), 28px);
+  background: transparent;
+  padding-top: max(env(safe-area-inset-top, 0px), 32px);
   padding-bottom: 24px;
   flex-shrink: 0;
 }
@@ -245,13 +246,13 @@ function openProgress(task: Task) { if (!isFutureTask(task)) progressSheet.value
 .content-wrapper {
   flex: 1;
   background: var(--color-bg-0, #fff);
-  border-radius: 16px 16px 0 0;
-  margin-top: -16px;
+  border-radius: 20px 20px 0 0;
   position: relative;
   z-index: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
 }
 
 .home-scroll {
