@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
-import { showToast } from 'vant'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
 
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
@@ -44,14 +43,6 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   high: { label: '高', color: 'var(--color-danger)' },
   medium: { label: '中', color: 'var(--color-warning)' },
   low: { label: '低', color: 'var(--color-success)' },
-}
-
-// ── 下拉刷新 ──
-const refreshing = ref(false)
-
-async function onRefresh() {
-  await taskStore.load(true)
-  refreshing.value = false
 }
 
 // ── 弹窗引用 ──
@@ -93,8 +84,7 @@ function openTaskCreate() {
     </header>
 
     <!-- 内容区（含完成率 + 任务列表） -->
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="home-pull-refresh">
-    <div class="home-content" id="home-content-scroll">
+    <div class="home-content">
       <!-- 今日完成率（移到任务列表前） -->
       <div class="home-progress">
         <div class="home-progress__row">
@@ -167,7 +157,6 @@ function openTaskCreate() {
       <!-- 底部留白 -->
       <div class="home-bottom-spacer" />
     </div>
-    </van-pull-refresh>
 
     <!-- 快速创建 FAB -->
     <button class="home-fab" @click="openTaskCreate">
@@ -236,14 +225,7 @@ function openTaskCreate() {
   padding: 12px 14px;
 }
 
-/* ── 内容区 ── */
-.home-pull-refresh {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+/* ── 内容区（原生滚动 + 阻尼效果） ── */
 .home-content {
   flex: 1;
   overflow-y: auto;

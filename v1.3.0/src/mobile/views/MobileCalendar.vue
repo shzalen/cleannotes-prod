@@ -4,7 +4,6 @@ import { useTaskStore } from '@/stores/task'
 import { filterTasksByDate, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
-import { showToast } from 'vant'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
 
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
@@ -128,15 +127,6 @@ const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
 const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
-// ── 下拉刷新 ──
-const refreshing = ref(false)
-
-async function onRefresh() {
-  await taskStore.load(true)
-  refreshing.value = false
-}
-
-// ── 统一触控交互（位移阈值防误触） ──
 const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteraction<Task>({
   onTap: (task) => detailPopup.value?.open(task),
   onLongPress: (task) => progressPopup.value?.open(task),
@@ -189,7 +179,6 @@ function openAdd() {
     </div>
 
     <!-- 任务列表 -->
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="cal-pull-refresh">
     <div class="cal-content">
       <div class="cal-content__header">
         <span class="cal-content__date">{{ selectedDateLabel }}</span>
@@ -242,7 +231,6 @@ function openAdd() {
         <p class="cal-empty__text">当日无任务</p>
       </div>
     </div>
-    </van-pull-refresh>
 
     <!-- 任务详情弹窗 -->
     <MobileTaskDetailPopup ref="detailPopup" />
@@ -366,14 +354,7 @@ function openAdd() {
   opacity: 0.6;
 }
 
-/* ── 内容区 ── */
-.cal-pull-refresh {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+/* ── 内容区（原生滚动 + 阻尼效果） ── */
 .cal-content {
   flex: 1;
   overflow-y: auto;
