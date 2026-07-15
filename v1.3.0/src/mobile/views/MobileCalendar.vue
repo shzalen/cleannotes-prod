@@ -248,6 +248,7 @@ function openAdd() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
   background: var(--color-bg-1);
 }
 
@@ -357,6 +358,7 @@ function openAdd() {
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .cal-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 12px 12px 80px;
