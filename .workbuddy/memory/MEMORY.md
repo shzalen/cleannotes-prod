@@ -3,10 +3,13 @@
 ## 项目基本信息
 - 技术栈：Vue 3 + TypeScript + Pinia + TailwindCSS v4 + Tiptap + Supabase
 - 主项目路径：`D:\CleanNotepad\v1.3.0\`
-- 部署：dist 挂 IIS，`robocopy dist prod /E /XD .git`（**禁止 /MIR**，prod 有独立 .git）
-- 构建：每次 `vite build` 完成后，**自动将 dist 同步到 `D:\CleanNotepad-Prod\v1.3.0\`**（robocopy），无需用户提醒
+- 部署：dist 内容挂 IIS，robocopy **dist 内容**直接到 `D:\CleanNotepad-Prod\v1.3.0\` 根目录（不是复制 dist 文件夹）
+  - 正确命令：`robocopy "D:\CleanNotepad\v1.3.0\dist" "D:\CleanNotepad-Prod\v1.3.0" /E /XD .git`
+  - **禁止 /MIR**（prod 有独立 .git）；**禁止**目标是 `...\dist`（会多套一层目录）
+- 构建：每次 `vite build` 完成后，**自动将 dist 内容同步到 `D:\CleanNotepad-Prod\v1.3.0\`**（robocopy），无需用户提醒
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
 - Git：`https://github.com/shzalen/cleannotes.git`（prod: `cleannotes-prod`）
+- **报告公约**：所有生成的报告（HTML 测试报告、审查报告等）统一使用**深色模式**（深色背景 + 浅色文字）
 
 ## 移动端 PWA 架构（2026-07-14）
 - **多入口构建**：`vite.config.ts` 中 `rollupOptions.input` = `{ main: index.html, mobile: mobile.html }`

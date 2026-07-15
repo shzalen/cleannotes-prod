@@ -5,124 +5,117 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 
-const activeTab = computed(() => (route.meta.tab as string) || '')
+const active = computed(() => (route.meta.tab as string) || 'home')
 
 const tabs = [
-  { key: 'home', label: '首页', icon: 'home' },
-  { key: 'apps', label: '应用', icon: 'apps' },
-  { key: 'profile', label: '我的', icon: 'profile' },
+  { key: 'home', label: '首页', name: 'm-home' },
+  { key: 'calendar', label: '日历', name: 'm-calendar' },
+  { key: 'profile', label: '我的', name: 'm-profile' },
 ] as const
 
-function go(tab: string) {
-  router.push({ name: tab })
+function go(name: string) {
+  if (route.name === name) return
+  router.replace({ name })
 }
 </script>
 
 <template>
-  <nav class="tab-bar safe-bottom">
+  <nav class="tabbar">
     <button
       v-for="tab in tabs"
       :key="tab.key"
-      class="tab-item"
-      :class="{ active: activeTab === tab.key }"
-      @click="go(tab.key)"
+      class="tabbar__item"
+      :class="{ 'is-active': active === tab.key }"
+      @click="go(tab.name)"
     >
-      <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
-        <!-- Home icon -->
-        <template v-if="tab.icon === 'home'">
-          <path
-            d="M3 10.5L12 3L21 10.5V20C21 20.5523 20.5523 21 20 21H15V14H9V21H4C3.44772 21 3 20.5523 3 20V10.5Z"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-          />
+      <span class="tabbar__icon">
+        <!-- 首页 -->
+        <template v-if="tab.key === 'home'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z" />
+          </svg>
         </template>
-        <!-- Apps grid icon -->
-        <template v-else-if="tab.icon === 'apps'">
-          <rect x="3" y="3" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="13.5" y="3" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
+        <!-- 日历 -->
+        <template v-else-if="tab.key === 'calendar'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+            <path d="M3.5 9h17M8 2.5v4M16 2.5v4" stroke-linecap="round" />
+          </svg>
         </template>
-        <!-- Profile icon -->
+        <!-- 我的 -->
         <template v-else>
-          <circle cx="12" cy="8" r="4.5"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-          />
-          <path
-            d="M4 21C4 16.5817 7.58172 13 12 13C16.4183 13 20 16.5817 20 21"
-            :fill="activeTab === tab.key ? 'var(--color-primary)' : 'none'"
-            :stroke="activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-4)'"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="3.5" />
+            <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke-linecap="round" />
+          </svg>
         </template>
-      </svg>
-      <span class="tab-label">{{ tab.label }}</span>
+      </span>
+      <span class="tabbar__label">{{ tab.label }}</span>
     </button>
   </nav>
 </template>
 
 <style scoped>
-.tab-bar {
-  display: flex;
-  height: 56px;
-  background: var(--color-surface);
-  border-top: 0.5px solid var(--color-border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+.tabbar {
   flex-shrink: 0;
+  display: flex;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border-light);
+  padding-bottom: var(--safe-bottom);
+  box-shadow: 0 -1px 8px var(--color-shadow);
 }
 
-.tab-item {
+.tabbar__item {
   flex: 1;
+  height: var(--tabbar-height);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   border: none;
-  background: none;
+  background: transparent;
+  color: var(--color-text-3);
   cursor: pointer;
-  padding: 6px 0;
-  transition: opacity 0.15s;
+  transition: transform 0.12s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.tab-item:active {
-  opacity: 0.6;
+/* 点击反馈：轻微下压 */
+.tabbar__item:active {
+  transform: scale(0.9);
 }
 
-.tab-icon {
+.tabbar__item.is-active {
+  color: var(--color-primary);
+}
+
+.tabbar__icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar__icon svg {
   width: 24px;
   height: 24px;
 }
 
-.tab-label {
+.tabbar__label {
   font-size: 10px;
+  line-height: 1;
   font-weight: 500;
-  color: var(--color-text-4);
-  transition: color 0.15s;
-}
-
-.tab-item.active .tab-label {
-  color: var(--color-primary);
 }
 </style>

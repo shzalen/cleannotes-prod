@@ -1,394 +1,311 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useTaskStore } from '@/stores/task'
-import { useMemoStore } from '@/stores/memo'
-import { useGrowthStore } from '@/stores/growth'
-import { toLocalDate } from '@/utils/time'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
-import { switchUser } from '@/services/storage'
-import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushTaskWrites, cleanupTaskListeners, clearOnTaskDone } from '@/stores/task'
+import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
-import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { clearAllLastSyncAt } from '@/services/syncState'
-import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import { ref } from 'vue'
+import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
+import { showConfirmDialog, showToast } from 'vant'
 
-const router = useRouter()
+defineOptions({ name: 'MobileProfile' })
+
 const auth = useAuthStore()
-const taskStore = useTaskStore()
-const memoStore = useMemoStore()
-const growthStore = useGrowthStore()
-const { mode, isDark } = useTheme()
+const { mode, setTheme } = useTheme()
 
-const showLogoutConfirm = ref(false)
+const nickname = computed(() => auth.user?.nickname || '用户')
+const email = computed(() => auth.user?.email || '')
 
-const today = toLocalDate()
+// ── 主题选项 ──
+const themeOptions: { label: string; value: ThemeMode; desc: string }[] = [
+  { label: '腾讯蓝', value: 'tencent', desc: '默认主题' },
+  { label: 'ZURU', value: 'zuru', desc: '品牌红' },
+  { label: '暗黑', value: 'dark', desc: '深色模式' },
+]
 
-const todayDone = computed(() =>
-  taskStore.tasks.filter(t => t.completedAt?.startsWith(today) || (t.startDate === today && t.status === 'done')).length
-)
-const todayTotal = computed(() =>
-  taskStore.tasks.filter(t => {
-    if (t.startDate === today) return true
-    if (t.startDate && t.startDate < today && t.status !== 'done') return true
-    if (!t.startDate) {
-      return t.createdAt.startsWith(today) || (t.createdAt.slice(0, 10) < today && t.status !== 'done')
-    }
-    return false
-  }).length
-)
-const completionRate = computed(() => {
-  if (todayTotal.value === 0) return 0
-  return Math.round((todayDone.value / todayTotal.value) * 100)
-})
-
-const noteCount = computed(() => memoStore.memos.length)
-const streakDays = computed(() => growthStore.state?.streakDays || 0)
-
-const themeLabel = computed(() => {
-  const labels: Record<ThemeMode, string> = {
-    light: '浅色',
-    dark: '深色',
-    auto: '跟随系统',
-    zuru: 'ZURU',
-    tencent: '腾讯蓝',
-  }
-  return labels[mode.value] || '跟随系统'
-})
-
-function cycleTheme() {
-  const order: ThemeMode[] = ['light', 'dark', 'auto']
-  const idx = order.indexOf(mode.value)
-  const next = order[(idx + 1) % order.length] || 'light'
-  mode.value = next
-  localStorage.setItem('cleannotes_theme', next)
+function onThemeChange(val: ThemeMode) {
+  setTheme(val)
 }
 
-function goToApp(route: string) {
-  router.push(route)
-}
+// ── 退出登录 ──
+const loggingOut = ref(false)
 
-async function handleLogout() {
-  showLogoutConfirm.value = false
-  await flushPendingWrites()
-  flushTaskWrites()
-  await flushGrowthToCloud()
-  cleanupGrowthStorage()
-  clearAllLastSyncAt()
-  broadcastChange('logout')
-  closeCrossTabSync()
-  cleanupMemoStorage()
-  cleanupTaskListeners()
-  clearOnTaskDone()
-  auth.cleanup()
-  auth.logout()
-  window.location.hash = '#/login'
-  window.location.reload()
+function handleLogout() {
+  showConfirmDialog({
+    title: '退出登录',
+    message: '确定要退出登录吗？',
+    confirmButtonText: '退出',
+    cancelButtonText: '取消',
+  })
+    .then(async () => {
+      loggingOut.value = true
+      try {
+        // 完整清理流程（与 PC 端 App.vue 一致）
+        await flushPendingWrites()
+        flushTaskWrites()
+        await flushGrowthToCloud()
+        cleanupGrowthStorage()
+        clearAllLastSyncAt()
+        broadcastChange('logout')
+        closeCrossTabSync()
+        cleanupMemoStorage()
+        cleanupTaskListeners()
+        clearOnTaskDone()
+        auth.cleanup()
+        auth.logout()
+        // MobileApp.vue 的 watch(userId) 会自动跳转到登录页
+      } catch (e) {
+        console.error('[mobile] logout error', e)
+      } finally {
+        loggingOut.value = false
+      }
+    })
+    .catch(() => {
+      // 用户取消
+    })
 }
 </script>
 
 <template>
-  <div class="profile-page safe-top">
-    <header class="page-header">
-      <h1 class="page-title">我的</h1>
+  <div class="profile-page">
+    <!-- 固定顶栏 -->
+    <header class="m-header">
+      <div class="m-header__safe-area" />
+      <div class="m-header__bar">
+        <span class="m-header__title">我的</span>
+      </div>
     </header>
 
-    <!-- Profile card -->
-    <div class="profile-card" @click="goToApp('/app/settings')">
-      <div class="avatar">
-        {{ auth.user?.nickname?.[0]?.toUpperCase() || 'A' }}
+    <div class="profile-content">
+      <!-- 用户资料卡 -->
+      <div class="profile-card">
+        <div class="profile-card__avatar">
+          {{ nickname.charAt(0).toUpperCase() }}
+        </div>
+        <div class="profile-card__info">
+          <p class="profile-card__name">{{ nickname }}</p>
+          <p class="profile-card__email">{{ email }}</p>
+        </div>
       </div>
-      <div class="profile-info">
-        <div class="profile-name">{{ auth.user?.nickname || '用户' }}</div>
-        <div class="profile-email">{{ auth.user?.email || '' }}</div>
+
+      <!-- 主题切换 -->
+      <div class="profile-section">
+        <p class="profile-section__title">主题</p>
+        <div class="profile-themes">
+          <div
+            v-for="opt in themeOptions"
+            :key="opt.value"
+            class="profile-theme"
+            :class="{ 'is-active': mode === opt.value }"
+            @click="onThemeChange(opt.value)"
+          >
+            <div class="profile-theme__preview" :data-theme-name="opt.value">
+              <span class="profile-theme__bar" />
+              <span class="profile-theme__dot" />
+            </div>
+            <div class="profile-theme__label">
+              <span class="profile-theme__name">{{ opt.label }}</span>
+              <span class="profile-theme__desc">{{ opt.desc }}</span>
+            </div>
+            <span class="profile-theme__check" v-if="mode === opt.value">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+          </div>
+        </div>
       </div>
-      <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none">
-        <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+
+      <!-- 退出登录 -->
+      <div class="profile-logout">
+        <van-button
+          block
+          round
+          type="danger"
+          plain
+          :loading="loggingOut"
+          @click="handleLogout"
+        >退出登录</van-button>
+      </div>
     </div>
-
-    <!-- Stats row -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <span class="stat-value" style="color: var(--color-primary)">{{ completionRate }}%</span>
-        <span class="stat-label">完成率</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">{{ noteCount }}</span>
-        <span class="stat-label">笔记数</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" style="color: #FF9500">{{ streakDays }}</span>
-        <span class="stat-label">连续天数</span>
-      </div>
-    </div>
-
-    <!-- Menu group 1 -->
-    <div class="menu-group">
-      <button class="menu-item" @click="cycleTheme">
-        <div class="menu-icon" style="background: rgba(79,108,247,0.1)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <circle cx="12" cy="12" r="7" stroke="var(--color-primary)" stroke-width="2"/>
-            <path d="M12 5A7 7 0 0 1 12 19Z" fill="var(--color-primary)"/>
-          </svg>
-        </div>
-        <span class="menu-label">主题模式</span>
-        <span class="menu-value">{{ themeLabel }}</span>
-        <svg class="chevron" viewBox="0 0 24 24" width="14" height="14" fill="none">
-          <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <div class="menu-divider" />
-
-      <button class="menu-item" @click="goToApp('/app/settings')">
-        <div class="menu-icon" style="background: rgba(255,149,0,0.1)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <path d="M12 3V6M12 18V21M3 12H6M18 12H21M5.6 5.6L7.7 7.7M16.3 16.3L18.4 18.4M5.6 18.4L7.7 16.3M16.3 7.7L18.4 5.6" stroke="#FF9500" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="12" cy="12" r="3" stroke="#FF9500" stroke-width="2"/>
-          </svg>
-        </div>
-        <span class="menu-label">通知设置</span>
-        <svg class="chevron" viewBox="0 0 24 24" width="14" height="14" fill="none">
-          <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <div class="menu-divider" />
-
-      <button class="menu-item">
-        <div class="menu-icon" style="background: rgba(52,199,89,0.1)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <path d="M4 12C4 7.6 7.6 4 12 4M20 12C20 16.4 16.4 20 12 20" stroke="#34C759" stroke-width="2" stroke-linecap="round"/>
-            <path d="M8 8L4 12L8 16M16 8L20 12L16 16" stroke="#34C759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <span class="menu-label">数据同步</span>
-        <span class="menu-value" style="color: #34C759">已同步</span>
-        <svg class="chevron" viewBox="0 0 24 24" width="14" height="14" fill="none">
-          <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Menu group 2 -->
-    <div class="menu-group">
-      <button class="menu-item" @click="goToApp('/app/settings')">
-        <div class="menu-icon" style="background: rgba(88,86,214,0.1)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <rect x="6" y="10" width="12" height="10" rx="2" stroke="#5856D6" stroke-width="2"/>
-            <path d="M9 10V7C9 5.34 10.34 4 12 4C13.66 4 15 5.34 15 7V10" stroke="#5856D6" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <span class="menu-label">账号安全</span>
-        <svg class="chevron" viewBox="0 0 24 24" width="14" height="14" fill="none">
-          <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-
-      <div class="menu-divider" />
-
-      <button class="menu-item">
-        <div class="menu-icon" style="background: rgba(142,142,147,0.1)">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="#8E8E93" stroke-width="2"/>
-            <path d="M12 8V12M12 16H12.01" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <span class="menu-label">关于清记</span>
-        <span class="menu-value">v1.3.0</span>
-        <svg class="chevron" viewBox="0 0 24 24" width="14" height="14" fill="none">
-          <path d="M9 6L15 12L9 18" stroke="var(--color-text-4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Logout button -->
-    <button class="logout-btn" @click="showLogoutConfirm = true">
-      退出登录
-    </button>
-
-    <!-- Logout confirm -->
-    <ConfirmDialog
-      :visible="showLogoutConfirm"
-      title="退出登录"
-      message="确定要退出登录吗？退出后需要重新登录才能使用。"
-      confirm-text="退出"
-      type="danger"
-      @confirm="handleLogout"
-      @cancel="showLogoutConfirm = false"
-    />
   </div>
 </template>
 
 <style scoped>
 .profile-page {
-  min-height: 100vh;
-  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--color-bg-1);
-  padding-bottom: 80px;
 }
 
-.page-header {
-  padding: 12px 20px;
+.profile-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 80px;
 }
 
-.page-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--color-text-1);
-  margin: 0;
-}
-
+/* ── 用户卡片 ── */
 .profile-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin: 0 16px 16px;
-  padding: 16px;
+  gap: 16px;
+  padding: 20px 16px;
   background: var(--color-surface);
-  border-radius: 16px;
-  cursor: pointer;
-  transition: opacity 0.15s;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  margin-bottom: 16px;
 }
 
-.profile-card:active {
-  opacity: 0.7;
-}
-
-.avatar {
-  width: 52px;
-  height: 52px;
+.profile-card__avatar {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--color-primary);
-  color: white;
-  font-size: 20px;
-  font-weight: 500;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.profile-info {
+.profile-card__info {
   flex: 1;
   min-width: 0;
 }
 
-.profile-name {
-  font-size: 17px;
+.profile-card__name {
+  margin: 0;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-1);
 }
 
-.profile-email {
-  font-size: 12px;
+.profile-card__email {
+  margin: 4px 0 0;
+  font-size: 13px;
   color: var(--color-text-3);
-  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.chevron {
-  flex-shrink: 0;
+/* ── 分区 ── */
+.profile-section {
+  margin-bottom: 16px;
 }
 
-.stats-row {
-  display: flex;
-  gap: 8px;
-  margin: 0 16px 16px;
+.profile-section__title {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-3);
 }
 
-.stat-card {
-  flex: 1;
+/* ── 主题选择 ── */
+.profile-themes {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 14px 0;
-  background: var(--color-surface);
-  border-radius: 12px;
+  gap: 8px;
 }
 
-.stat-value {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.stat-label {
-  font-size: 11px;
-  color: var(--color-text-3);
-}
-
-.menu-group {
-  margin: 0 16px 12px;
-  background: var(--color-surface);
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.menu-item {
+.profile-theme {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border: none;
-  background: none;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
   cursor: pointer;
-  width: 100%;
-  text-align: left;
-  transition: opacity 0.15s;
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  border: 2px solid transparent;
 }
 
-.menu-item:active {
-  opacity: 0.7;
+.profile-theme:active {
+  transform: scale(0.98);
 }
 
-.menu-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
+.profile-theme.is-active {
+  border-color: var(--color-primary);
+}
+
+.profile-theme__preview {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  gap: 3px;
 }
 
-.menu-label {
+.profile-theme__preview[data-theme-name="tencent"] {
+  background: #0052D9;
+}
+.profile-theme__preview[data-theme-name="zuru"] {
+  background: #CB312D;
+}
+.profile-theme__preview[data-theme-name="dark"] {
+  background: #1a1b20;
+}
+
+.profile-theme__bar {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.profile-theme__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.profile-theme__label {
   flex: 1;
-  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-theme__name {
+  font-size: 15px;
+  font-weight: 500;
   color: var(--color-text-1);
 }
 
-.menu-value {
+.profile-theme__desc {
   font-size: 12px;
   color: var(--color-text-3);
 }
 
-.menu-divider {
-  height: 0.5px;
-  background: var(--color-border-light);
-  margin: 0 16px 0 56px;
+.profile-theme__check {
+  width: 20px;
+  height: 20px;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
 }
 
-.logout-btn {
-  display: block;
-  width: calc(100% - 32px);
-  margin: 16px;
-  padding: 14px;
-  border: none;
-  border-radius: 14px;
-  background: var(--color-surface);
-  color: var(--color-danger);
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
+.profile-theme__check svg {
+  width: 20px;
+  height: 20px;
 }
 
-.logout-btn:active {
-  opacity: 0.7;
+/* ── 退出按钮 ── */
+.profile-logout {
+  margin-top: 24px;
+  padding: 0 4px;
 }
 </style>
