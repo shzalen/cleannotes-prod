@@ -11,6 +11,7 @@ import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
 import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
+import { PullRefresh as VanPullRefresh } from 'vant'
 
 defineOptions({ name: 'MobileHome' })
 
@@ -72,6 +73,13 @@ const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteractio
   onLongPress: (task) => progressPopup.value?.open(task),
 })
 
+// ── 下拉刷新 ──
+const refreshing = ref(false)
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
+}
+
 // ── 任务创建 ──
 function openTaskCreate() {
   editPopup.value?.openNew()
@@ -99,8 +107,13 @@ function openTaskCreate() {
       </div>
     </header>
 
-    <!-- 内容区（含完成率 + 任务列表） -->
-    <div class="home-content">
+    <!-- 内容区（含完成率 + 任务列表） — 下拉刷新 + 原生滚动 -->
+    <van-pull-refresh
+      v-model="refreshing"
+      class="home-pull-refresh"
+      @refresh="onRefresh"
+    >
+      <div class="home-content">
       <!-- 今日完成率（移到任务列表前） -->
       <div class="home-progress">
         <div class="home-progress__row">
@@ -176,6 +189,7 @@ function openTaskCreate() {
       <!-- 底部留白 -->
       <div class="home-bottom-spacer" />
     </div>
+    </van-pull-refresh>
 
     <!-- 快速创建 FAB -->
     <button class="home-fab" @click="openTaskCreate">
@@ -201,9 +215,7 @@ function openTaskCreate() {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  /* 不使用 overflow:hidden —— iOS Safari 的 -webkit-overflow-scrolling: touch
-     在父元素 overflow:hidden 时会失效（已知 bug），flex 容器通过 min-height:0
-     已能约束子元素尺寸 */
+  overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
   background: var(--color-bg-1);
 }
 
@@ -248,13 +260,18 @@ function openTaskCreate() {
   padding: 12px 14px;
 }
 
-/* ── 内容区（原生滚动 + 阻尼效果） ── */
-.home-content {
+/* ── 下拉刷新容器 ── */
+.home-pull-refresh {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 内容区（原生滚动 + 阻尼效果） ── */
+.home-content {
+  min-height: 100%;
   padding: 12px 12px 80px;
+  touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 
 /* ── 今日完成率卡片 ── */

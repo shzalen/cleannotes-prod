@@ -180,12 +180,11 @@ body {
 }
 
 /* ==========================================================================
-   Pull-to-refresh 橡皮筋效果
-   注意：不能覆盖 van-pull-refresh 的 overflow，否则 Vant 无法检测滚动边界，
-   下拉手势会完全失效。橡皮筋效果由 Vant 内置 overscroll 行为提供。
+   Pull-to-refresh / 滚动行为
+   注意：Vant PullRefresh 组件通过其内置的 overscroll 行为提供橡皮筋效果，
+   不需要额外 CSS。
    ========================================================================== */
 .van-pull-refresh__track {
   min-height: 100%;
-  /* 确保在全局 touch-action: manipulation 下仍可纵向滚动 */
   touch-action: pan-y;
 }

@@ -9,6 +9,7 @@ import { useTouchInteraction } from '../composables/useTouchInteraction'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
 import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
+import { PullRefresh as VanPullRefresh } from 'vant'
 
 defineOptions({ name: 'MobileCalendar' })
 
@@ -138,6 +139,13 @@ function isTimeReached(task: Task) {
   return currentMinutes >= (h * 60 + m)
 }
 
+// ── 下拉刷新 ──
+const refreshing = ref(false)
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
+}
+
 // ── 弹窗引用 ──
 const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
@@ -194,8 +202,13 @@ function openAdd() {
       </div>
     </div>
 
-    <!-- 任务列表 -->
-    <div class="cal-content">
+    <!-- 任务列表 — 下拉刷新 + 原生滚动 -->
+    <van-pull-refresh
+      v-model="refreshing"
+      class="cal-pull-refresh"
+      @refresh="onRefresh"
+    >
+      <div class="cal-content">
       <div class="cal-content__header">
         <span class="cal-content__date">{{ selectedDateLabel }}</span>
         <span class="cal-content__count">{{ selectedTasks.length }} 个任务</span>
@@ -250,6 +263,7 @@ function openAdd() {
         <p class="cal-empty__text">当日无任务</p>
       </div>
     </div>
+    </van-pull-refresh>
 
     <!-- 任务详情弹窗 -->
     <MobileTaskDetailPopup ref="detailPopup" />
@@ -268,9 +282,7 @@ function openAdd() {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  /* 不使用 overflow:hidden —— iOS Safari 的 -webkit-overflow-scrolling: touch
-     在父元素 overflow:hidden 时会失效（已知 bug），flex 容器通过 min-height:0
-     已能约束子元素尺寸 */
+  overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
   background: var(--color-bg-1);
 }
 
@@ -377,13 +389,18 @@ function openAdd() {
   opacity: 0.6;
 }
 
-/* ── 内容区（原生滚动 + 阻尼效果） ── */
-.cal-content {
+/* ── 下拉刷新容器 ── */
+.cal-pull-refresh {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 内容区（原生滚动 + 阻尼效果） ── */
+.cal-content {
+  min-height: 100%;
   padding: 12px 12px 80px;
+  touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 
 .cal-content__header {

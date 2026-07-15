@@ -390,14 +390,18 @@ const buildTime = __BUILD_TIME__
 .profile-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden; /* 禁止滚动穿透 */
   background: var(--color-bg-1);
 }
 
 .profile-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
   padding: 12px 12px 80px;
 }
 

@@ -3,9 +3,10 @@
  * 移动端天气组件
  * - 浏览器 Geolocation API 获取位置
  * - Open-Meteo 免费 API 获取天气（无需 key）
- * - 根据天气码显示对应动画 SVG
+ * - 坐标缓存到 localStorage（10 分钟有效），避免 PWA 重开重复请求定位权限
+ * - 定位失败时显示刷新按钮
  */
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 
 interface WeatherData {
   temp: number
@@ -13,6 +14,9 @@ interface WeatherData {
   wind: number
   description: string
 }
+
+const LS_KEY = 'cleannotes_weather_coords'
+const CACHE_MAX_AGE = 10 * 60 * 1000 // 10 分钟
 
 // ── 天气码映射 ──
 // Open-Meteo WMO codes: https://open-meteo.com/en/docs
@@ -46,7 +50,35 @@ const weatherMap: Record<number, { label: string; icon: string }> = {
 const weather = ref<WeatherData | null>(null)
 const loading = ref(true)
 const errorMsg = ref('')
-let geoWatchId: number | null = null
+const locationFailed = ref(false) // true 时显示刷新按钮
+
+// ── localStorage 坐标缓存 ──
+interface CachedCoords {
+  lat: number
+  lon: number
+  ts: number
+}
+
+function readCachedCoords(): CachedCoords | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (!raw) return null
+    const c: CachedCoords = JSON.parse(raw)
+    if (Date.now() - c.ts > CACHE_MAX_AGE) {
+      localStorage.removeItem(LS_KEY)
+      return null
+    }
+    return c
+  } catch {
+    return null
+  }
+}
+
+function saveCachedCoords(lat: number, lon: number) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ lat, lon, ts: Date.now() }))
+  } catch { /* quota exceeded, ignore */ }
+}
 
 // ── 获取天气 ──
 async function fetchWeather(lat: number, lon: number) {
@@ -64,6 +96,7 @@ async function fetchWeather(lat: number, lon: number) {
       description: weatherMap[code]?.label ?? '未知',
     }
     errorMsg.value = ''
+    locationFailed.value = false
   } catch (e: any) {
     if (e.name === 'TimeoutError' || e.name === 'AbortError') {
       errorMsg.value = '天气获取超时'
@@ -75,26 +108,42 @@ async function fetchWeather(lat: number, lon: number) {
   }
 }
 
-onMounted(() => {
+// ── 请求定位（优先缓存，避免重复弹权限） ──
+function requestLocation() {
   if (!navigator.geolocation) {
     errorMsg.value = '位置不可用'
     loading.value = false
+    locationFailed.value = true
     return
   }
+
+  // 1. 优先使用 localStorage 缓存
+  const cached = readCachedCoords()
+  if (cached) {
+    loading.value = false
+    fetchWeather(cached.lat, cached.lon)
+    return
+  }
+
+  // 2. 无缓存则请求定位
+  loading.value = true
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      fetchWeather(pos.coords.latitude, pos.coords.longitude)
+      const { latitude, longitude } = pos.coords
+      saveCachedCoords(latitude, longitude)
+      fetchWeather(latitude, longitude)
     },
     () => {
       errorMsg.value = '定位失败'
       loading.value = false
+      locationFailed.value = true
     },
     { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
   )
-})
+}
 
-onUnmounted(() => {
-  if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId)
+onMounted(() => {
+  requestLocation()
 })
 
 // ── 是否为下雨相关天气 ──
@@ -109,6 +158,12 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
     </template>
     <template v-else-if="errorMsg">
       <span class="weather-widget__error">{{ errorMsg }}</span>
+      <button v-if="locationFailed" class="weather-widget__retry" @click="requestLocation" title="刷新定位">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 4v6h6" />
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+        </svg>
+      </button>
     </template>
     <template v-else-if="weather">
       <!-- 天气图标 -->
@@ -220,6 +275,32 @@ const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
 .weather-widget__error {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.5);
+}
+
+.weather-widget__retry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.weather-widget__retry:active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.weather-widget__retry svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ── 图标容器 ── */
