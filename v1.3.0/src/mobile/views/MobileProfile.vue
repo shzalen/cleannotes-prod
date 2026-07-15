@@ -589,6 +589,9 @@ const buildTime = __BUILD_TIME__
 
 .edit-sheet__body {
   padding: 12px 0 4px;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  max-width: 100%;
 }
 
 .edit-sheet__error {

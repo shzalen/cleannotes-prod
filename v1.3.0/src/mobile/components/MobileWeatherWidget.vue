@@ -68,6 +68,7 @@ const currentLon = ref(0)
 
 // ── 详情弹窗 ──
 const showDetail = ref(false)
+const refreshing = ref(false)
 const dailyForecast = ref<DailyForecast[]>([])
 const forecastLoading = ref(false)
 const detailAddress = ref('')
@@ -238,6 +239,21 @@ async function reverseGeocode() {
   }
 }
 
+// ── 刷新全部（定位 + 天气 + 预报 + 地址） ──
+async function refreshAll() {
+  if (refreshing.value) return
+  refreshing.value = true
+  // 清除所有缓存
+  localStorage.removeItem(LS_KEY)
+  dailyForecast.value = []
+  detailAddress.value = ''
+  // 重新请求定位（会触发天气刷新）
+  requestLocation()
+  // 并行请求预报和逆地理
+  await Promise.allSettled([fetchForecast(), reverseGeocode()])
+  refreshing.value = false
+}
+
 // ── 天气小图标 SVG ──
 function getSmallWeatherIcon(code: number): string {
   const desc = weatherMap[code]?.label ?? ''
@@ -357,9 +373,23 @@ function getSmallWeatherIcon(code: number): string {
       teleport="body"
     >
       <div class="weather-detail">
-        <!-- 拖动条 -->
-        <div class="weather-detail__handle">
-          <div class="weather-detail__handle-bar" />
+        <!-- 拖动条 + 刷新按钮 -->
+        <div class="weather-detail__header">
+          <div class="weather-detail__handle">
+            <div class="weather-detail__handle-bar" />
+          </div>
+          <button
+            class="weather-detail__refresh"
+            :class="{ 'weather-detail__refresh--spinning': refreshing }"
+            :disabled="refreshing"
+            @click="refreshAll"
+            title="刷新定位和天气"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 4v6h6" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+          </button>
         </div>
 
         <!-- A 区块：定位信息 -->
@@ -400,11 +430,28 @@ function getSmallWeatherIcon(code: number): string {
           </template>
           <template v-else-if="dailyForecast.length > 0">
             <div class="weather-detail__fc-list">
+              <!-- 今天：使用实时观测数据，与首页保持一致 -->
               <div
-                v-for="day in dailyForecast"
+                v-if="weather"
+                class="fc-card fc-card--today"
+              >
+                <div class="fc-card__day">
+                  <span class="fc-card__label">今天</span>
+                  <span class="fc-card__date">{{ new Date().getMonth() + 1 }}/{{ new Date().getDate() }}</span>
+                </div>
+                <span class="fc-card__icon">{{ getSmallWeatherIcon(weather.code) }}</span>
+                <div class="fc-card__temps">
+                  <span class="fc-card__high">{{ weather.temp }}°</span>
+                  <span class="fc-card__sep">/</span>
+                  <span class="fc-card__low">--</span>
+                </div>
+                <span class="fc-card__desc">{{ weather.description }}</span>
+              </div>
+              <!-- 后续 6 天：使用 daily forecast -->
+              <div
+                v-for="day in dailyForecast.filter(d => !d.isToday)"
                 :key="day.date"
                 class="fc-card"
-                :class="{ 'fc-card--today': day.isToday }"
               >
                 <div class="fc-card__day">
                   <span class="fc-card__label">{{ day.dayLabel }}</span>
@@ -585,10 +632,18 @@ function getSmallWeatherIcon(code: number): string {
   gap: 20px;
 }
 
+.weather-detail__header {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 10px 0 4px;
+}
+
 .weather-detail__handle {
+  flex: 1;
   display: flex;
   justify-content: center;
-  padding: 10px 0 4px;
+  padding: 0;
 }
 
 .weather-detail__handle-bar {
@@ -596,6 +651,50 @@ function getSmallWeatherIcon(code: number): string {
   height: 4px;
   background: var(--color-border);
   border-radius: 2px;
+}
+
+.weather-detail__refresh {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.weather-detail__refresh svg {
+  width: 18px;
+  height: 18px;
+}
+
+.weather-detail__refresh:active {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.weather-detail__refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.weather-detail__refresh--spinning svg {
+  animation: refreshSpin 0.8s linear infinite;
+}
+
+@keyframes refreshSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 .weather-detail__section {

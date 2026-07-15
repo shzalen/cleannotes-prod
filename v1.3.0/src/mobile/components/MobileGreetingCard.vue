@@ -3,12 +3,15 @@
  * 移动端问候卡片 — 日期 + 随机激励语 + 天气
  * 问候语已移至首页头部标题栏
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { isOnline } from '@/services/storage'
 import MobileWeatherWidget from './MobileWeatherWidget.vue'
 
 const now = ref(new Date())
 let timer: ReturnType<typeof setInterval> | null = null
+
+// ── 引用语翻动动画 ──
+const flipKey = ref(0)
 
 onMounted(() => {
   timer = setInterval(() => { now.value = new Date() }, 60000)
@@ -98,20 +101,28 @@ const quote = computed(() => {
   const eveningQuotes = ['今天的努力，明天会感谢自己。', '复盘今天，规划明天。', '充实的一天，值得好好休息。']
   return eveningQuotes[now.value.getMinutes() % eveningQuotes.length]
 })
+
+watch(quote, (nv, ov) => {
+  if (nv !== ov) flipKey.value++
+})
 </script>
 
 <template>
   <div class="m-greeting">
     <div class="m-greeting__row">
-      <div class="m-greeting__main">
-        <span v-if="dayInfo.holiday" class="m-greeting__badge m-greeting__badge--holiday">{{ dayInfo.holiday }}</span>
-        <span v-else-if="dayInfo.isWeekend" class="m-greeting__badge m-greeting__badge--weekend">周末</span>
-        <span v-if="!isOnline" class="m-greeting__badge m-greeting__badge--offline">离线</span>
+      <div class="m-greeting__left">
+        <div class="m-greeting__date">{{ dateStr }}</div>
+        <div class="m-greeting__badges">
+          <span v-if="dayInfo.holiday" class="m-greeting__badge m-greeting__badge--holiday">{{ dayInfo.holiday }}</span>
+          <span v-else-if="dayInfo.isWeekend" class="m-greeting__badge m-greeting__badge--weekend">周末</span>
+          <span v-if="!isOnline" class="m-greeting__badge m-greeting__badge--offline">离线</span>
+        </div>
       </div>
       <MobileWeatherWidget />
     </div>
-    <div class="m-greeting__date">{{ dateStr }}</div>
-    <div class="m-greeting__quote">{{ quote }}</div>
+    <div class="m-greeting__quote" :key="flipKey">
+      <span class="m-greeting__quote-text">{{ quote }}</span>
+    </div>
   </div>
 </template>
 
@@ -119,7 +130,7 @@ const quote = computed(() => {
 .m-greeting {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .m-greeting__row {
@@ -129,25 +140,24 @@ const quote = computed(() => {
   gap: 8px;
 }
 
-.m-greeting__main {
+.m-greeting__left {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
 
 .m-greeting__date {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
 }
 
-.m-greeting__quote {
-  margin-top: 4px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
-  font-style: italic;
-  line-height: 1.5;
+.m-greeting__badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .m-greeting__badge {
@@ -171,5 +181,36 @@ const quote = computed(() => {
 
 .m-greeting__badge--offline {
   background: rgba(255, 200, 50, 0.3);
+}
+
+/* ── 引用语 ── */
+.m-greeting__quote {
+  margin-top: 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  line-height: 1.5;
+  /* 3D 翻动容器 */
+  perspective: 400px;
+}
+
+.m-greeting__quote-text {
+  display: inline-block;
+  animation: quote-flip-up 0.5s ease-out;
+}
+
+@keyframes quote-flip-up {
+  0% {
+    transform: rotateX(-90deg) translateY(8px);
+    opacity: 0;
+  }
+  60% {
+    transform: rotateX(10deg) translateY(-2px);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateX(0deg) translateY(0);
+    opacity: 1;
+  }
 }
 </style>

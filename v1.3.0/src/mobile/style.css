@@ -19,6 +19,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;          /* 彻底切断文档级滚动 */
+  overscroll-behavior: none; /* 禁止 iOS Safari 橡皮筋回弹 */
   /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
   touch-action: manipulation;
 }
@@ -187,4 +189,17 @@ body {
 .van-pull-refresh__track {
   min-height: 100%;
   touch-action: pan-y;
+}
+
+/* ==========================================================================
+   弹窗全局约束 — 防止左右晃动和内容溢出
+   ========================================================================== */
+.van-popup {
+  touch-action: pan-y;       /* 禁止水平平移 + 捏合缩放 */
+  overflow-x: hidden;        /* 隐藏水平溢出 */
+  max-width: 100vw;          /* 不超出视口宽度 */
+}
+
+.van-overlay {
+  touch-action: none;        /* 遮罩层屏蔽所有手势 */
 }

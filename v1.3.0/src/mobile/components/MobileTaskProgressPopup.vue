@@ -216,6 +216,9 @@ defineExpose({ open, close })
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  max-width: 100%;
 }
 
 .pp-group {

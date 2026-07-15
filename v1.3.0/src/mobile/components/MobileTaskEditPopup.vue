@@ -272,10 +272,13 @@ defineExpose({ openNew, openEdit, close })
 .edit-popup__body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  touch-action: pan-y;
+  max-width: 100%;
 }
 
 .ep-section {
