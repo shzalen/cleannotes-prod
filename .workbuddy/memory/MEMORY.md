@@ -9,6 +9,7 @@
 - 构建：每次 `vite build` 完成后，**自动将 dist 内容同步到 `D:\CleanNotepad-Prod\v1.3.0\`**（robocopy），无需用户提醒
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
 - Git：`https://github.com/shzalen/cleannotes.git`（prod: `cleannotes-prod`）
+- **提交公约**：每次 `vite build` + robocopy 完成后，**自动 `git add -A && git commit`** 到本地（spa 分支），用户手动推送。commit message 格式：简洁概括本轮改动内容（中文）。已变更的文件用 `git diff --cached --stat` 确认范围。
 - **报告公约**：所有生成的报告（HTML 测试报告、审查报告等）统一使用**深色模式**（深色背景 + 浅色文字）
 - **会话约定（2026-07-15）**：当前会话默认目标是 H5 移动端优化，若无特别说明，所有请求都针对 `src/mobile/` 下的 H5 页面和组件
 
