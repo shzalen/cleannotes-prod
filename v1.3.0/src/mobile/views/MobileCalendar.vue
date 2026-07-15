@@ -249,7 +249,9 @@ function openAdd() {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  /* 不使用 overflow:hidden —— iOS Safari 的 -webkit-overflow-scrolling: touch
+     在父元素 overflow:hidden 时会失效（已知 bug），flex 容器通过 min-height:0
+     已能约束子元素尺寸 */
   background: var(--color-bg-1);
 }
 

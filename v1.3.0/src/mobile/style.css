@@ -19,7 +19,9 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overscroll-behavior-y: none;
+  /* 允许原生回弹效果（移除 overscroll-behavior-y: none），
+     页面通过 flex 布局 + overflow:hidden 在容器层级控制滚动，
+     body 自身不会产生滚动条 */
   /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
   touch-action: manipulation;
 }
