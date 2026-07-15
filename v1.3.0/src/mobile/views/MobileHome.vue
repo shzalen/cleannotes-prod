@@ -75,6 +75,7 @@ function openTaskCreate() {
   <div class="home-page">
     <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
+      <div class="home-header__safe-area" />
       <div class="home-header__content">
         <!-- 顶部行 -->
         <div class="home-header__top">
@@ -198,7 +199,10 @@ function openTaskCreate() {
 .home-header {
   flex-shrink: 0;
   background: var(--color-primary);
-  padding-top: var(--safe-top);
+}
+
+.home-header__safe-area {
+  height: var(--safe-top);
 }
 
 .home-header__content {
