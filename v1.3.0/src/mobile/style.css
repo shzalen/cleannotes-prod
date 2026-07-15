@@ -19,7 +19,6 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overscroll-behavior-y: none;
   /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
   touch-action: manipulation;
 }
@@ -36,6 +35,7 @@ body {
 
 #app {
   height: 100%;
+  height: 100dvh; /* 动态视口高度，避免移动端地址栏导致底部留白 */
 }
 
 /* ---- safe-area 变量 ---- */

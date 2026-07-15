@@ -442,19 +442,19 @@ const buildTime = __BUILD_TIME__
 
 .profile-card__name {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-1);
 }
 
 .profile-card__edit-hint {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--color-primary);
 }
 
 .profile-card__email {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -495,19 +495,19 @@ const buildTime = __BUILD_TIME__
 }
 
 .profile-menu__value {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-text-3);
 }
 
 .profile-menu__hint {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-4);
 }
 
 .profile-menu__select {
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text-2);
   outline: none;
   cursor: pointer;
@@ -533,7 +533,7 @@ const buildTime = __BUILD_TIME__
 .profile-section__title {
   margin: 0 0 8px;
   padding: 0 4px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-3);
 }
@@ -547,7 +547,7 @@ const buildTime = __BUILD_TIME__
 /* ── 版本信息 ── */
 .profile-version {
   text-align: center;
-  font-size: 11px;
+  font-size: 14px;
   color: var(--color-text-4);
   opacity: 0.5;
   padding: 16px 0 8px;
@@ -590,7 +590,7 @@ const buildTime = __BUILD_TIME__
 .edit-sheet__error {
   padding: 8px 16px 0;
   margin: 0;
-  font-size: 13px;
+  font-size: 17px;
   color: var(--color-danger);
 }
 

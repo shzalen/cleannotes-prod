@@ -26,6 +26,7 @@ import MobileTabBar from '../components/MobileTabBar.vue'
 .m-layout__body {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }

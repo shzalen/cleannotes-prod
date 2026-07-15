@@ -247,8 +247,11 @@ function openAdd() {
 .cal-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  /* 不使用 overflow:hidden —— iOS Safari 的 -webkit-overflow-scrolling: touch
+     在父元素 overflow:hidden 时会失效（已知 bug），flex 容器通过 min-height:0
+     已能约束子元素尺寸 */
   background: var(--color-bg-1);
 }
 
