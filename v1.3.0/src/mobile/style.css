@@ -84,6 +84,18 @@ body {
   --van-dialog-background: var(--color-surface);
   --van-dialog-header-font-weight: 600;
 
+  /* 字体放大 ~20%（Vant 默认 14px/16px → 17px/19px） */
+  --van-font-size-md: 17px;
+  --van-font-size-lg: 19px;
+  --van-cell-font-size: 17px;
+  --van-field-font-size: 17px;
+  --van-button-default-font-size: 19px;
+  --van-button-mini-font-size: 14px;
+  --van-button-small-font-size: 17px;
+  --van-button-large-font-size: 19px;
+  --van-tab-font-size: 17px;
+  --van-nav-bar-title-font-size: 19px;
+
   --van-nav-bar-background: var(--color-surface);
   --van-nav-bar-title-text-color: var(--color-text-1);
   --van-nav-bar-icon-color: var(--color-primary);
