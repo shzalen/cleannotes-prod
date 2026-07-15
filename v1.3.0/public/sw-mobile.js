@@ -35,28 +35,22 @@ self.addEventListener('fetch', (event) => {
   // Skip Supabase API calls (always go to network)
   if (url.hostname.includes('supabase')) return;
 
-  // For navigation requests, serve cached mobile.html (SPA fallback)
+  // For navigation requests, network-first with cache fallback
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match('./mobile.html').then((cached) => {
-        return cached || fetch(request);
-      })
+      fetch(request).catch(() => caches.match('./mobile.html'))
     );
     return;
   }
 
-  // For static assets, try cache first, then network
+  // For static assets, network-first, fallback to cache
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        // Cache successful responses for same-origin requests
-        if (response.ok && url.origin === self.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      });
-    })
+    fetch(request).then((response) => {
+      if (response.ok && url.origin === self.location.origin) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(request))
   );
 });

@@ -171,6 +171,8 @@ function openMemoApp() {
 function openWeeklyApp() {
   subApp.value?.open('周报', MobileWeeklyApp)
 }
+
+const version = '1.3.0'
 </script>
 
 <template>

@@ -46,6 +46,7 @@ router.beforeEach(async (to, _from, next) => {
   // 先确保会话已从 Supabase 恢复（幂等）
   if (!auth.initialized) {
     await auth.init()
+    authReady = true
   }
 
   // 公开路由（登录页）
