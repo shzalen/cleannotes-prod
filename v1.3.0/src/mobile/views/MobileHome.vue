@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { showToast } from 'vant'
+
+// ── 下拉刷新 ──
+const refreshing = ref(false)
+
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
+}
+import MobileGreetingCard from '../components/MobileGreetingCard.vue'
+import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
+import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
+import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
 
 defineOptions({ name: 'MobileHome' })
 
@@ -34,68 +46,101 @@ const progress = computed(() => (totalCount.value === 0 ? 0 : Math.round((doneCo
 
 const nickname = computed(() => auth.user?.nickname || '用户')
 
-function toggleTask(task: Task) {
-  taskStore.requestToggleStatus(task.id)
-}
-
 const priorityMeta: Record<string, { label: string; color: string }> = {
   high: { label: '高', color: 'var(--color-danger)' },
   medium: { label: '中', color: 'var(--color-warning)' },
   low: { label: '低', color: 'var(--color-success)' },
 }
 
-// 快速添加任务
-const showQuickAdd = ref(false)
-const quickTitle = ref('')
+// ── 弹窗引用 ──
+const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
+const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
+const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
-function openQuickAdd() {
-  quickTitle.value = ''
-  showQuickAdd.value = true
+// ── 长按逻辑 ──
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressTriggered = false
+const LONG_PRESS_DURATION = 1000
+
+function onTouchStart(task: Task) {
+  longPressTriggered = false
+  longPressTimer = setTimeout(() => {
+    longPressTriggered = true
+    // 振动反馈（如果支持）
+    if (navigator.vibrate) {
+      navigator.vibrate(15)
+    }
+    progressPopup.value?.open(task)
+  }, LONG_PRESS_DURATION)
 }
 
-function confirmQuickAdd() {
-  const title = quickTitle.value.trim()
-  if (!title) {
-    showToast('请输入任务标题')
-    return
+function onTouchEnd(task: Task) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
   }
-  taskStore.addTask({
-    title,
-    startDate: todayStr.value,
-  })
-  showQuickAdd.value = false
-  showToast('已添加')
+  if (!longPressTriggered) {
+    // 短按 → 显示详情
+    detailPopup.value?.open(task)
+  }
+}
+
+function onTouchMove() {
+  // 移动超过一定距离则取消长按
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+onUnmounted(() => {
+  if (longPressTimer) clearTimeout(longPressTimer)
+})
+
+// ── 任务创建 ──
+function openTaskCreate() {
+  editPopup.value?.openNew()
 }
 </script>
 
 <template>
   <div class="home-page">
-    <!-- 沉浸式头部：背景跟随主题色 -->
+    <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
       <div class="home-header__content">
+        <!-- 顶部行 -->
         <div class="home-header__top">
           <div>
             <h1 class="home-header__title">清记</h1>
-            <p class="home-header__date">{{ todayDate }}</p>
           </div>
           <div class="home-header__user">{{ nickname }}</div>
         </div>
 
-        <!-- 进度条：半透明卡片 -->
-        <div class="home-header__progress">
-          <div class="home-header__progress-row">
-            <span class="home-header__progress-label">今日完成率</span>
-            <span class="home-header__progress-percent">{{ progress }}%</span>
-          </div>
-          <div class="home-header__progress-bar">
-            <div class="home-header__progress-fill" :style="{ width: progress + '%' }" />
-          </div>
+        <!-- 问候语卡片区域（原完成率位置） -->
+        <div class="home-header__greeting">
+          <MobileGreetingCard />
         </div>
       </div>
     </header>
 
-    <!-- 任务列表 -->
-    <div class="home-content">
+    <!-- 内容区（含完成率 + 任务列表） -->
+    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="home-pull-refresh">
+    <div class="home-content" id="home-content-scroll">
+      <!-- 今日完成率（移到任务列表前） -->
+      <div class="home-progress">
+        <div class="home-progress__row">
+          <span class="home-progress__label">今日完成率</span>
+          <span class="home-progress__percent">{{ progress }}%</span>
+        </div>
+        <div class="home-progress__bar">
+          <div class="home-progress__fill" :style="{ width: progress + '%' }" />
+        </div>
+        <div class="home-progress__info">
+          <span>{{ doneCount }}/{{ totalCount }} 已完成</span>
+        </div>
+      </div>
+
+      <!-- 任务列表 -->
       <template v-if="todayTasks.length > 0">
         <div class="task-list">
           <div
@@ -103,7 +148,9 @@ function confirmQuickAdd() {
             :key="task.id"
             class="task-item"
             :class="{ 'is-done': task.status === 'done' }"
-            @click="toggleTask(task)"
+            @touchstart.passive="onTouchStart(task)"
+            @touchend.passive="onTouchEnd(task)"
+            @touchmove.passive="onTouchMove()"
           >
             <span class="task-item__check">
               <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -123,8 +170,16 @@ function confirmQuickAdd() {
                   :style="{ '--p-color': priorityMeta[task.priority]?.color }"
                 >{{ priorityMeta[task.priority]?.label }}</span>
                 <span v-if="task.startTime" class="task-item__time">{{ task.startTime }}</span>
+                <span v-if="task.dueDate" class="task-item__due">{{ task.dueDate }}</span>
               </div>
             </div>
+
+            <!-- 右箭头提示 -->
+            <span class="task-item__arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
           </div>
         </div>
       </template>
@@ -139,46 +194,27 @@ function confirmQuickAdd() {
         <p class="home-empty__text">今日暂无任务</p>
         <p class="home-empty__hint">点击右下角按钮添加</p>
       </div>
-    </div>
 
-    <!-- 快速添加 FAB -->
-    <button class="home-fab" @click="openQuickAdd">
+      <!-- 底部留白 -->
+      <div class="home-bottom-spacer" />
+    </div>
+    </van-pull-refresh>
+
+    <!-- 快速创建 FAB -->
+    <button class="home-fab" @click="openTaskCreate">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M12 5v14M5 12h14" />
       </svg>
     </button>
 
-    <!-- 底部上滑快速添加弹窗 -->
-    <van-popup
-      v-model:show="showQuickAdd"
-      position="bottom"
-      round
-      teleport="body"
-      :style="{ '--van-popup-background': 'var(--color-surface)' }"
-    >
-      <div class="quick-add-sheet">
-        <div class="quick-add-sheet__header">
-          <span class="quick-add-sheet__title">快速添加任务</span>
-          <button class="quick-add-sheet__close" @click="showQuickAdd = false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-        <div class="quick-add-sheet__body">
-          <van-field
-            v-model="quickTitle"
-            placeholder="输入任务标题..."
-            clearable
-            autofocus
-            @keyup.enter="confirmQuickAdd"
-          />
-        </div>
-        <div class="quick-add-sheet__footer">
-          <van-button block round type="primary" @click="confirmQuickAdd">添加</van-button>
-        </div>
-      </div>
-    </van-popup>
+    <!-- 任务详情弹窗 -->
+    <MobileTaskDetailPopup ref="detailPopup" />
+
+    <!-- 进度更新弹窗 -->
+    <MobileTaskProgressPopup ref="progressPopup" />
+
+    <!-- 完整任务创建弹窗 -->
+    <MobileTaskEditPopup ref="editPopup" />
   </div>
 </template>
 
@@ -190,11 +226,10 @@ function confirmQuickAdd() {
   background: var(--color-bg-1);
 }
 
-/* ── 沉浸式头部 ── */
+/* ── 沉浸式头部（含问候语） ── */
 .home-header {
   flex-shrink: 0;
   background: var(--color-primary);
-  /* 让背景延伸到屏幕最顶部，覆盖状态栏区域 */
   padding-top: var(--safe-top);
 }
 
@@ -217,64 +252,80 @@ function confirmQuickAdd() {
   line-height: 1.2;
 }
 
-.home-header__date {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
-}
-
 .home-header__user {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
   padding-bottom: 2px;
 }
 
-.home-header__progress {
-  background: rgba(255, 255, 255, 0.15);
+.home-header__greeting {
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  padding: 10px 12px;
-}
-
-.home-header__progress-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.home-header__progress-label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-}
-
-.home-header__progress-percent {
-  font-size: 13px;
-  color: #fff;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-header__progress-bar {
-  height: 4px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.home-header__progress-fill {
-  height: 100%;
-  background: #fff;
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  padding: 12px 14px;
 }
 
 /* ── 内容区 ── */
+.home-pull-refresh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .home-content {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 12px 12px 80px;
+}
+
+/* ── 今日完成率卡片 ── */
+.home-progress {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.home-progress__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.home-progress__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.home-progress__percent {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-progress__bar {
+  height: 6px;
+  background: var(--color-bg-3);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.home-progress__fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.home-progress__info {
+  font-size: 12px;
+  color: var(--color-text-3);
 }
 
 /* ── 任务列表 ── */
@@ -287,7 +338,7 @@ function confirmQuickAdd() {
 .task-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 14px;
   background: var(--color-surface);
   border-radius: 12px;
@@ -295,6 +346,8 @@ function confirmQuickAdd() {
   cursor: pointer;
   transition: transform 0.12s ease, opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .task-item:active {
@@ -371,6 +424,24 @@ function confirmQuickAdd() {
   color: var(--color-text-3);
 }
 
+.task-item__due {
+  font-size: 11px;
+  color: var(--color-text-4);
+}
+
+.task-item__arrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  color: var(--color-text-4);
+  opacity: 0.4;
+}
+.task-item__arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* ── 空状态 ── */
 .home-empty {
   display: flex;
@@ -403,7 +474,7 @@ function confirmQuickAdd() {
 
 /* ── FAB ── */
 .home-fab {
-  position: absolute;
+  position: fixed;
   right: 16px;
   bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
   width: 48px;
@@ -431,45 +502,8 @@ function confirmQuickAdd() {
   height: 22px;
 }
 
-/* ── 底部弹窗 ── */
-.quick-add-sheet {
-  background: var(--color-surface);
-  padding-bottom: var(--safe-bottom);
-}
-
-.quick-add-sheet__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 16px 8px;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.quick-add-sheet__title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.quick-add-sheet__close {
-  border: none;
-  background: transparent;
-  color: var(--color-text-3);
-  display: flex;
-  padding: 4px;
-  cursor: pointer;
-}
-
-.quick-add-sheet__close svg {
-  width: 20px;
-  height: 20px;
-}
-
-.quick-add-sheet__body {
-  padding: 12px 4px 0;
-}
-
-.quick-add-sheet__footer {
-  padding: 12px 16px 16px;
+/* ── 底部留白 ── */
+.home-bottom-spacer {
+  height: 16px;
 }
 </style>

@@ -8,6 +8,10 @@ import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStora
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { showConfirmDialog, showToast } from 'vant'
+import MobileSubApp from '../components/MobileSubApp.vue'
+import MobileTodoApp from '../components/MobileTodoApp.vue'
+import MobileMemoApp from '../components/MobileMemoApp.vue'
+import MobileWeeklyApp from '../components/MobileWeeklyApp.vue'
 
 defineOptions({ name: 'MobileProfile' })
 
@@ -17,15 +21,106 @@ const { mode, setTheme } = useTheme()
 const nickname = computed(() => auth.user?.nickname || '用户')
 const email = computed(() => auth.user?.email || '')
 
-// ── 主题选项 ──
-const themeOptions: { label: string; value: ThemeMode; desc: string }[] = [
-  { label: '腾讯蓝', value: 'tencent', desc: '默认主题' },
-  { label: 'ZURU', value: 'zuru', desc: '品牌红' },
-  { label: '暗黑', value: 'dark', desc: '深色模式' },
+// ── 主题下拉选项 ──
+const themeOptions = [
+  { text: '腾讯蓝', value: 'tencent' as ThemeMode },
+  { text: 'ZURU', value: 'zuru' as ThemeMode },
+  { text: '暗黑', value: 'dark' as ThemeMode },
 ]
 
 function onThemeChange(val: ThemeMode) {
   setTheme(val)
+}
+
+// ── 修改昵称 ──
+const showNicknameEdit = ref(false)
+const newNickname = ref('')
+
+function openNicknameEdit() {
+  newNickname.value = auth.user?.nickname || ''
+  showNicknameEdit.value = true
+}
+
+async function saveNickname() {
+  const n = newNickname.value.trim()
+  if (!n) {
+    showToast('昵称不能为空')
+    return
+  }
+  const ok = await auth.changeNickname(n)
+  if (ok) {
+    showToast('昵称已修改')
+    showNicknameEdit.value = false
+  } else {
+    showToast(auth.error || '修改失败')
+  }
+}
+
+// ── 修改密码 ──
+const showPasswordEdit = ref(false)
+const pwNew = ref('')
+const pwConfirm = ref('')
+const pwSaving = ref(false)
+const pwError = ref('')
+
+function openPasswordEdit() {
+  pwNew.value = ''
+  pwConfirm.value = ''
+  pwError.value = ''
+  showPasswordEdit.value = true
+}
+
+async function savePassword() {
+  pwError.value = ''
+  if (pwNew.value.length < 8) {
+    pwError.value = '密码至少 8 位'
+    return
+  }
+  if (pwNew.value !== pwConfirm.value) {
+    pwError.value = '两次密码不一致'
+    return
+  }
+  pwSaving.value = true
+  try {
+    const ok = await auth.changePassword(pwNew.value)
+    if (ok) {
+      showToast('密码已修改')
+      showPasswordEdit.value = false
+    } else {
+      pwError.value = auth.error || '修改失败'
+    }
+  } finally {
+    pwSaving.value = false
+  }
+}
+
+// ── 清空缓存 ──
+function handleClearCache() {
+  showConfirmDialog({
+    title: '清空缓存',
+    message: '清空缓存后需要重新登录，确定继续？',
+    confirmButtonText: '确定清空',
+    cancelButtonText: '取消',
+  }).then(async () => {
+    try {
+      // 清除所有 localStorage 中的 Sync 时间戳
+      clearAllLastSyncAt()
+      // 清除主题缓存外的所有数据标记
+      const keys = Object.keys(localStorage).filter(k =>
+        k.startsWith('cleannotes_') && k !== 'cleannotes_theme'
+      )
+      keys.forEach(k => localStorage.removeItem(k))
+      // 清除 sessionStorage
+      sessionStorage.clear()
+      showToast('缓存已清空，请刷新页面')
+      // 延迟刷新让用户看到提示
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (e) {
+      showToast('清理失败，请手动清除浏览器缓存')
+    }
+  }).catch(() => {})
 }
 
 // ── 退出登录 ──
@@ -41,7 +136,6 @@ function handleLogout() {
     .then(async () => {
       loggingOut.value = true
       try {
-        // 完整清理流程（与 PC 端 App.vue 一致）
         await flushPendingWrites()
         flushTaskWrites()
         await flushGrowthToCloud()
@@ -54,16 +148,28 @@ function handleLogout() {
         clearOnTaskDone()
         auth.cleanup()
         auth.logout()
-        // MobileApp.vue 的 watch(userId) 会自动跳转到登录页
       } catch (e) {
         console.error('[mobile] logout error', e)
       } finally {
         loggingOut.value = false
       }
     })
-    .catch(() => {
-      // 用户取消
-    })
+    .catch(() => {})
+}
+
+// ── 子应用 ──
+const subApp = ref<InstanceType<typeof MobileSubApp> | null>(null)
+
+function openTodoApp() {
+  subApp.value?.open('待办事项', MobileTodoApp)
+}
+
+function openMemoApp() {
+  subApp.value?.open('备忘录', MobileMemoApp)
+}
+
+function openWeeklyApp() {
+  subApp.value?.open('周报', MobileWeeklyApp)
 }
 </script>
 
@@ -79,40 +185,87 @@ function handleLogout() {
 
     <div class="profile-content">
       <!-- 用户资料卡 -->
-      <div class="profile-card">
+      <div class="profile-card" @click="openNicknameEdit">
         <div class="profile-card__avatar">
           {{ nickname.charAt(0).toUpperCase() }}
         </div>
         <div class="profile-card__info">
-          <p class="profile-card__name">{{ nickname }}</p>
+          <div class="profile-card__name-row">
+            <p class="profile-card__name">{{ nickname }}</p>
+            <span class="profile-card__edit-hint">点击修改</span>
+          </div>
           <p class="profile-card__email">{{ email }}</p>
         </div>
       </div>
 
-      <!-- 主题切换 -->
+      <!-- 设置项列表 -->
+      <div class="profile-menu">
+        <!-- 主题 -->
+        <div class="profile-menu__item">
+          <span class="profile-menu__label">主题</span>
+          <div class="profile-menu__right">
+            <select
+              class="profile-menu__select"
+              :value="mode"
+              @change="onThemeChange(($event.target as HTMLSelectElement).value as ThemeMode)"
+            >
+              <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
+                {{ opt.text }}
+              </option>
+            </select>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- 修改昵称 -->
+        <div class="profile-menu__item" @click="openNicknameEdit">
+          <span class="profile-menu__label">修改昵称</span>
+          <div class="profile-menu__right">
+            <span class="profile-menu__value">{{ nickname }}</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- 修改密码 -->
+        <div class="profile-menu__item" @click="openPasswordEdit">
+          <span class="profile-menu__label">修改密码</span>
+          <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </div>
+
+        <!-- 清空缓存 -->
+        <div class="profile-menu__item" @click="handleClearCache">
+          <span class="profile-menu__label">清空缓存</span>
+          <span class="profile-menu__hint">更新后看不到效果时使用</span>
+        </div>
+      </div>
+
+      <!-- 子应用入口 -->
       <div class="profile-section">
-        <p class="profile-section__title">主题</p>
-        <div class="profile-themes">
-          <div
-            v-for="opt in themeOptions"
-            :key="opt.value"
-            class="profile-theme"
-            :class="{ 'is-active': mode === opt.value }"
-            @click="onThemeChange(opt.value)"
-          >
-            <div class="profile-theme__preview" :data-theme-name="opt.value">
-              <span class="profile-theme__bar" />
-              <span class="profile-theme__dot" />
-            </div>
-            <div class="profile-theme__label">
-              <span class="profile-theme__name">{{ opt.label }}</span>
-              <span class="profile-theme__desc">{{ opt.desc }}</span>
-            </div>
-            <span class="profile-theme__check" v-if="mode === opt.value">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
+        <p class="profile-section__title">功能</p>
+        <div class="profile-menu">
+          <div class="profile-menu__item" @click="openTodoApp">
+            <span class="profile-menu__label">📋 待办事项</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+          <div class="profile-menu__item" @click="openMemoApp">
+            <span class="profile-menu__label">📝 备忘录</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+          <div class="profile-menu__item" @click="openWeeklyApp">
+            <span class="profile-menu__label">📊 周报</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
           </div>
         </div>
       </div>
@@ -129,6 +282,85 @@ function handleLogout() {
         >退出登录</van-button>
       </div>
     </div>
+
+    <!-- 修改昵称弹窗 -->
+    <van-popup
+      v-model:show="showNicknameEdit"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ '--van-popup-background': 'var(--color-surface)' }"
+    >
+      <div class="edit-sheet">
+        <div class="edit-sheet__header">
+          <span class="edit-sheet__title">修改昵称</span>
+          <button class="edit-sheet__close" @click="showNicknameEdit = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="edit-sheet__body">
+          <van-cell-group inset>
+            <van-field
+              v-model="newNickname"
+              label="昵称"
+              placeholder="输入新昵称"
+              clearable
+              autofocus
+            />
+          </van-cell-group>
+        </div>
+        <div class="edit-sheet__footer">
+          <van-button block round type="primary" @click="saveNickname">保存</van-button>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- 修改密码弹窗 -->
+    <van-popup
+      v-model:show="showPasswordEdit"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ '--van-popup-background': 'var(--color-surface)' }"
+    >
+      <div class="edit-sheet">
+        <div class="edit-sheet__header">
+          <span class="edit-sheet__title">修改密码</span>
+          <button class="edit-sheet__close" @click="showPasswordEdit = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="edit-sheet__body">
+          <van-cell-group inset>
+            <van-field
+              v-model="pwNew"
+              label="新密码"
+              placeholder="至少 8 位"
+              type="password"
+              clearable
+            />
+            <van-field
+              v-model="pwConfirm"
+              label="确认密码"
+              placeholder="再次输入密码"
+              type="password"
+              clearable
+            />
+          </van-cell-group>
+          <p v-if="pwError" class="edit-sheet__error">{{ pwError }}</p>
+        </div>
+        <div class="edit-sheet__footer">
+          <van-button block round type="primary" :loading="pwSaving" @click="savePassword">保存</van-button>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- 全屏子应用容器 -->
+    <MobileSubApp ref="subApp" />
   </div>
 </template>
 
@@ -157,7 +389,9 @@ function handleLogout() {
   border-radius: 14px;
   box-shadow: 0 1px 3px var(--color-shadow);
   margin-bottom: 16px;
+  cursor: pointer;
 }
+.profile-card:active { transform: scale(0.98); }
 
 .profile-card__avatar {
   width: 56px;
@@ -178,11 +412,22 @@ function handleLogout() {
   min-width: 0;
 }
 
+.profile-card__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .profile-card__name {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-1);
+}
+
+.profile-card__edit-hint {
+  font-size: 11px;
+  color: var(--color-primary);
 }
 
 .profile-card__email {
@@ -192,6 +437,70 @@ function handleLogout() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── 设置菜单 ── */
+.profile-menu {
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.profile-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.profile-menu__item:last-child { border-bottom: none; }
+.profile-menu__item:active { background: var(--color-bg-3); }
+
+.profile-menu__label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-1);
+}
+
+.profile-menu__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-menu__value {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
+.profile-menu__hint {
+  font-size: 11px;
+  color: var(--color-text-4);
+}
+
+.profile-menu__select {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-2);
+  outline: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: right;
+  direction: rtl;
+}
+
+.profile-menu__chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-4);
+  flex-shrink: 0;
 }
 
 /* ── 分区 ── */
@@ -207,105 +516,54 @@ function handleLogout() {
   color: var(--color-text-3);
 }
 
-/* ── 主题选择 ── */
-.profile-themes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.profile-theme {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  background: var(--color-surface);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px var(--color-shadow);
-  cursor: pointer;
-  transition: transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-  border: 2px solid transparent;
-}
-
-.profile-theme:active {
-  transform: scale(0.98);
-}
-
-.profile-theme.is-active {
-  border-color: var(--color-primary);
-}
-
-.profile-theme__preview {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-}
-
-.profile-theme__preview[data-theme-name="tencent"] {
-  background: #0052D9;
-}
-.profile-theme__preview[data-theme-name="zuru"] {
-  background: #CB312D;
-}
-.profile-theme__preview[data-theme-name="dark"] {
-  background: #1a1b20;
-}
-
-.profile-theme__bar {
-  width: 18px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.profile-theme__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.profile-theme__label {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.profile-theme__name {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--color-text-1);
-}
-
-.profile-theme__desc {
-  font-size: 12px;
-  color: var(--color-text-3);
-}
-
-.profile-theme__check {
-  width: 20px;
-  height: 20px;
-  color: var(--color-primary);
-  display: flex;
-  align-items: center;
-}
-
-.profile-theme__check svg {
-  width: 20px;
-  height: 20px;
-}
-
 /* ── 退出按钮 ── */
 .profile-logout {
   margin-top: 24px;
   padding: 0 4px;
+}
+
+/* ── 编辑弹窗 ── */
+.edit-sheet {
+  background: var(--color-surface);
+  padding-bottom: var(--safe-bottom);
+}
+
+.edit-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.edit-sheet__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.edit-sheet__close {
+  border: none;
+  background: transparent;
+  color: var(--color-text-3);
+  display: flex;
+  padding: 4px;
+  cursor: pointer;
+}
+.edit-sheet__close svg { width: 20px; height: 20px; }
+
+.edit-sheet__body {
+  padding: 12px 0 4px;
+}
+
+.edit-sheet__error {
+  padding: 8px 16px 0;
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-danger);
+}
+
+.edit-sheet__footer {
+  padding: 12px 16px 16px;
 }
 </style>

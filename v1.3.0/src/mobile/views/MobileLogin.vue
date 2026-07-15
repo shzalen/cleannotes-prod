@@ -108,30 +108,30 @@ async function onSubmit() {
 }
 
 .login-page__logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 34px;
   font-weight: 700;
   color: #fff;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   backdrop-filter: blur(8px);
 }
 
 .login-page__title {
   margin: 0;
-  font-size: 24px;
+  font-size: 29px;
   font-weight: 700;
   color: #fff;
 }
 
 .login-page__subtitle {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 17px;
   color: rgba(255, 255, 255, 0.8);
 }
 

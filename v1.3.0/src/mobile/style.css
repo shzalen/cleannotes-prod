@@ -161,3 +161,14 @@ body {
   border-radius: 14px;
   box-shadow: 0 1px 3px var(--color-shadow);
 }
+
+/* ==========================================================================
+   Pull-to-refresh 橡皮筋效果覆盖
+   ========================================================================== */
+.van-pull-refresh {
+  overflow: visible !important;
+}
+
+.van-pull-refresh__track {
+  min-height: 100%;
+}

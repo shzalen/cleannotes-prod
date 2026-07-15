@@ -1,0 +1,300 @@
+<script setup lang="ts">
+/**
+ * 移动端子应用：待办事项列表
+ */
+import { ref, computed, onMounted } from 'vue'
+import { useTodoStore } from '@/stores/todo'
+import { showConfirmDialog, showToast } from 'vant'
+import type { TodoItem } from '@/stores/todo'
+
+defineOptions({ name: 'MobileTodoApp' })
+
+const todoStore = useTodoStore()
+
+const todos = computed(() => todoStore.activeTodos)
+
+const showAddForm = ref(false)
+const newTitle = ref('')
+const newImportance = ref(3)
+const newEstStart = ref('')
+const newEstEnd = ref('')
+const newDesc = ref('')
+
+onMounted(() => {
+  todoStore.load()
+})
+
+function openAddForm() {
+  newTitle.value = ''
+  newImportance.value = 3
+  newEstStart.value = ''
+  newEstEnd.value = ''
+  newDesc.value = ''
+  showAddForm.value = true
+}
+
+async function saveTodo() {
+  const t = newTitle.value.trim()
+  if (!t) {
+    showToast('请输入待办标题')
+    return
+  }
+  todoStore.addTodo({
+    title: t,
+    description: newDesc.value.trim(),
+    importance: newImportance.value,
+    estimatedStart: newEstStart.value || null,
+    estimatedEnd: newEstEnd.value || null,
+  })
+  showToast('已添加')
+  showAddForm.value = false
+}
+
+async function removeTodo(item: TodoItem) {
+  showConfirmDialog({
+    title: '删除待办',
+    message: `确定删除「${item.title}」？`,
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+  }).then(() => {
+    todoStore.removeTodo(item.id)
+    showToast('已删除')
+  }).catch(() => {})
+}
+
+// 星级显示
+function stars(n: number): string {
+  return '★'.repeat(n) + '☆'.repeat(5 - n)
+}
+</script>
+
+<template>
+  <div class="todo-app">
+    <!-- 统计条 -->
+    <div class="app-stats">
+      <span class="app-stats__item">共 {{ todos.length }} 项</span>
+      <span class="app-stats__item">已排期 {{ todos.filter(t => t.estimatedStart).length }}</span>
+    </div>
+
+    <!-- 待办列表 -->
+    <div class="app-list" v-if="todos.length > 0">
+      <div
+        v-for="item in todos"
+        :key="item.id"
+        class="app-card"
+      >
+        <div class="app-card__body">
+          <div class="app-card__top">
+            <span class="app-card__stars">{{ stars(item.importance) }}</span>
+            <button class="app-card__del" @click="removeTodo(item)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <p class="app-card__title">{{ item.title }}</p>
+          <div class="app-card__dates" v-if="item.estimatedStart || item.estimatedEnd">
+            <span v-if="item.estimatedStart">{{ item.estimatedStart }}</span>
+            <span v-if="item.estimatedStart && item.estimatedEnd"> ~ </span>
+            <span v-if="item.estimatedEnd">{{ item.estimatedEnd }}</span>
+          </div>
+          <p class="app-card__desc" v-if="item.description">{{ item.description }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="app-empty">
+      <p>暂无待办事项</p>
+      <p class="app-empty__hint">点击下方按钮添加</p>
+    </div>
+
+    <!-- FAB 添加按钮 -->
+    <button class="app-fab" @click="openAddForm">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </button>
+
+    <!-- 添加表单弹窗 -->
+    <van-popup
+      v-model:show="showAddForm"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ height: '65%', '--van-popup-background': 'var(--color-surface)' }"
+    >
+      <div class="add-form">
+        <div class="add-form__header">
+          <span class="add-form__title">添加待办</span>
+          <button class="add-form__close" @click="showAddForm = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="add-form__body">
+          <van-cell-group inset>
+            <van-field v-model="newTitle" label="标题" placeholder="输入待办标题" clearable />
+          </van-cell-group>
+          <div class="form-section">
+            <label class="form-label">重要等级</label>
+            <div class="star-picker">
+              <button
+                v-for="i in 5"
+                :key="i"
+                type="button"
+                class="star-picker__btn"
+                :class="{ active: i <= newImportance }"
+                @click="newImportance = i"
+              >{{ i <= newImportance ? '★' : '☆' }}</button>
+            </div>
+          </div>
+          <van-cell-group inset>
+            <van-field v-model="newEstStart" label="预计开始" placeholder="选择日期" readonly clickable>
+              <template #right-icon>
+                <input v-model="newEstStart" type="date" class="native-input" />
+              </template>
+            </van-field>
+            <van-field v-model="newEstEnd" label="预计结束" placeholder="选择日期" readonly clickable>
+              <template #right-icon>
+                <input v-model="newEstEnd" type="date" class="native-input" />
+              </template>
+            </van-field>
+          </van-cell-group>
+          <div class="form-section">
+            <label class="form-label">描述</label>
+            <textarea v-model="newDesc" class="form-textarea" placeholder="输入描述..." rows="3"></textarea>
+          </div>
+        </div>
+        <div class="add-form__footer">
+          <van-button type="primary" block round @click="saveTodo">添加</van-button>
+        </div>
+      </div>
+    </van-popup>
+  </div>
+</template>
+
+<style scoped>
+.todo-app {
+  padding: 12px 12px 80px;
+  min-height: 100%;
+  position: relative;
+}
+
+.app-stats {
+  display: flex;
+  gap: 16px;
+  padding: 0 4px 12px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.app-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  overflow: hidden;
+}
+
+.app-card__body {
+  padding: 12px 14px;
+}
+
+.app-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.app-card__stars {
+  font-size: 14px;
+  color: var(--color-warning);
+  letter-spacing: 1px;
+}
+
+.app-card__del {
+  border: none;
+  background: transparent;
+  color: var(--color-text-4);
+  display: flex;
+  padding: 2px;
+  cursor: pointer;
+}
+.app-card__del svg { width: 14px; height: 14px; }
+
+.app-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-1);
+}
+
+.app-card__dates {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.app-card__desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-2);
+  line-height: 1.5;
+}
+
+.app-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  color: var(--color-text-3);
+  font-size: 14px;
+}
+.app-empty__hint { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+
+.app-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 24px);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 40%, rgba(0,0,0,0.2));
+  cursor: pointer;
+  z-index: 10;
+}
+.app-fab svg { width: 22px; height: 22px; }
+
+/* 添加表单 */
+.add-form { display: flex; flex-direction: column; height: 100%; }
+.add-form__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px; border-bottom: 1px solid var(--color-border-light); flex-shrink: 0; }
+.add-form__title { font-size: 16px; font-weight: 600; color: var(--color-text-1); }
+.add-form__close { border: none; background: transparent; color: var(--color-text-3); display: flex; padding: 4px; cursor: pointer; }
+.add-form__close svg { width: 20px; height: 20px; }
+.add-form__body { flex: 1; overflow-y: auto; padding: 12px 0; }
+.add-form__footer { padding: 12px 16px calc(12px + var(--safe-bottom)); border-top: 1px solid var(--color-border-light); flex-shrink: 0; }
+
+.form-section { padding: 8px 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 500; color: var(--color-text-3); margin-bottom: 6px; }
+.form-textarea { width: 100%; padding: 10px 12px; font-size: 14px; color: var(--color-text-1); background: var(--color-surface); border: 1px solid var(--color-border-light); border-radius: 8px; outline: none; resize: vertical; font-family: inherit; line-height: 1.6; box-sizing: border-box; }
+.form-textarea:focus { border-color: var(--color-primary); }
+
+.star-picker { display: flex; gap: 4px; }
+.star-picker__btn { border: none; background: transparent; font-size: 24px; color: var(--color-text-4); cursor: pointer; padding: 0 2px; line-height: 1; }
+.star-picker__btn.active { color: var(--color-warning); }
+
+.native-input { border: none; background: transparent; font-size: 14px; color: var(--color-text-1); outline: none; width: auto; }
+</style>

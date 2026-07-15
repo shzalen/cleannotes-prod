@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { computed, ref, reactive } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { filterTasksByDate, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
-import type { Task, TaskPriority } from '@/types'
+import type { Task } from '@/types'
 import { showToast } from 'vant'
+
+// ── 下拉刷新 ──
+const refreshing = ref(false)
+
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
+}
+import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
+import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
+import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
 
 defineOptions({ name: 'MobileCalendar' })
 
@@ -13,15 +24,11 @@ const taskStore = useTaskStore()
 const todayStr = computed(() => toLocalDate())
 
 // ── 周历状态 ──
-// selectedDate 始终指向当前选中的日期（默认今天）
 const selectedDate = ref(toLocalDate())
-// weekOffset: 0=本周, 1=下周, -1=上周
-const weekOffset = ref(0)
-
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
 interface DayCell {
-  date: string // YYYY-MM-DD
+  date: string
   day: number
   weekday: string
   isToday: boolean
@@ -32,9 +39,8 @@ interface DayCell {
 const weekDays = computed<DayCell[]>(() => {
   const today = todayStr.value
   const sel = selectedDate.value
-  // 以选中日期所在周的周日为起点（周日~周六）
   const ref = new Date(sel)
-  const dayOfWeek = ref.getDay() // 0=Sunday
+  const dayOfWeek = ref.getDay()
   const sunday = new Date(ref)
   sunday.setDate(ref.getDate() - dayOfWeek)
 
@@ -60,13 +66,11 @@ const weekDays = computed<DayCell[]>(() => {
   return cells
 })
 
-// 当前显示的月份范围标题
 const monthLabel = computed(() => {
   const d = new Date(selectedDate.value)
   return `${d.getFullYear()}年${d.getMonth() + 1}月`
 })
 
-// 选中日期的任务列表
 const selectedTasks = computed(() => {
   const filtered = filterTasksByDate(taskStore.tasks, selectedDate.value)
   return sortTasks(filtered)
@@ -90,7 +94,6 @@ function onTouchStart(e: TouchEvent) {
 function onTouchEnd(e: TouchEvent) {
   const dx = e.changedTouches[0].clientX - touchStartX
   const dy = e.changedTouches[0].clientY - touchStartY
-  // 只响应水平滑动（水平位移 > 垂直位移且 > 50px）
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
     if (dx > 0) {
       goToPrevWeek()
@@ -120,55 +123,58 @@ function goToday() {
   selectedDate.value = toLocalDate()
 }
 
-// ── 任务切换状态 ──
-function toggleTask(task: Task) {
-  taskStore.requestToggleStatus(task.id)
-}
-
 const priorityMeta: Record<string, { label: string; color: string }> = {
   high: { label: '高', color: 'var(--color-danger)' },
   medium: { label: '中', color: 'var(--color-warning)' },
   low: { label: '低', color: 'var(--color-success)' },
 }
 
-// ── 新增任务弹窗 ──
-const showAdd = ref(false)
-const addForm = reactive({
-  title: '',
-  priority: 'medium' as TaskPriority,
-  startDate: '',
-  startTime: '',
+// ── 弹窗引用 ──
+const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
+const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
+const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
+
+// ── 长按逻辑 ──
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressTriggered = false
+const LONG_PRESS_DURATION = 1000
+
+function onTaskTouchStart(task: Task) {
+  longPressTriggered = false
+  longPressTimer = setTimeout(() => {
+    longPressTriggered = true
+    if (navigator.vibrate) {
+      navigator.vibrate(15)
+    }
+    progressPopup.value?.open(task)
+  }, LONG_PRESS_DURATION)
+}
+
+function onTaskTouchEnd(task: Task) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  if (!longPressTriggered) {
+    detailPopup.value?.open(task)
+  }
+}
+
+function onTaskTouchMove() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+onUnmounted(() => {
+  if (longPressTimer) clearTimeout(longPressTimer)
 })
 
+// ── 打开完整创建弹窗 ──
 function openAdd() {
-  addForm.title = ''
-  addForm.priority = 'medium'
-  addForm.startDate = selectedDate.value
-  addForm.startTime = ''
-  showAdd.value = true
+  editPopup.value?.openNew(selectedDate.value)
 }
-
-function confirmAdd() {
-  const title = addForm.title.trim()
-  if (!title) {
-    showToast('请输入任务标题')
-    return
-  }
-  taskStore.addTask({
-    title,
-    priority: addForm.priority,
-    startDate: addForm.startDate || null,
-    startTime: addForm.startTime || null,
-  })
-  showAdd.value = false
-  showToast('已添加')
-}
-
-const priorityOptions = [
-  { label: '低', value: 'low' },
-  { label: '中', value: 'medium' },
-  { label: '高', value: 'high' },
-]
 </script>
 
 <template>
@@ -212,6 +218,7 @@ const priorityOptions = [
     </div>
 
     <!-- 任务列表 -->
+    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="cal-pull-refresh">
     <div class="cal-content">
       <div class="cal-content__header">
         <span class="cal-content__date">{{ selectedDateLabel }}</span>
@@ -225,7 +232,9 @@ const priorityOptions = [
             :key="task.id"
             class="task-item"
             :class="{ 'is-done': task.status === 'done' }"
-            @click="toggleTask(task)"
+            @touchstart.passive="onTaskTouchStart(task)"
+            @touchend.passive="onTaskTouchEnd(task)"
+            @touchmove.passive="onTaskTouchMove()"
           >
             <span class="task-item__check">
               <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -245,8 +254,15 @@ const priorityOptions = [
                   :style="{ '--p-color': priorityMeta[task.priority]?.color }"
                 >{{ priorityMeta[task.priority]?.label }}</span>
                 <span v-if="task.startTime" class="task-item__time">{{ task.startTime }}</span>
+                <span v-if="task.dueDate" class="task-item__due">{{ task.dueDate }}</span>
               </div>
             </div>
+
+            <span class="task-item__arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
           </div>
         </div>
       </template>
@@ -255,81 +271,16 @@ const priorityOptions = [
         <p class="cal-empty__text">当日无任务</p>
       </div>
     </div>
+    </van-pull-refresh>
 
-    <!-- 新增任务弹窗 -->
-    <van-popup
-      v-model:show="showAdd"
-      position="bottom"
-      round
-      teleport="body"
-    >
-      <div class="add-sheet">
-        <div class="add-sheet__header">
-          <span class="add-sheet__title">新增任务</span>
-          <button class="add-sheet__close" @click="showAdd = false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-        <div class="add-sheet__body">
-          <van-cell-group inset>
-            <van-field
-              v-model="addForm.title"
-              label="标题"
-              placeholder="输入任务标题"
-              clearable
-            />
-            <van-field name="priority" label="优先级">
-              <template #input>
-                <van-radio-group v-model="addForm.priority" direction="horizontal">
-                  <van-radio
-                    v-for="opt in priorityOptions"
-                    :key="opt.value"
-                    :name="opt.value"
-                  >{{ opt.label }}</van-radio>
-                </van-radio-group>
-              </template>
-            </van-field>
-            <van-field
-              v-model="addForm.startDate"
-              label="日期"
-              placeholder="选择日期"
-              readonly
-              clickable
-              is-link
-              @click=""
-            >
-              <template #right-icon>
-                <input
-                  v-model="addForm.startDate"
-                  type="date"
-                  class="add-sheet__date-input"
-                />
-              </template>
-            </van-field>
-            <van-field
-              v-model="addForm.startTime"
-              label="时间"
-              placeholder="选择时间"
-              readonly
-              is-link
-            >
-              <template #right-icon>
-                <input
-                  v-model="addForm.startTime"
-                  type="time"
-                  class="add-sheet__date-input"
-                />
-              </template>
-            </van-field>
-          </van-cell-group>
-        </div>
-        <div class="add-sheet__footer">
-          <van-button block round type="primary" @click="confirmAdd">添加</van-button>
-        </div>
-      </div>
-    </van-popup>
+    <!-- 任务详情弹窗 -->
+    <MobileTaskDetailPopup ref="detailPopup" />
+
+    <!-- 进度更新弹窗 -->
+    <MobileTaskProgressPopup ref="progressPopup" />
+
+    <!-- 完整任务创建弹窗 -->
+    <MobileTaskEditPopup ref="editPopup" />
   </div>
 </template>
 
@@ -445,6 +396,13 @@ const priorityOptions = [
 }
 
 /* ── 内容区 ── */
+.cal-pull-refresh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .cal-content {
   flex: 1;
   overflow-y: auto;
@@ -484,7 +442,7 @@ const priorityOptions = [
   font-size: 14px;
 }
 
-/* ── 任务项（复用首页样式） ── */
+/* ── 任务项 ── */
 .task-list {
   display: flex;
   flex-direction: column;
@@ -494,7 +452,7 @@ const priorityOptions = [
 .task-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 14px;
   background: var(--color-surface);
   border-radius: 12px;
@@ -502,6 +460,8 @@ const priorityOptions = [
   cursor: pointer;
   transition: transform 0.12s ease, opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .task-item:active {
@@ -578,54 +538,21 @@ const priorityOptions = [
   color: var(--color-text-3);
 }
 
-/* ── 新增弹窗 ── */
-.add-sheet {
-  background: var(--color-surface);
-  padding-bottom: var(--safe-bottom);
+.task-item__due {
+  font-size: 11px;
+  color: var(--color-text-4);
 }
 
-.add-sheet__header {
+.task-item__arrow {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 16px 8px;
-  border-bottom: 1px solid var(--color-border-light);
+  margin-top: 2px;
+  color: var(--color-text-4);
+  opacity: 0.4;
 }
-
-.add-sheet__title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.add-sheet__close {
-  border: none;
-  background: transparent;
-  color: var(--color-text-3);
-  display: flex;
-  padding: 4px;
-  cursor: pointer;
-}
-
-.add-sheet__close svg {
-  width: 20px;
-  height: 20px;
-}
-
-.add-sheet__body {
-  padding: 12px 0 0;
-}
-
-.add-sheet__footer {
-  padding: 12px 16px 16px;
-}
-
-.add-sheet__date-input {
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: var(--color-text-1);
-  outline: none;
-  width: auto;
+.task-item__arrow svg {
+  width: 14px;
+  height: 14px;
 }
 </style>
