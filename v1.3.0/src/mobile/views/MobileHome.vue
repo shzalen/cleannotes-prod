@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
-import { showToast } from 'vant'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
 
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
@@ -46,14 +45,6 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   low: { label: '低', color: 'var(--color-success)' },
 }
 
-// ── 下拉刷新 ──
-const refreshing = ref(false)
-
-async function onRefresh() {
-  await taskStore.load(true)
-  refreshing.value = false
-}
-
 // ── 弹窗引用 ──
 const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
@@ -75,6 +66,7 @@ function openTaskCreate() {
   <div class="home-page">
     <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
+      <div class="home-header__safe-area" />
       <div class="home-header__content">
         <!-- 顶部行 -->
         <div class="home-header__top">
@@ -92,8 +84,7 @@ function openTaskCreate() {
     </header>
 
     <!-- 内容区（含完成率 + 任务列表） -->
-    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="home-pull-refresh">
-    <div class="home-content" id="home-content-scroll">
+    <div class="home-content">
       <!-- 今日完成率（移到任务列表前） -->
       <div class="home-progress">
         <div class="home-progress__row">
@@ -166,7 +157,6 @@ function openTaskCreate() {
       <!-- 底部留白 -->
       <div class="home-bottom-spacer" />
     </div>
-    </van-pull-refresh>
 
     <!-- 快速创建 FAB -->
     <button class="home-fab" @click="openTaskCreate">
@@ -198,7 +188,10 @@ function openTaskCreate() {
 .home-header {
   flex-shrink: 0;
   background: var(--color-primary);
-  padding-top: var(--safe-top);
+}
+
+.home-header__safe-area {
+  height: var(--safe-top);
 }
 
 .home-header__content {
@@ -232,14 +225,7 @@ function openTaskCreate() {
   padding: 12px 14px;
 }
 
-/* ── 内容区 ── */
-.home-pull-refresh {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+/* ── 内容区（原生滚动 + 阻尼效果） ── */
 .home-content {
   flex: 1;
   overflow-y: auto;

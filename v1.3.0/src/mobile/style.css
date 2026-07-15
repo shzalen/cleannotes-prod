@@ -20,6 +20,8 @@ body {
   padding: 0;
   height: 100%;
   overscroll-behavior-y: none;
+  /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
+  touch-action: manipulation;
 }
 
 body {
@@ -177,12 +179,12 @@ body {
 }
 
 /* ==========================================================================
-   Pull-to-refresh 橡皮筋效果覆盖
+   Pull-to-refresh 橡皮筋效果
+   注意：不能覆盖 van-pull-refresh 的 overflow，否则 Vant 无法检测滚动边界，
+   下拉手势会完全失效。橡皮筋效果由 Vant 内置 overscroll 行为提供。
    ========================================================================== */
-.van-pull-refresh {
-  overflow: visible !important;
-}
-
 .van-pull-refresh__track {
   min-height: 100%;
+  /* 确保在全局 touch-action: manipulation 下仍可纵向滚动 */
+  touch-action: pan-y;
 }

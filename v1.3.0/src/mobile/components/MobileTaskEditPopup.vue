@@ -144,15 +144,15 @@ defineExpose({ openNew, openEdit, close })
       <!-- 内容 -->
       <div class="edit-popup__body">
         <!-- 标题 -->
-        <van-cell-group inset>
-          <van-field
+        <div class="ep-section">
+          <label class="ep-label">标题</label>
+          <input
             v-model="title"
-            label="标题"
+            class="ep-input"
             placeholder="输入任务标题"
-            clearable
             autofocus
           />
-        </van-cell-group>
+        </div>
 
         <!-- 描述 -->
         <div class="ep-section">
@@ -181,53 +181,30 @@ defineExpose({ openNew, openEdit, close })
         </div>
 
         <!-- 日期/时间 -->
-        <van-cell-group inset>
-          <van-field
+        <div class="ep-section">
+          <label class="ep-label">日期</label>
+          <input
             v-model="startDate"
-            label="日期"
-            placeholder="选择日期"
-            readonly
-            clickable
-          >
-            <template #right-icon>
-              <input
-                v-model="startDate"
-                type="date"
-                class="ep-native-input"
-              />
-            </template>
-          </van-field>
-          <van-field
+            type="date"
+            class="ep-input"
+          />
+        </div>
+        <div class="ep-section">
+          <label class="ep-label">时间</label>
+          <input
             v-model="startTime"
-            label="时间"
-            placeholder="选择时间"
-            readonly
-            clickable
-          >
-            <template #right-icon>
-              <input
-                v-model="startTime"
-                type="time"
-                class="ep-native-input"
-              />
-            </template>
-          </van-field>
-          <van-field
+            type="time"
+            class="ep-input"
+          />
+        </div>
+        <div class="ep-section">
+          <label class="ep-label">截止日期</label>
+          <input
             v-model="dueDate"
-            label="截止日期"
-            placeholder="选择截止日期"
-            readonly
-            clickable
-          >
-            <template #right-icon>
-              <input
-                v-model="dueDate"
-                type="date"
-                class="ep-native-input"
-              />
-            </template>
-          </van-field>
-        </van-cell-group>
+            type="date"
+            class="ep-input"
+          />
+        </div>
 
         <!-- 状态（仅编辑时显示） -->
         <div v-if="isEditing" class="ep-section">
@@ -304,16 +281,31 @@ defineExpose({ openNew, openEdit, close })
 
 .ep-label {
   display: block;
-  font-size: 12px;
+  font-size: 17px;
   font-weight: 500;
-  color: var(--color-text-3);
-  margin-bottom: 6px;
+  color: var(--color-text-2);
+  margin-bottom: 8px;
 }
+
+.ep-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 17px;
+  color: var(--color-text-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.ep-input:focus { border-color: var(--color-primary); }
+.ep-input::placeholder { color: var(--color-text-3); }
 
 .ep-textarea {
   width: 100%;
   padding: 10px 12px;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--color-text-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
@@ -325,6 +317,7 @@ defineExpose({ openNew, openEdit, close })
   box-sizing: border-box;
 }
 .ep-textarea:focus { border-color: var(--color-primary); }
+.ep-textarea::placeholder { color: var(--color-text-3); }
 
 .ep-radio-row {
   display: flex;
@@ -334,7 +327,7 @@ defineExpose({ openNew, openEdit, close })
 .ep-radio-btn {
   flex: 1;
   padding: 8px 0;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -348,15 +341,6 @@ defineExpose({ openNew, openEdit, close })
   background: var(--color-primary);
   color: #fff;
   border-color: var(--color-primary);
-}
-
-.ep-native-input {
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: var(--color-text-1);
-  outline: none;
-  width: auto;
 }
 
 .edit-popup__footer {
