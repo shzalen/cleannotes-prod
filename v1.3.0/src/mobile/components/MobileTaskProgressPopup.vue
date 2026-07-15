@@ -166,6 +166,9 @@ defineExpose({ open, close })
 <style scoped>
 .progress-popup {
   padding-bottom: var(--safe-bottom);
+  overflow-x: hidden;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .progress-popup__header {

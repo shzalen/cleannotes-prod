@@ -6,6 +6,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { isOnline } from '@/services/storage'
 import { useAuthStore } from '@/stores/auth'
+import MobileWeatherWidget from './MobileWeatherWidget.vue'
 
 const auth = useAuthStore()
 
@@ -119,11 +120,14 @@ const quote = computed(() => {
 
 <template>
   <div class="m-greeting">
-    <div class="m-greeting__main">
-      <span class="m-greeting__text">{{ greeting }}，{{ username }}</span>
-      <span v-if="dayInfo.holiday" class="m-greeting__badge m-greeting__badge--holiday">{{ dayInfo.holiday }}</span>
-      <span v-else-if="dayInfo.isWeekend" class="m-greeting__badge m-greeting__badge--weekend">周末</span>
-      <span v-if="!isOnline" class="m-greeting__badge m-greeting__badge--offline">离线</span>
+    <div class="m-greeting__row">
+      <div class="m-greeting__main">
+        <span class="m-greeting__text">{{ greeting }}，{{ username }}</span>
+        <span v-if="dayInfo.holiday" class="m-greeting__badge m-greeting__badge--holiday">{{ dayInfo.holiday }}</span>
+        <span v-else-if="dayInfo.isWeekend" class="m-greeting__badge m-greeting__badge--weekend">周末</span>
+        <span v-if="!isOnline" class="m-greeting__badge m-greeting__badge--offline">离线</span>
+      </div>
+      <MobileWeatherWidget />
     </div>
     <div class="m-greeting__date">{{ dateStr }}</div>
     <div class="m-greeting__quote">{{ quote }}</div>
@@ -137,11 +141,19 @@ const quote = computed(() => {
   gap: 4px;
 }
 
+.m-greeting__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .m-greeting__main {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .m-greeting__text {

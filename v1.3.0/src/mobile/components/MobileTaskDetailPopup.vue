@@ -164,6 +164,9 @@ defineExpose({ open, close })
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .detail-popup__header {
