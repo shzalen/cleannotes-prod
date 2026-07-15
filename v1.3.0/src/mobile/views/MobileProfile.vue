@@ -1,206 +1,571 @@
 <script setup lang="ts">
-import { ref, inject, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { CellGroup as VanCellGroup, Cell as VanCell, Dialog as VanDialog, Field as VanField, Button as VanButton, Toast } from 'vant'
+import { useTheme, type ThemeMode } from '@/composables/useTheme'
+import { flushTaskWrites, cleanupTaskListeners, clearOnTaskDone } from '@/stores/task'
+import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
+import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
+import { clearAllLastSyncAt } from '@/services/syncState'
+import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
+import { showConfirmDialog, showToast } from 'vant'
+import MobileSubApp from '../components/MobileSubApp.vue'
+import MobileTodoApp from '../components/MobileTodoApp.vue'
+import MobileMemoApp from '../components/MobileMemoApp.vue'
+import MobileWeeklyApp from '../components/MobileWeeklyApp.vue'
+
+defineOptions({ name: 'MobileProfile' })
 
 const auth = useAuthStore()
-const handleLogout = inject<() => Promise<void>>('appLogout')
+const { mode, setTheme } = useTheme()
 
 const nickname = computed(() => auth.user?.nickname || '用户')
 const email = computed(() => auth.user?.email || '')
-const initial = computed(() => nickname.value.charAt(0).toUpperCase())
+
+// ── 主题下拉选项 ──
+const themeOptions = [
+  { text: '腾讯蓝', value: 'tencent' as ThemeMode },
+  { text: 'ZURU', value: 'zuru' as ThemeMode },
+  { text: '暗黑', value: 'dark' as ThemeMode },
+]
+
+function onThemeChange(val: ThemeMode) {
+  setTheme(val)
+}
+
+// ── 修改昵称 ──
+const showNicknameEdit = ref(false)
+const newNickname = ref('')
+
+function openNicknameEdit() {
+  newNickname.value = auth.user?.nickname || ''
+  showNicknameEdit.value = true
+}
+
+async function saveNickname() {
+  const n = newNickname.value.trim()
+  if (!n) {
+    showToast('昵称不能为空')
+    return
+  }
+  const ok = await auth.changeNickname(n)
+  if (ok) {
+    showToast('昵称已修改')
+    showNicknameEdit.value = false
+  } else {
+    showToast(auth.error || '修改失败')
+  }
+}
 
 // ── 修改密码 ──
-const showPwdDialog = ref(false)
-const newPwd = ref('')
-const pwdLoading = ref(false)
+const showPasswordEdit = ref(false)
+const pwNew = ref('')
+const pwConfirm = ref('')
+const pwSaving = ref(false)
+const pwError = ref('')
 
-async function handleChangePwd() {
-  if (newPwd.value.length < 8) { Toast('密码长度至少 8 位'); return }
-  pwdLoading.value = true
+function openPasswordEdit() {
+  pwNew.value = ''
+  pwConfirm.value = ''
+  pwError.value = ''
+  showPasswordEdit.value = true
+}
+
+async function savePassword() {
+  pwError.value = ''
+  if (pwNew.value.length < 8) {
+    pwError.value = '密码至少 8 位'
+    return
+  }
+  if (pwNew.value !== pwConfirm.value) {
+    pwError.value = '两次密码不一致'
+    return
+  }
+  pwSaving.value = true
   try {
-    const ok = await auth.changePassword(newPwd.value)
+    const ok = await auth.changePassword(pwNew.value)
     if (ok) {
-      Toast.success('密码修改成功')
-      showPwdDialog.value = false
-      newPwd.value = ''
+      showToast('密码已修改')
+      showPasswordEdit.value = false
     } else {
-      Toast(auth.error || '修改失败')
+      pwError.value = auth.error || '修改失败'
     }
   } finally {
-    pwdLoading.value = false
+    pwSaving.value = false
   }
 }
 
-// ── 清除缓存 ──
-const clearingCache = ref(false)
-async function handleClearCache() {
-  clearingCache.value = true
-  try {
-    if ('caches' in window) {
-      const keys = await caches.keys()
-      await Promise.all(keys.map(k => caches.delete(k)))
+// ── 清空缓存 ──
+function handleClearCache() {
+  showConfirmDialog({
+    title: '清空缓存',
+    message: '清空缓存后需要重新登录，确定继续？',
+    confirmButtonText: '确定清空',
+    cancelButtonText: '取消',
+  }).then(async () => {
+    try {
+      // 清除所有 localStorage 中的 Sync 时间戳
+      clearAllLastSyncAt()
+      // 清除主题缓存外的所有数据标记
+      const keys = Object.keys(localStorage).filter(k =>
+        k.startsWith('cleannotes_') && k !== 'cleannotes_theme'
+      )
+      keys.forEach(k => localStorage.removeItem(k))
+      // 清除 sessionStorage
+      sessionStorage.clear()
+      showToast('缓存已清空，请刷新页面')
+      // 延迟刷新让用户看到提示
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (e) {
+      showToast('清理失败，请手动清除浏览器缓存')
     }
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(regs.map(r => r.unregister()))
-    }
-    const preserveKeys = ['cleannotes_theme']
-    const keysToRemove: string[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('cleannotes') && !preserveKeys.includes(key)) keysToRemove.push(key)
-    }
-    keysToRemove.forEach(k => localStorage.removeItem(k))
-  } finally {
-    clearingCache.value = false
-    window.location.reload()
-  }
+  }).catch(() => {})
 }
 
-// ── 退出确认 ──
-const showLogoutDialog = ref(false)
-async function confirmLogout() {
-  showLogoutDialog.value = false
-  if (handleLogout) { await handleLogout() }
-  else { auth.logout(); window.location.reload() }
+// ── 退出登录 ──
+const loggingOut = ref(false)
+
+function handleLogout() {
+  showConfirmDialog({
+    title: '退出登录',
+    message: '确定要退出登录吗？',
+    confirmButtonText: '退出',
+    cancelButtonText: '取消',
+  })
+    .then(async () => {
+      loggingOut.value = true
+      try {
+        await flushPendingWrites()
+        flushTaskWrites()
+        await flushGrowthToCloud()
+        cleanupGrowthStorage()
+        clearAllLastSyncAt()
+        broadcastChange('logout')
+        closeCrossTabSync()
+        cleanupMemoStorage()
+        cleanupTaskListeners()
+        clearOnTaskDone()
+        auth.cleanup()
+        auth.logout()
+      } catch (e) {
+        console.error('[mobile] logout error', e)
+      } finally {
+        loggingOut.value = false
+      }
+    })
+    .catch(() => {})
+}
+
+// ── 子应用 ──
+const subApp = ref<InstanceType<typeof MobileSubApp> | null>(null)
+
+function openTodoApp() {
+  subApp.value?.open('待办事项', MobileTodoApp)
+}
+
+function openMemoApp() {
+  subApp.value?.open('备忘录', MobileMemoApp)
+}
+
+function openWeeklyApp() {
+  subApp.value?.open('周报', MobileWeeklyApp)
 }
 
 const version = '1.3.0'
 </script>
 
 <template>
-  <div class="profile-page safe-top">
-    <!-- 页面标题 -->
-    <div class="profile-header">
-      <h1 class="profile-title">我的</h1>
-    </div>
+  <div class="profile-page">
+    <!-- 固定顶栏 -->
+    <header class="m-header">
+      <div class="m-header__safe-area" />
+      <div class="m-header__bar">
+        <span class="m-header__title">我的</span>
+      </div>
+    </header>
 
-    <!-- 用户信息 -->
-    <div class="user-section">
-      <div class="user-card">
-        <div class="avatar">{{ initial }}</div>
-        <div class="user-info">
-          <span class="user-name">{{ nickname }}</span>
-          <span class="user-email">{{ email }}</span>
+    <div class="profile-content">
+      <!-- 用户资料卡 -->
+      <div class="profile-card" @click="openNicknameEdit">
+        <div class="profile-card__avatar">
+          {{ nickname.charAt(0).toUpperCase() }}
         </div>
+        <div class="profile-card__info">
+          <div class="profile-card__name-row">
+            <p class="profile-card__name">{{ nickname }}</p>
+            <span class="profile-card__edit-hint">点击修改</span>
+          </div>
+          <p class="profile-card__email">{{ email }}</p>
+        </div>
+      </div>
+
+      <!-- 设置项列表 -->
+      <div class="profile-menu">
+        <!-- 主题 -->
+        <div class="profile-menu__item">
+          <span class="profile-menu__label">主题</span>
+          <div class="profile-menu__right">
+            <select
+              class="profile-menu__select"
+              :value="mode"
+              @change="onThemeChange(($event.target as HTMLSelectElement).value as ThemeMode)"
+            >
+              <option v-for="opt in themeOptions" :key="opt.value" :value="opt.value">
+                {{ opt.text }}
+              </option>
+            </select>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- 修改昵称 -->
+        <div class="profile-menu__item" @click="openNicknameEdit">
+          <span class="profile-menu__label">修改昵称</span>
+          <div class="profile-menu__right">
+            <span class="profile-menu__value">{{ nickname }}</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- 修改密码 -->
+        <div class="profile-menu__item" @click="openPasswordEdit">
+          <span class="profile-menu__label">修改密码</span>
+          <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </div>
+
+        <!-- 清空缓存 -->
+        <div class="profile-menu__item" @click="handleClearCache">
+          <span class="profile-menu__label">清空缓存</span>
+          <span class="profile-menu__hint">更新后看不到效果时使用</span>
+        </div>
+      </div>
+
+      <!-- 子应用入口 -->
+      <div class="profile-section">
+        <p class="profile-section__title">功能</p>
+        <div class="profile-menu">
+          <div class="profile-menu__item" @click="openTodoApp">
+            <span class="profile-menu__label">📋 待办事项</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+          <div class="profile-menu__item" @click="openMemoApp">
+            <span class="profile-menu__label">📝 备忘录</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+          <div class="profile-menu__item" @click="openWeeklyApp">
+            <span class="profile-menu__label">📊 周报</span>
+            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 退出登录 -->
+      <div class="profile-logout">
+        <van-button
+          block
+          round
+          type="danger"
+          plain
+          :loading="loggingOut"
+          @click="handleLogout"
+        >退出登录</van-button>
       </div>
     </div>
 
-    <!-- 设置 -->
-    <VanCellGroup inset class="cell-group">
-      <VanCell title="修改密码" is-link @click="showPwdDialog = true" />
-    </VanCellGroup>
-
-    <VanCellGroup inset class="cell-group">
-      <VanCell :title="clearingCache ? '清除中...' : '清除缓存'" is-link @click="handleClearCache" />
-      <VanCell title="版本">
-        <template #value>
-          <span class="version-text">V{{ version }}</span>
-        </template>
-      </VanCell>
-    </VanCellGroup>
-
-    <VanCellGroup inset class="cell-group">
-      <VanCell title="退出登录" class="logout-cell" @click="showLogoutDialog = true" />
-    </VanCellGroup>
+    <!-- 修改昵称弹窗 -->
+    <van-popup
+      v-model:show="showNicknameEdit"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ '--van-popup-background': 'var(--color-surface)' }"
+    >
+      <div class="edit-sheet">
+        <div class="edit-sheet__header">
+          <span class="edit-sheet__title">修改昵称</span>
+          <button class="edit-sheet__close" @click="showNicknameEdit = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="edit-sheet__body">
+          <van-cell-group inset>
+            <van-field
+              v-model="newNickname"
+              label="昵称"
+              placeholder="输入新昵称"
+              clearable
+              autofocus
+            />
+          </van-cell-group>
+        </div>
+        <div class="edit-sheet__footer">
+          <van-button block round type="primary" @click="saveNickname">保存</van-button>
+        </div>
+      </div>
+    </van-popup>
 
     <!-- 修改密码弹窗 -->
-    <VanDialog
-      v-model:show="showPwdDialog"
-      title="修改密码"
-      show-cancel-button
-      :confirm-button-loading="pwdLoading"
-      @confirm="handleChangePwd"
+    <van-popup
+      v-model:show="showPasswordEdit"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ '--van-popup-background': 'var(--color-surface)' }"
     >
-      <VanField
-        v-model="newPwd"
-        type="password"
-        placeholder="输入新密码（至少 8 位）"
-        class="dialog-field"
-      />
-    </VanDialog>
+      <div class="edit-sheet">
+        <div class="edit-sheet__header">
+          <span class="edit-sheet__title">修改密码</span>
+          <button class="edit-sheet__close" @click="showPasswordEdit = false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="edit-sheet__body">
+          <van-cell-group inset>
+            <van-field
+              v-model="pwNew"
+              label="新密码"
+              placeholder="至少 8 位"
+              type="password"
+              clearable
+            />
+            <van-field
+              v-model="pwConfirm"
+              label="确认密码"
+              placeholder="再次输入密码"
+              type="password"
+              clearable
+            />
+          </van-cell-group>
+          <p v-if="pwError" class="edit-sheet__error">{{ pwError }}</p>
+        </div>
+        <div class="edit-sheet__footer">
+          <van-button block round type="primary" :loading="pwSaving" @click="savePassword">保存</van-button>
+        </div>
+      </div>
+    </van-popup>
 
-    <!-- 退出确认弹窗 -->
-    <VanDialog
-      v-model:show="showLogoutDialog"
-      title="退出登录"
-      message="确定要退出当前账号吗？"
-      show-cancel-button
-      confirm-button-color="var(--color-danger)"
-      @confirm="confirmLogout"
-    />
+    <!-- 全屏子应用容器 -->
+    <MobileSubApp ref="subApp" />
   </div>
 </template>
 
 <style scoped>
 .profile-page {
-  min-height: 100%;
-  background: var(--color-bg-1, #F3F3F4);
-  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-1);
 }
 
-.profile-header {
-  padding: 16px 20px 8px;
+.profile-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 80px;
 }
 
-.profile-title {
-  font-size: 26px;
+/* ── 用户卡片 ── */
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 16px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+.profile-card:active { transform: scale(0.98); }
+
+.profile-card__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 24px;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card__name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
   color: var(--color-text-1);
-  letter-spacing: -0.3px;
 }
 
-.user-section {
-  padding: 12px 16px 20px;
+.profile-card__edit-hint {
+  font-size: 11px;
+  color: var(--color-primary);
 }
 
-.user-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 22px 18px;
-  background: var(--color-surface, #fff);
-  border-radius: 16px;
+.profile-card__email {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.avatar {
-  width: 60px; height: 60px; border-radius: 50%;
-  background: var(--color-primary, #0052D9);
-  color: #fff; font-size: 24px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+/* ── 设置菜单 ── */
+.profile-menu {
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
 }
 
-.user-info { display: flex; flex-direction: column; gap: 4px; }
-
-.user-name { font-size: 20px; font-weight: 600; color: var(--color-text-1); }
-.user-email { font-size: 14px; color: var(--color-text-3); }
-
-.cell-group { margin: 12px 16px; }
-
-.cell-group :deep(.van-cell) {
-  padding: 18px 16px;
-  font-size: 17px;
+.profile-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-bottom: 1px solid var(--color-border-light);
 }
+.profile-menu__item:last-child { border-bottom: none; }
+.profile-menu__item:active { background: var(--color-bg-3); }
 
-.cell-group :deep(.van-cell__title) {
+.profile-menu__label {
+  font-size: 15px;
   font-weight: 500;
+  color: var(--color-text-1);
 }
 
-.version-text { color: var(--color-text-3); font-size: 15px; }
-
-.logout-cell {
-  text-align: center;
+.profile-menu__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-:deep(.logout-cell .van-cell__title) {
-  text-align: center;
+.profile-menu__value {
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
+.profile-menu__hint {
+  font-size: 11px;
+  color: var(--color-text-4);
+}
+
+.profile-menu__select {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-2);
+  outline: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: right;
+  direction: rtl;
+}
+
+.profile-menu__chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-4);
+  flex-shrink: 0;
+}
+
+/* ── 分区 ── */
+.profile-section {
+  margin-bottom: 16px;
+}
+
+.profile-section__title {
+  margin: 0 0 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-3);
+}
+
+/* ── 退出按钮 ── */
+.profile-logout {
+  margin-top: 24px;
+  padding: 0 4px;
+}
+
+/* ── 编辑弹窗 ── */
+.edit-sheet {
+  background: var(--color-surface);
+  padding-bottom: var(--safe-bottom);
+}
+
+.edit-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.edit-sheet__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.edit-sheet__close {
+  border: none;
+  background: transparent;
+  color: var(--color-text-3);
+  display: flex;
+  padding: 4px;
+  cursor: pointer;
+}
+.edit-sheet__close svg { width: 20px; height: 20px; }
+
+.edit-sheet__body {
+  padding: 12px 0 4px;
+}
+
+.edit-sheet__error {
+  padding: 8px 16px 0;
+  margin: 0;
+  font-size: 13px;
   color: var(--color-danger);
-  font-size: 17px;
-  font-weight: 500;
 }
 
-.dialog-field {
-  margin: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
+.edit-sheet__footer {
+  padding: 12px 16px 16px;
 }
 </style>

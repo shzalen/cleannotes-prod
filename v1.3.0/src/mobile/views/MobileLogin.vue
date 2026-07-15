@@ -1,31 +1,36 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Field as VanField, Button as VanButton, Toast } from 'vant'
+import { showToast } from 'vant'
 
-const auth = useAuthStore()
+defineOptions({ name: 'MobileLogin' })
+
 const router = useRouter()
+const auth = useAuthStore()
 
-const email = ref('')
-const password = ref('')
+const form = reactive({
+  email: '',
+  password: '',
+})
+
 const loading = ref(false)
 
-async function handleLogin() {
-  if (!email.value.trim() || !password.value.trim()) {
-    Toast('请输入邮箱和密码')
+async function onSubmit() {
+  if (!form.email || !form.password) {
+    showToast('请输入邮箱和密码')
     return
   }
   loading.value = true
   try {
-    const ok = await auth.signIn(email.value.trim(), password.value)
+    const ok = await auth.signIn(form.email.trim(), form.password)
     if (ok) {
-      router.push({ name: 'home' })
+      router.replace({ name: 'm-home' })
     } else {
-      Toast(auth.error || '登录失败')
+      showToast(auth.error || '登录失败')
     }
-  } catch {
-    Toast('登录失败，请重试')
+  } catch (e) {
+    showToast('登录异常，请重试')
   } finally {
     loading.value = false
   }
@@ -33,46 +38,45 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="login-page safe-top">
-    <div class="login-container">
-      <div class="brand">
-        <div class="brand-icon">清</div>
-        <h1 class="brand-name">清记</h1>
-        <p class="brand-desc">CleanNotes</p>
+  <div class="login-page">
+    <div class="login-page__hero">
+      <div class="login-page__safe-area" />
+      <div class="login-page__brand">
+        <div class="login-page__logo">清</div>
+        <h1 class="login-page__title">清记</h1>
+        <p class="login-page__subtitle">简洁高效的待办管理</p>
       </div>
+    </div>
 
-      <div class="login-form">
-        <VanField
-          v-model="email"
+    <div class="login-page__form">
+      <van-cell-group inset>
+        <van-field
+          v-model="form.email"
+          label="邮箱"
+          placeholder="请输入邮箱"
           type="email"
-          label=""
-          placeholder="邮箱"
-          left-icon="envelop-o"
-          :disabled="loading"
           clearable
-          class="login-field"
         />
-        <VanField
-          v-model="password"
+        <van-field
+          v-model="form.password"
+          label="密码"
+          placeholder="请输入密码"
           type="password"
-          label=""
-          placeholder="密码"
-          left-icon="lock"
-          :disabled="loading"
-          class="login-field"
+          clearable
+          @keyup.enter="onSubmit"
         />
+      </van-cell-group>
 
-        <VanButton
+      <div class="login-page__actions">
+        <van-button
           type="primary"
           block
- round
+          round
           :loading="loading"
-          :loading-text="'登录中...'"
-          class="login-btn"
-          @click="handleLogin"
+          @click="onSubmit"
         >
           登录
-        </VanButton>
+        </van-button>
       </div>
     </div>
   </div>
@@ -81,66 +85,62 @@ async function handleLogin() {
 <style scoped>
 .login-page {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   min-height: 100%;
-  padding: 24px;
-  background: var(--color-bg-0, #fff);
+  background: var(--color-bg-1);
 }
 
-.login-container {
-  width: 100%;
-  max-width: 360px;
+.login-page__hero {
+  background: var(--color-primary);
+  padding-bottom: 32px;
+  border-radius: 0 0 24px 24px;
 }
 
-.brand {
-  text-align: center;
-  margin-bottom: 40px;
+.login-page__safe-area {
+  height: var(--safe-top);
 }
 
-.brand-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: var(--color-primary, #0052D9);
-  color: #fff;
-  font-size: 32px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  box-shadow: 0 8px 24px rgba(0, 82, 217, 0.25);
-}
-
-.brand-name {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-text-1, #0F172A);
-}
-
-.brand-desc {
-  font-size: 13px;
-  color: var(--color-text-3, #64748B);
-  margin-top: 4px;
-}
-
-.login-form {
+.login-page__brand {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: center;
+  padding: 24px 0;
 }
 
-.login-field {
-  border: 1px solid var(--color-border, #DCDEE0);
-  border-radius: 12px;
-  overflow: hidden;
+.login-page__logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 14px;
+  backdrop-filter: blur(8px);
 }
 
-.login-btn {
-  margin-top: 8px;
-  height: 48px;
+.login-page__title {
+  margin: 0;
+  font-size: 29px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.login-page__subtitle {
+  margin: 4px 0 0;
   font-size: 17px;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.login-page__form {
+  padding: 24px 0;
+  flex: 1;
+}
+
+.login-page__actions {
+  padding: 20px 16px 0;
 }
 </style>

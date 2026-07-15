@@ -1,7 +1,7 @@
 // CleanNotes Mobile PWA Service Worker
 // Basic cache-first strategy for app shell
 
-const CACHE_NAME = 'cleannotes-mobile-v1.3.0-20260714';
+const CACHE_NAME = 'cleannotes-mobile-v1.3.0-r2';
 const ASSETS_TO_CACHE = [
   './mobile.html',
   './manifest.json',

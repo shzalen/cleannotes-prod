@@ -1,73 +1,71 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { switchUser } from '@/services/storage'
-import MobileLayout from '@/mobile/layouts/MobileLayout.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
       path: '/login',
-      name: 'login',
-      component: () => import('@/mobile/views/MobileLogin.vue'),
+      name: 'm-login',
+      component: () => import('../views/MobileLogin.vue'),
       meta: { public: true },
     },
     {
       path: '/',
-      component: MobileLayout,
+      component: () => import('../layouts/MobileLayout.vue'),
       children: [
         {
           path: '',
-          redirect: { name: 'home' },
-        },
-        {
-          path: 'home',
-          name: 'home',
-          component: () => import('@/mobile/views/MobileHome.vue'),
+          name: 'm-home',
+          component: () => import('../views/MobileHome.vue'),
           meta: { tab: 'home' },
         },
         {
           path: 'calendar',
-          name: 'calendar',
-          component: () => import('@/mobile/views/MobileCalendar.vue'),
+          name: 'm-calendar',
+          component: () => import('../views/MobileCalendar.vue'),
           meta: { tab: 'calendar' },
         },
         {
           path: 'profile',
-          name: 'profile',
-          component: () => import('@/mobile/views/MobileProfile.vue'),
+          name: 'm-profile',
+          component: () => import('../views/MobileProfile.vue'),
           meta: { tab: 'profile' },
         },
       ],
     },
+    { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
 
-let authReady = false
-
+// 鉴权守卫 — 复用 auth store，纯在线会话恢复
 router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
 
-  if (!authReady) {
+  // 先确保会话已从 Supabase 恢复（幂等）
+  if (!auth.initialized) {
     await auth.init()
     authReady = true
   }
 
+  // 公开路由（登录页）
   if (to.meta.public) {
     if (auth.isAuthenticated) {
-      next({ name: 'home' })
-    } else {
-      next()
+      next({ name: 'm-home' })
+      return
     }
+    next()
     return
   }
 
+  // 受保护路由需要登录
   if (!auth.isAuthenticated) {
-    next({ name: 'login' })
+    next({ name: 'm-login' })
     return
   }
 
-  // Set user context for data stores
+  // 同步 storage adapter 的 userId
   if (auth.userId) {
     switchUser(auth.userId)
   }

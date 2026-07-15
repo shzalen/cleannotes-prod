@@ -1,148 +1,176 @@
-/* ===== CleanNotes Mobile — Theme + Vant Override ===== */
+/* ==========================================================================
+   CleanNotes 移动端全局样式
+   - 复用 PC 端 src/style.css 的 CSS 变量（data-theme 三主题）
+   - 桥接 Vant 4 主题变量到项目 CSS 变量
+   - safe-area 处理（状态栏 / 底部 Home 指示条）
+   ========================================================================== */
+@import '../style.css';
 
-/* ── Base ── */
-*,
-*::before,
-*::after {
+/* ---- 基础重置 ---- */
+* {
+  -webkit-tap-highlight-color: transparent;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body {
+html,
+body {
+  margin: 0;
+  padding: 0;
   height: 100%;
-  overflow: hidden;
-  -webkit-overflow-scrolling: touch;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
-  font-size: 19px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
   height: 100%;
-  overflow: hidden;
 }
 
-/* ===== Tencent Blue (default) ===== */
-:root,
-[data-theme="tencent"] {
-  --color-primary: #0052D9;
-  --color-primary-light: #EDF1FF;
-  --color-text-1: #0F172A;
-  --color-text-2: #475569;
-  --color-text-3: #64748B;
-  --color-text-4: #9CA3AF;
-  --color-bg-0: #FFFFFF;
-  --color-bg-1: #F3F3F4;
-  --color-bg-2: #EEEEF0;
-  --color-surface: #FFFFFF;
-  --color-border: #DCDEE0;
-  --color-danger: #D54941;
-  --color-warning: #E37318;
-  --color-success: #00a870;
-
-  /* Vant vars */
-  --van-primary-color: #0052D9;
-  --van-text-color: #0F172A;
-  --van-text-color-2: #475569;
-  --van-text-color-3: #9CA3AF;
-  --van-background: #F3F3F4;
-  --van-background-2: #FFFFFF;
-  --van-border-color: #DCDEE0;
-  --van-cell-background: #FFFFFF;
-  --van-tabbar-background: rgba(255,255,255,0.92);
-  --van-tabbar-item-text-color: #9CA3AF;
-  --van-tabbar-item-active-color: #0052D9;
-  --van-nav-bar-background: #0052D9;
-  --van-nav-bar-title-text-color: #FFFFFF;
-  --van-nav-bar-icon-color: #FFFFFF;
-  --van-nav-bar-text-color: #FFFFFF;
-  --van-popup-background: #FFFFFF;
-  --van-danger-color: #D54941;
-  --van-success-color: #00a870;
-  --van-warning-color: #E37318;
+/* ---- safe-area 变量 ---- */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tabbar-height: 52px;
+  --header-height: 48px;
 }
 
-/* ===== ZURU ===== */
-[data-theme="zuru"] {
-  --color-primary: #CB312D;
-  --color-primary-light: #F9EBEB;
-  --color-text-1: #1A1A1A;
-  --color-text-2: #666666;
-  --color-text-3: #999999;
-  --color-text-4: #BFBFBF;
-  --color-bg-0: #FFFFFF;
-  --color-bg-1: #F1F3F6;
-  --color-bg-2: #F5F6F8;
-  --color-surface: #FFFFFF;
-  --color-border: #DFE2E6;
-  --color-danger: #CB312D;
-  --color-warning: #CB312D;
-  --color-success: #CB312D;
+/* ==========================================================================
+   Vant 主题桥接 — 让 Vant 组件跟随项目三主题
+   ========================================================================== */
+:root {
+  --van-primary-color: var(--color-primary);
+  --van-success-color: var(--color-success);
+  --van-danger-color: var(--color-danger);
+  --van-warning-color: var(--color-warning);
 
-  --van-primary-color: #CB312D;
-  --van-text-color: #1A1A1A;
-  --van-text-color-2: #666666;
-  --van-text-color-3: #BFBFBF;
-  --van-background: #F1F3F6;
-  --van-background-2: #FFFFFF;
-  --van-border-color: #DFE2E6;
-  --van-cell-background: #FFFFFF;
-  --van-tabbar-background: rgba(255,255,255,0.92);
-  --van-tabbar-item-text-color: #BFBFBF;
-  --van-tabbar-item-active-color: #CB312D;
-  --van-nav-bar-background: #CB312D;
-  --van-nav-bar-title-text-color: #FFFFFF;
-  --van-nav-bar-icon-color: #FFFFFF;
-  --van-nav-bar-text-color: #FFFFFF;
-  --van-popup-background: #FFFFFF;
-  --van-danger-color: #CB312D;
-  --van-success-color: #CB312D;
-  --van-warning-color: #CB312D;
+  --van-background: var(--color-bg-1);
+  --van-background-2: var(--color-surface);
+  --van-background-3: var(--color-surface);
+
+  --van-text-color: var(--color-text-1);
+  --van-text-color-2: var(--color-text-2);
+  --van-text-color-3: var(--color-text-3);
+
+  --van-border-color: var(--color-border);
+  --van-active-color: var(--color-bg-3);
+  --van-cell-background: var(--color-surface);
+  --van-cell-text-color: var(--color-text-1);
+  --van-cell-value-color: var(--color-text-2);
+  --van-cell-border-color: var(--color-border-light);
+
+  --van-popup-background: var(--color-surface);
+  --van-overlay-background: rgba(0, 0, 0, 0.5);
+
+  --van-field-input-text-color: var(--color-text-1);
+  --van-field-placeholder-text-color: var(--color-text-3);
+  --van-field-label-color: var(--color-text-2);
+
+  --van-button-primary-background: var(--color-primary);
+  --van-button-primary-border-color: var(--color-primary);
+  --van-button-default-background: var(--color-surface);
+  --van-button-default-color: var(--color-text-1);
+  --van-button-default-border-color: var(--color-border);
+
+  --van-dialog-background: var(--color-surface);
+  --van-dialog-header-font-weight: 600;
+
+  --van-nav-bar-background: var(--color-surface);
+  --van-nav-bar-title-text-color: var(--color-text-1);
+  --van-nav-bar-icon-color: var(--color-primary);
+  --van-nav-bar-text-color: var(--color-primary);
 }
 
-/* ===== Dark ===== */
-[data-theme="dark"] {
-  --color-primary: #6b81f8;
-  --color-primary-light: #1c1f3d;
-  --color-text-1: #f1f5f9;
-  --color-text-2: #cbd5e1;
-  --color-text-3: #94a3b8;
-  --color-text-4: #64748b;
-  --color-bg-0: #000000;
-  --color-bg-1: #0f1115;
-  --color-bg-2: #1a1b20;
-  --color-surface: #1a1b20;
-  --color-border: #2e3038;
-  --color-danger: #f87171;
-  --color-warning: #fbbf24;
-  --color-success: #4d8fff;
+/* ==========================================================================
+   通用移动端布局类
+   ========================================================================== */
 
-  --van-primary-color: #6b81f8;
-  --van-text-color: #f1f5f9;
-  --van-text-color-2: #cbd5e1;
-  --van-text-color-3: #64748b;
-  --van-background: #0f1115;
-  --van-background-2: #1a1b20;
-  --van-border-color: #2e3038;
-  --van-cell-background: #1a1b20;
-  --van-tabbar-background: rgba(15,17,21,0.92);
-  --van-tabbar-item-text-color: #64748b;
-  --van-tabbar-item-active-color: #6b81f8;
-  --van-nav-bar-background: #1a1b20;
-  --van-nav-bar-title-text-color: #f1f5f9;
-  --van-nav-bar-icon-color: #f1f5f9;
-  --van-nav-bar-text-color: #f1f5f9;
-  --van-popup-background: #1a1b20;
-  --van-danger-color: #f87171;
-  --van-success-color: #4d8fff;
-  --van-warning-color: #fbbf24;
+/* 页面容器：占满视口，纵向排布 */
+.m-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-1);
 }
 
-/* ===== Utility ===== */
-.safe-top { padding-top: max(env(safe-area-inset-top, 0px), 24px); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* 固定顶栏 — 含 safe-area-top，状态栏背景与标题栏一致 */
+.m-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-top: var(--safe-top);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.m-header__bar {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 16px;
+}
+
+.m-header__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+/* 内容滚动区 */
+.m-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 底部弹窗内容内边距（含底部 safe-area） */
+.m-sheet {
+  padding-bottom: calc(16px + var(--safe-bottom));
+}
+
+.m-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.m-sheet__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.m-sheet__body {
+  padding: 12px 16px 0;
+}
+
+/* 圆角卡片 */
+.m-card {
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+/* ==========================================================================
+   Pull-to-refresh 橡皮筋效果覆盖
+   ========================================================================== */
+.van-pull-refresh {
+  overflow: visible !important;
+}
+
+.van-pull-refresh__track {
+  min-height: 100%;
+}

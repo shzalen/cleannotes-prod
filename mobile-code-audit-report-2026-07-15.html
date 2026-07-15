@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CleanNotes 移动端功能与问题分析报告 v1.3.0</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --surface:#ffffff; --line:#e5e7eb; --line2:#f0f1f3;
+    --t1:#1a1d24; --t2:#4b5563; --t3:#8b93a1; --t4:#aeb4bf;
+    --primary:#4f6cf7; --primary-bg:#eef2ff;
+    --p0:#dc2626; --p0bg:#fef2f2; --p1:#d97706; --p1bg:#fffbeb;
+    --p2:#2563eb; --p2bg:#eff6ff; --ok:#16a34a; --okbg:#f0fdf4;
+    --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--t1);line-height:1.6;
+    padding:32px 20px;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  header.hero{
+    background:linear-gradient(135deg,#4f6cf7,#6d5ef7);color:#fff;
+    border-radius:16px;padding:32px 36px;margin-bottom:24px;
+    box-shadow:0 8px 24px rgba(79,108,247,.25);
+  }
+  header.hero h1{font-size:24px;font-weight:600;margin-bottom:8px}
+  header.hero .meta{font-size:13px;opacity:.9;display:flex;gap:20px;flex-wrap:wrap;margin-top:12px}
+  header.hero .meta span{display:inline-flex;align-items:center;gap:6px}
+  .summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .sum-card{background:var(--surface);border-radius:14px;padding:18px 16px;text-align:center;box-shadow:var(--shadow)}
+  .sum-card .num{font-size:28px;font-weight:700;line-height:1}
+  .sum-card .lbl{font-size:12px;color:var(--t3);margin-top:6px}
+  .sum-card.c-ok .num{color:var(--ok)} .sum-card.c-p0 .num{color:var(--p0)}
+  .sum-card.c-p1 .num{color:var(--p1)} .sum-card.c-p2 .num{color:var(--p2)}
+  section{background:var(--surface);border-radius:16px;padding:24px 28px;margin-bottom:20px;box-shadow:var(--shadow)}
+  h2{font-size:18px;font-weight:600;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--line2);display:flex;align-items:center;gap:8px}
+  h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+  h3{font-size:15px;font-weight:600;margin:18px 0 10px;color:var(--t1)}
+  p{color:var(--t2);font-size:14px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:top}
+  th{background:#fafbfc;color:var(--t3);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+  td.mono{font-family:"SF Mono",Consolas,monospace;font-size:12px;color:var(--t2)}
+  .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+  .b-ok{background:var(--okbg);color:var(--ok)}
+  .b-part{background:var(--p1bg);color:var(--p1)}
+  .b-todo{background:#f1f3f5;color:var(--t3)}
+  .b-p0{background:var(--p0bg);color:var(--p0)}
+  .b-p1{background:var(--p1bg);color:var(--p1)}
+  .b-p2{background:var(--p2bg);color:var(--p2)}
+  .arch{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px}
+  .arch-item{border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .arch-item .k{font-size:12px;color:var(--t3);margin-bottom:4px}
+  .arch-item .v{font-size:13px;color:var(--t1);font-weight:500}
+  .arch-item .v code{font-family:"SF Mono",Consolas,monospace;font-size:12px;background:var(--line2);padding:1px 6px;border-radius:5px}
+  ul.clean{list-style:none;margin:8px 0}
+  ul.clean li{padding:6px 0 6px 22px;position:relative;font-size:14px;color:var(--t2)}
+  ul.clean li::before{content:"";position:absolute;left:4px;top:13px;width:6px;height:6px;border-radius:50%;background:var(--primary)}
+  .bug-card{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:16px 18px;margin-bottom:14px}
+  .bug-card.p0{border-left-color:var(--p0)}
+  .bug-card.p1{border-left-color:var(--p1)}
+  .bug-card.p2{border-left-color:var(--p2)}
+  .bug-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .bug-head .id{font-family:"SF Mono",Consolas,monospace;font-size:12px;font-weight:700;color:var(--t1)}
+  .bug-head .title{font-size:14px;font-weight:600}
+  .bug-card p{font-size:13px;margin-bottom:6px}
+  .bug-card .loc{font-family:"SF Mono",Consolas,monospace;font-size:11.5px;color:var(--t3);background:#fafbfc;padding:4px 8px;border-radius:6px;display:inline-block;margin-top:4px}
+  .fix{font-size:13px;color:var(--ok);background:var(--okbg);border-radius:6px;padding:8px 12px;margin-top:8px}
+  .fix strong{color:var(--ok)}
+  .note{background:var(--p2bg);border-radius:10px;padding:14px 18px;font-size:13px;color:var(--t2)}
+  .note strong{color:var(--p2)}
+  footer{text-align:center;color:var(--t4);font-size:12px;padding:20px 0}
+  @media(max-width:640px){.summary-row{grid-template-columns:repeat(2,1fr)}body{padding:16px 12px}section{padding:18px 16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>CleanNotes 移动端功能与问题分析报告</h1>
+    <p style="color:#fff;opacity:.92;margin:0">基于本地最新代码（HEAD <code style="background:rgba(255,255,255,.2);padding:1px 6px;border-radius:4px">a679e30</code>）的静态代码审查</p>
+    <div class="meta">
+      <span>📦 版本 v1.3.0</span>
+      <span>📅 2026-07-15</span>
+      <span>📂 src/mobile/ 独立入口</span>
+      <span>🔍 审查方式：源码静态分析</span>
+    </div>
+  </header>
+
+  <div class="summary-row">
+    <div class="sum-card c-ok"><div class="num">5</div><div class="lbl">已实现功能模块</div></div>
+    <div class="sum-card c-p0"><div class="num">1</div><div class="lbl">P0 严重问题</div></div>
+    <div class="sum-card c-p1"><div class="num">6</div><div class="lbl">P1 功能缺陷</div></div>
+    <div class="sum-card c-p2"><div class="num">7</div><div class="lbl">P2 体验/代码问题</div></div>
+  </div>
+
+  <section>
+    <h2><span class="dot"></span>一、架构概览</h2>
+    <p>移动端采用<strong>独立多入口</strong>设计，与 PC 端在构建层面完全分离，但共享底层数据层（Pinia Store / Service / Supabase）。</p>
+    <div class="arch">
+      <div class="arch-item"><div class="k">入口文件</div><div class="v"><code>mobile.html</code> → <code>src/mobile.ts</code> → <code>MobileApp.vue</code></div></div>
+      <div class="arch-item"><div class="k">路由模式</div><div class="v">Hash 模式（<code>createWebHashHistory</code>）</div></div>
+      <div class="arch-item"><div class="k">设备重定向</div><div class="v">非移动设备访问 mobile.html → 跳回 index.html</div></div>
+      <div class="arch-item"><div class="k">共享数据层</div><div class="v">6 个 Store 并行 <code>load()</code>，与 PC 完全共享</div></div>
+      <div class="arch-item"><div class="k">跨标签同步</div><div class="v">BroadcastChannel（tasks/memos/todos/growth/reports/logout）</div></div>
+      <div class="arch-item"><div class="k">PWA</div><div class="v">手动 <code>manifest.json</code> + <code>sw-mobile.js</code></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="dot"></span>二、已实现功能清单</h2>
+    <table>
+      <thead><tr><th style="width:130px">模块</th><th style="width:90px">状态</th><th>能力说明</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>登录鉴权</strong><br><span class="mono">MobileLogin.vue</span></td>
+          <td><span class="badge b-ok">已实现</span></td>
+          <td>邮箱+密码登录，路由守卫会话恢复（<code>auth.init()</code>），未登录自动跳转登录页。<strong>不含</strong>注册/找回密码/第三方登录。</td>
+        </tr>
+        <tr>
+          <td><strong>首页·今日任务</strong><br><span class="mono">MobileHome.vue</span></td>
+          <td><span class="badge b-ok">已实现</span></td>
+          <td>今日任务筛选（对齐 PC TodayProgress 逻辑）、待完成/已完成分区、状态切换、延期标记、优先级标签、完成计数、30 秒定时刷新、空状态引导。</td>
+        </tr>
+        <tr>
+          <td><strong>任务管理子应用</strong><br><span class="mono">MobileTaskApp.vue</span></td>
+          <td><span class="badge b-part">部分实现</span></td>
+          <td>任务/待办双 Tab、4 类筛选（全部/今日/延期/已完成）、按日期分组、状态切换、FAB 快速添加（标题+日期）、重新激活确认。</td>
+        </tr>
+        <tr>
+          <td><strong>应用中心</strong><br><span class="mono">MobileApps.vue</span></td>
+          <td><span class="badge b-part">部分实现</span></td>
+          <td>3 分组 12 个应用入口宫格。<strong>仅"任务"可用</strong>，其余 11 个跳转占位页。</td>
+        </tr>
+        <tr>
+          <td><strong>我的·个人中心</strong><br><span class="mono">MobileProfile.vue</span></td>
+          <td><span class="badge b-part">部分实现</span></td>
+          <td>用户资料卡、统计（完成率/笔记数/连续天数）、主题切换（3 档循环）、退出登录（带确认对话框）。多数菜单项为占位。</td>
+        </tr>
+        <tr>
+          <td>笔记 / AI / 周报 / 成长 / 日历 / 文件 / 设置 等</td>
+          <td><span class="badge b-todo">未实现</span></td>
+          <td>统一跳转 <span class="mono">MobilePlaceholderApp.vue</span>「功能开发中」占位页。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="dot"></span>三、问题与 Bug 清单</h2>
+    <p>共发现 <strong>14 项</strong>问题：P0 严重 1 项、P1 功能缺陷 6 项、P2 体验/代码 7 项。</p>
+
+    <h3 style="color:var(--p0)">🔴 P0 — 严重问题</h3>
+
+    <div class="bug-card p0">
+      <div class="bug-head"><span class="badge b-p0">P0</span><span class="id">M-01</span><span class="title">首页点击任务无法查看/编辑详情</span></div>
+      <p>首页点击任务卡片跳转到 <code>app-tasks</code> 并带 <code>?id=xxx</code>，但 MobileTaskApp 的 <code>onMounted</code> 拿到 id 后<strong>直接 <code>router.replace</code> 清空了 query，没有打开任何详情</strong>（源码注释也写明 "for now just clear the query"）。移动端<strong>完全没有任务详情/编辑页面</strong>，用户无法查看描述、修改时间、优先级、删除任务。</p>
+      <p class="loc">MobileTaskApp.vue:110-117 · MobileHome.vue:102-104</p>
+      <div class="fix"><strong>建议：</strong>实现任务详情底部弹层（Sheet）或详情页，支持编辑标题/日期/时间/优先级/删除。这是移动端任务管理的核心缺失。</div>
+    </div>
+
+    <h3 style="color:var(--p1)">🟠 P1 — 功能缺陷</h3>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-02</span><span class="title">重复的 auth.init() 调用</span></div>
+      <p>会话初始化在三处重复执行：路由守卫 <code>beforeEach</code>、<code>MobileApp.vue onMounted</code>、以及 App 挂载。虽然 auth store 有 <code>initialized</code> 幂等标志不会重复请求，但逻辑分散，且 MobileApp 的 onMounted 与路由守卫存在竞态可能。</p>
+      <p class="loc">mobile/router/index.ts:50 · MobileApp.vue:36</p>
+      <div class="fix"><strong>建议：</strong>统一由路由守卫负责会话恢复，MobileApp onMounted 仅做数据 load。</div>
+    </div>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-03</span><span class="title">退出登录逻辑重复实现两份</span></div>
+      <p><code>MobileApp.vue handleLogout()</code> 与 <code>MobileProfile.vue handleLogout()</code> 是<strong>几乎完全相同的 15 行清理逻辑</strong>（flush/cleanup/broadcast/reload）。MobileApp 通过 <code>defineExpose</code> 暴露但实际调用的是 Profile 内部的副本，前者形同死代码。</p>
+      <p class="loc">MobileApp.vue:69-84 · MobileProfile.vue:74-90</p>
+      <div class="fix"><strong>建议：</strong>抽取为 <code>composables/useLogout.ts</code> 或 service 函数，两端复用，删除重复。</div>
+    </div>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-04</span><span class="title">任务搜索按钮为装饰，无实际功能</span></div>
+      <p>MobileTaskApp 导航栏的搜索图标<strong>没有绑定任何点击事件</strong>；MobileApps 顶部搜索框标记为 <code>readonly</code>，纯装饰。用户点击无反应，产生功能预期落差。</p>
+      <p class="loc">MobileTaskApp.vue:130-135 · MobileApps.vue:62</p>
+      <div class="fix"><strong>建议：</strong>短期移除或置灰这两个入口；长期实现搜索。</div>
+    </div>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-05</span><span class="title">待办 Tab 缺少"延期/已完成"筛选逻辑</span></div>
+      <p>待办列表 <code>filteredTodos</code> 只处理了 <code>today</code> 筛选，当用户切到"延期"或"已完成"chip 时，待办列表<strong>不做任何过滤</strong>（TodoItem 无 completed 概念，但 UI 仍显示这些 chip，行为不一致）。</p>
+      <p class="loc">MobileTaskApp.vue:72-78</p>
+      <div class="fix"><strong>建议：</strong>待办 Tab 下隐藏"延期/已完成"chip，或明确禁用。</div>
+    </div>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-06</span><span class="title">快速添加任务无成功反馈</span></div>
+      <p>FAB 快速添加任务后仅关闭弹层，<strong>无 Toast 提示、无滚动定位到新任务</strong>。若添加的任务不在当前筛选条件下（如非今日），列表无变化，用户会误以为添加失败。</p>
+      <p class="loc">MobileTaskApp.vue:100-108</p>
+      <div class="fix"><strong>建议：</strong>添加成功后 Toast 提示，并在需要时切换筛选到能看见新任务的视图。</div>
+    </div>
+
+    <div class="bug-card p1">
+      <div class="bug-head"><span class="badge b-p1">P1</span><span class="id">M-07</span><span class="title">主题切换仅支持 3 档，与 PC 端 5 档不一致</span></div>
+      <p>Profile 的 <code>cycleTheme</code> 仅在 <code>light/dark/auto</code> 间循环，而 <code>ThemeMode</code> 类型定义了 5 档（含 <code>zuru</code>、<code>tencent</code>）。移动端用户<strong>无法使用 ZURU / 腾讯蓝品牌主题</strong>。此外主题 key 手动写死 <code>'cleannotes_theme'</code>，与 useTheme 内部持久化可能重复/不一致。</p>
+      <p class="loc">MobileProfile.vue:62-68 · useTheme.ts:3</p>
+      <div class="fix"><strong>建议：</strong>改为主题选择弹层，或至少纳入全部可用主题；持久化交给 useTheme 统一管理。</div>
+    </div>
+
+    <h3 style="color:var(--p2)">🔵 P2 — 体验与代码质量</h3>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-08</span><span class="title">未使用的 import：switchUser</span></div>
+      <p>MobileProfile.vue 第 10 行 <code>import { switchUser }</code> 但从未调用，属死代码，触发 lint 告警。</p>
+      <p class="loc">MobileProfile.vue:10</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-09</span><span class="title">import { ref } 位置不规范</span></div>
+      <p>MobileProfile.vue 把 <code>import { ref } from 'vue'</code> 放在文件第 17 行（其它 import 之后），应与顶部 vue import 合并。</p>
+      <p class="loc">MobileProfile.vue:17</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-10</span><span class="title">"数据同步"状态硬编码为"已同步"</span></div>
+      <p>Profile 菜单的数据同步状态是写死的绿色"已同步"文本，<strong>不反映真实同步状态</strong>（无 pending/失败/离线态）。误导用户。</p>
+      <p class="loc">MobileProfile.vue:170</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-11</span><span class="title">应用中心"长按拖拽排序"提示但未实现</span></div>
+      <p>MobileApps 底部提示"长按图标可拖拽排序"，但代码<strong>没有任何拖拽排序实现</strong>，属虚假提示。</p>
+      <p class="loc">MobileApps.vue:134-136</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-12</span><span class="title">硬编码 hex 颜色，违反项目 CSS 变量公约</span></div>
+      <p>多处 .vue style 直接写死 hex（如 <code>#FF3B30</code> <code>#FF9500</code> <code>#34C759</code> <code>#C7C7CC</code>），项目约定禁止在 .vue style 出现 hex、应用 CSS 变量。这些颜色在暗黑模式下不会自适应。</p>
+      <p class="loc">MobileHome.vue:92-96 / :317-327 · MobileTaskApp.vue:407 等</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-13</span><span class="title">页面切换过渡动画可能残留（transition mode）</span></div>
+      <p>MobileLayout 用 <code>&lt;transition name="page" mode="out-in"&gt;</code>，但对应的 <code>.page-*</code> 过渡样式需确认已在 style.css 定义，否则动画无效或产生闪烁。</p>
+      <p class="loc">MobileLayout.vue:9</p>
+    </div>
+
+    <div class="bug-card p2">
+      <div class="bug-head"><span class="badge b-p2">P2</span><span class="id">M-14</span><span class="title">构建产物与源码不一致（残留旧文件）</span></div>
+      <p>prod 目录存在源码中<strong>不存在</strong>的构建产物（如 <code>MobileCalendar</code>、<code>TaskDetailSheet</code>），系历史构建残留（robocopy 非 /MIR 不清理）。可能造成部署内容与当前代码认知偏差。</p>
+      <p class="loc">D:\CleanNotepad-Prod\v1.3.0\assets\ (旧 hash)</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="dot"></span>四、结论与优先级建议</h2>
+    <ul class="clean">
+      <li><strong>核心闭环缺失（最高优先）</strong>：M-01 任务详情/编辑功能缺失，导致移动端只能"看"和"勾选"，无法真正管理任务。建议优先补齐详情弹层。</li>
+      <li><strong>功能诚实性</strong>：M-04/M-10/M-11 存在多处"看起来能用但实际是装饰"的 UI（搜索、同步状态、拖拽排序），应移除或补实现，避免误导。</li>
+      <li><strong>代码整洁</strong>：M-02/M-03/M-08/M-09 属重复代码与死代码，建议一次性抽取复用并清理。</li>
+      <li><strong>设计系统一致性</strong>：M-07/M-12 主题档位与颜色硬编码，需对齐 PC 端 CSS 变量体系与主题能力，尤其保证暗黑模式适配。</li>
+      <li><strong>整体评价</strong>：移动端骨架（入口分离、路由、鉴权、数据共享、PWA）已搭建完整且清晰，登录与今日任务浏览可用；但业务功能仍处早期，12 个应用入口中仅任务部分可用，距完整可用尚有明显差距。</li>
+    </ul>
+    <div class="note" style="margin-top:16px">
+      <strong>说明：</strong>本报告为静态代码审查结果，未在真机运行验证。M-01、M-06、M-13 等交互问题建议真机复测确认表现。
+    </div>
+  </section>
+
+  <footer>CleanNotes v1.3.0 · 移动端代码审查报告 · 生成于 2026-07-15 · 基于 HEAD a679e30</footer>
+
+</div>
+</body>
+</html>

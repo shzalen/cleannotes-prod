@@ -1,237 +1,558 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
+import { filterTasksByDate, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
-import { Swipe as VanSwipe, SwipeItem as VanSwipeItem, PullRefresh as VanPullRefresh, CellGroup as VanCellGroup, Cell as VanCell, Tag as VanTag, Empty as VanEmpty, Button as VanButton } from 'vant'
-import TaskDetailSheet from '@/mobile/components/TaskDetailSheet.vue'
-import TaskCreateSheet from '@/mobile/components/TaskCreateSheet.vue'
-
-const store = useTaskStore()
-
-const now = new Date()
-const todayStr = toLocalDate(now)
-const selectedDate = ref(todayStr)
-
-function getMonday(date: Date): Date {
-  const d = new Date(date); d.setHours(0,0,0,0)
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  return d
-}
-
-const weekBase = ref(getMonday(new Date()))
-
-const weekDays = computed(() => {
-  const days: { dateStr: string; dayName: string; dayNum: number; isToday: boolean; hasTasks: boolean }[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekBase.value); d.setDate(d.getDate() + i)
-    const ds = toLocalDate(d)
-    days.push({
-      dateStr: ds,
-      dayName: ['一','二','三','四','五','六','日'][i],
-      dayNum: d.getDate(),
-      isToday: ds === todayStr,
-      hasTasks: store.tasks.some(t => (t.startDate || t.createdAt.slice(0,10)) === ds),
-    })
-  }
-  return days
-})
-
-const weekLabel = computed(() => {
-  const s = weekBase.value
-  const e = new Date(s); e.setDate(e.getDate() + 6)
-  return `${s.getFullYear()}年${s.getMonth()+1}月${s.getDate()}日 - ${e.getMonth()+1}月${e.getDate()}日`
-})
-
-function onSwipeChange(index: number) {
-  const d = new Date(weekBase.value)
-  d.setDate(d.getDate() + (index - 1) * 7)
-  weekBase.value = d
-}
-
-function prevWeek() { weekBase.value = new Date(weekBase.value.setDate(weekBase.value.getDate() - 7)) }
-function nextWeek() { weekBase.value = new Date(weekBase.value.setDate(weekBase.value.getDate() + 7)) }
-
-// ── 任务 ──
-const dayTasks = computed(() =>
-  store.tasks.filter(t => {
-    const sd = t.startDate || t.createdAt.slice(0,10)
-    if (sd === selectedDate.value) return true
-    if (t.completedAt && t.completedAt.startsWith(selectedDate.value)) return true
-    return false
-  }).sort((a, b) => {
-    if (a.status === 'done' && b.status !== 'done') return 1
-    if (a.status !== 'done' && b.status === 'done') return -1
-    return (a.startTime || '00:00').localeCompare(b.startTime || '00:00')
-  })
-)
-
-function selectDate(ds: string) { selectedDate.value = ds }
-
-function timeLabel(task: Task) {
-  if (task.status === 'done') return task.completedAt?.slice(11, 16) || ''
-  return task.startTime || '--:--'
-}
-
-const statusLabel: Record<string, string> = { todo: '待办', in_progress: '进行中', done: '已完成' }
+import { showToast } from 'vant'
 
 // ── 下拉刷新 ──
 const refreshing = ref(false)
+
 async function onRefresh() {
-  try { await store.load(true) } finally { refreshing.value = false }
+  await taskStore.load(true)
+  refreshing.value = false
+}
+import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
+import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
+import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
+
+defineOptions({ name: 'MobileCalendar' })
+
+const taskStore = useTaskStore()
+
+const todayStr = computed(() => toLocalDate())
+
+// ── 周历状态 ──
+const selectedDate = ref(toLocalDate())
+const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+
+interface DayCell {
+  date: string
+  day: number
+  weekday: string
+  isToday: boolean
+  isSelected: boolean
+  hasTasks: boolean
 }
 
-// ── 弹窗 ──
-const detailSheet = ref<InstanceType<typeof TaskDetailSheet> | null>(null)
-const createSheet = ref<InstanceType<typeof TaskCreateSheet> | null>(null)
+const weekDays = computed<DayCell[]>(() => {
+  const today = todayStr.value
+  const sel = selectedDate.value
+  const ref = new Date(sel)
+  const dayOfWeek = ref.getDay()
+  const sunday = new Date(ref)
+  sunday.setDate(ref.getDate() - dayOfWeek)
 
-function showDetail(task: Task) { detailSheet.value?.open(task) }
-function openCreate() { createSheet.value?.open(selectedDate.value) }
+  const cells: DayCell[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sunday)
+    d.setDate(sunday.getDate() + i)
+    const dateStr = toLocalDate(d)
+    const hasTasks = taskStore.tasks.some((t) => {
+      if (t.startDate === dateStr) return true
+      if (!t.startDate && t.createdAt.startsWith(dateStr)) return true
+      return false
+    })
+    cells.push({
+      date: dateStr,
+      day: d.getDate(),
+      weekday: weekdays[i],
+      isToday: dateStr === today,
+      isSelected: dateStr === sel,
+      hasTasks,
+    })
+  }
+  return cells
+})
+
+const monthLabel = computed(() => {
+  const d = new Date(selectedDate.value)
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`
+})
+
+const selectedTasks = computed(() => {
+  const filtered = filterTasksByDate(taskStore.tasks, selectedDate.value)
+  return sortTasks(filtered)
+})
+
+const selectedDateLabel = computed(() => {
+  const d = new Date(selectedDate.value)
+  const w = weekdays[d.getDay()]
+  return `${d.getMonth() + 1}月${d.getDate()}日 周${w}`
+})
+
+// ── 周切换 ──
+let touchStartX = 0
+let touchStartY = 0
+
+function onTouchStart(e: TouchEvent) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+}
+
+function onTouchEnd(e: TouchEvent) {
+  const dx = e.changedTouches[0].clientX - touchStartX
+  const dy = e.changedTouches[0].clientY - touchStartY
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (dx > 0) {
+      goToPrevWeek()
+    } else {
+      goToNextWeek()
+    }
+  }
+}
+
+function goToPrevWeek() {
+  const d = new Date(selectedDate.value)
+  d.setDate(d.getDate() - 7)
+  selectedDate.value = toLocalDate(d)
+}
+
+function goToNextWeek() {
+  const d = new Date(selectedDate.value)
+  d.setDate(d.getDate() + 7)
+  selectedDate.value = toLocalDate(d)
+}
+
+function selectDay(date: string) {
+  selectedDate.value = date
+}
+
+function goToday() {
+  selectedDate.value = toLocalDate()
+}
+
+const priorityMeta: Record<string, { label: string; color: string }> = {
+  high: { label: '高', color: 'var(--color-danger)' },
+  medium: { label: '中', color: 'var(--color-warning)' },
+  low: { label: '低', color: 'var(--color-success)' },
+}
+
+// ── 弹窗引用 ──
+const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
+const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
+const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
+
+// ── 长按逻辑 ──
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressTriggered = false
+const LONG_PRESS_DURATION = 1000
+
+function onTaskTouchStart(task: Task) {
+  longPressTriggered = false
+  longPressTimer = setTimeout(() => {
+    longPressTriggered = true
+    if (navigator.vibrate) {
+      navigator.vibrate(15)
+    }
+    progressPopup.value?.open(task)
+  }, LONG_PRESS_DURATION)
+}
+
+function onTaskTouchEnd(task: Task) {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  if (!longPressTriggered) {
+    detailPopup.value?.open(task)
+  }
+}
+
+function onTaskTouchMove() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+onUnmounted(() => {
+  if (longPressTimer) clearTimeout(longPressTimer)
+})
+
+// ── 打开完整创建弹窗 ──
+function openAdd() {
+  editPopup.value?.openNew(selectedDate.value)
+}
 </script>
 
 <template>
   <div class="cal-page">
-    <!-- Header -->
-    <div class="cal-header safe-top">
-      <div class="cal-header-row">
-        <div class="cal-header-spacer" />
-        <h1 class="cal-title">日历</h1>
-        <VanButton type="primary" size="small" plain @click="openCreate">新增</VanButton>
+    <!-- 固定顶栏 -->
+    <header class="m-header cal-header">
+      <div class="m-header__safe-area" />
+      <div class="m-header__bar">
+        <button class="cal-header__today-btn" @click="goToday">今天</button>
+        <span class="m-header__title">{{ monthLabel }}</span>
+        <button class="cal-header__add-btn" @click="openAdd">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span>新增</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 周历 -->
+    <div
+      class="cal-week"
+      @touchstart="onTouchStart"
+      @touchend="onTouchEnd"
+    >
+      <div
+        v-for="cell in weekDays"
+        :key="cell.date"
+        class="cal-week__day"
+        :class="{
+          'is-today': cell.isToday,
+          'is-selected': cell.isSelected,
+          'has-tasks': cell.hasTasks,
+        }"
+        @click="selectDay(cell.date)"
+      >
+        <span class="cal-week__weekday">{{ cell.weekday }}</span>
+        <span class="cal-week__date">{{ cell.day }}</span>
+        <span v-if="cell.hasTasks" class="cal-week__dot" />
       </div>
     </div>
 
-    <!-- 日历条 van-swipe -->
-    <VanSwipe :show-indicators="false" :loop="false" initial-swipe="1" @change="onSwipeChange" class="week-swipe">
-      <VanSwipeItem v-for="offset in [-1, 0, 1]" :key="offset">
-        <div class="week-days">
-          <button
-            v-for="d in (offset === -1 ? weekDays : offset === 0 ? weekDays : weekDays)"
-            :key="d.dateStr + offset"
-            class="day-cell"
-            :class="{ today: d.isToday, selected: selectedDate === d.dateStr }"
-            @click="selectDate(d.dateStr)"
-          >
-            <span class="day-name">{{ d.dayName }}</span>
-            <span class="day-num">{{ d.dayNum }}</span>
-            <span v-if="d.hasTasks" class="day-dot" />
-          </button>
-        </div>
-      </VanSwipeItem>
-    </VanSwipe>
-
-    <div class="week-label-text">{{ weekLabel }}</div>
-
     <!-- 任务列表 -->
-    <VanPullRefresh v-model="refreshing" @refresh="onRefresh" class="cal-scroll">
-      <VanCellGroup v-if="dayTasks.length" inset class="task-group">
-        <VanCell
-          v-for="task in dayTasks"
-          :key="task.id"
-          class="task-cell"
-          :class="{ 'is-done': task.status === 'done' }"
-          clickable
-          @click="showDetail(task)"
-        >
-          <template #title>
-            <span class="task-time">{{ timeLabel(task) }}</span>
-          </template>
-          <template #value>
-            <span class="task-title" :class="task.status">{{ task.title }}</span>
-          </template>
-          <template #right-icon>
-            <VanTag v-if="task.status !== 'done'" :type="task.status === 'in_progress' ? 'warning' : 'default'" size="mini">
-              {{ statusLabel[task.status] }}
-            </VanTag>
-          </template>
-        </VanCell>
-      </VanCellGroup>
-      <VanEmpty v-else description="当天暂无任务" />
-    </VanPullRefresh>
+    <van-pull-refresh v-model="refreshing" @refresh="onRefresh" class="cal-pull-refresh">
+    <div class="cal-content">
+      <div class="cal-content__header">
+        <span class="cal-content__date">{{ selectedDateLabel }}</span>
+        <span class="cal-content__count">{{ selectedTasks.length }} 个任务</span>
+      </div>
 
-    <TaskDetailSheet ref="detailSheet" />
-    <TaskCreateSheet ref="createSheet" />
+      <template v-if="selectedTasks.length > 0">
+        <div class="task-list">
+          <div
+            v-for="task in selectedTasks"
+            :key="task.id"
+            class="task-item"
+            :class="{ 'is-done': task.status === 'done' }"
+            @touchstart.passive="onTaskTouchStart(task)"
+            @touchend.passive="onTaskTouchEnd(task)"
+            @touchmove.passive="onTaskTouchMove()"
+          >
+            <span class="task-item__check">
+              <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 13l4 4L19 7" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+              </svg>
+            </span>
+
+            <div class="task-item__body">
+              <p class="task-item__title">{{ task.title }}</p>
+              <div class="task-item__meta">
+                <span
+                  v-if="task.priority"
+                  class="task-item__priority"
+                  :style="{ '--p-color': priorityMeta[task.priority]?.color }"
+                >{{ priorityMeta[task.priority]?.label }}</span>
+                <span v-if="task.startTime" class="task-item__time">{{ task.startTime }}</span>
+                <span v-if="task.dueDate" class="task-item__due">{{ task.dueDate }}</span>
+              </div>
+            </div>
+
+            <span class="task-item__arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </span>
+          </div>
+        </div>
+      </template>
+
+      <div v-else class="cal-empty">
+        <p class="cal-empty__text">当日无任务</p>
+      </div>
+    </div>
+    </van-pull-refresh>
+
+    <!-- 任务详情弹窗 -->
+    <MobileTaskDetailPopup ref="detailPopup" />
+
+    <!-- 进度更新弹窗 -->
+    <MobileTaskProgressPopup ref="progressPopup" />
+
+    <!-- 完整任务创建弹窗 -->
+    <MobileTaskEditPopup ref="editPopup" />
   </div>
 </template>
 
 <style scoped>
 .cal-page {
-  flex: 1; display: flex; flex-direction: column;
-  overflow: hidden; background: var(--color-bg-0, #fff);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-1);
 }
 
-.cal-header {
-  background: var(--color-surface, #fff);
-  border-bottom: 0.5px solid var(--color-border, rgba(0,0,0,0.08));
+/* ── 顶栏 ── */
+.cal-header .m-header__bar {
+  justify-content: space-between;
+}
+
+.cal-header__today-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.cal-header__add-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.cal-header__add-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── 周历 ── */
+.cal-week {
   flex-shrink: 0;
+  display: flex;
+  padding: 8px 4px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  touch-action: pan-y;
 }
 
-.cal-header-row {
-  display: flex; align-items: center; padding: 12px 16px 8px;
+.cal-week__day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.12s ease;
+  border-radius: 8px;
 }
 
-.cal-header-spacer { width: 60px; }
-
-.cal-title {
-  flex: 1; text-align: center; font-size: 18px; font-weight: 600;
-  color: var(--color-text-1, #0F172A);
+.cal-week__day:active {
+  background: var(--color-bg-3);
 }
 
-/* ── Week Swipe ── */
-.week-swipe {
-  background: var(--color-surface, #fff);
-  flex-shrink: 0;
+.cal-week__weekday {
+  font-size: 11px;
+  color: var(--color-text-3);
+  margin-bottom: 4px;
 }
 
-.week-days {
-  display: flex; justify-content: space-around; padding: 8px 0;
+.cal-week__date {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
-.day-cell {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  border: none; background: none; cursor: pointer; position: relative;
-  border-radius: 12px; width: 42px; padding: 4px 0;
+.cal-week__day.is-today .cal-week__date {
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.cal-week__day.is-selected .cal-week__date {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.cal-week__day.is-today.is-selected .cal-week__date {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.cal-week__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  margin-top: 3px;
+  opacity: 0.6;
+}
+
+/* ── 内容区 ── */
+.cal-pull-refresh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 80px;
+}
+
+.cal-content__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+
+.cal-content__date {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.cal-content__count {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.cal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0;
+  color: var(--color-text-3);
+}
+
+.cal-empty__text {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ── 任务项 ── */
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
 }
 
-.day-cell:active { opacity: 0.6; }
-
-.day-name { font-size: 11px; color: var(--color-text-3); }
-
-.day-num {
-  font-size: 16px; font-weight: 500; color: var(--color-text-1);
-  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%;
+.task-item:active {
+  transform: scale(0.98);
 }
 
-.day-cell.today .day-num { background: var(--color-primary); color: #fff; font-weight: 700; }
-.day-cell.selected:not(.today) .day-num { border: 2px solid var(--color-primary); color: var(--color-primary); }
-.day-cell.today .day-name { color: var(--color-primary); font-weight: 600; }
-
-.day-dot {
-  width: 4px; height: 4px; border-radius: 50%; background: var(--color-primary); position: absolute; bottom: 0;
+.task-item.is-done {
+  opacity: 0.55;
 }
 
-.week-label-text {
-  text-align: center; font-size: 12px; color: var(--color-text-3);
-  padding: 6px 0; background: var(--color-surface, #fff); flex-shrink: 0;
+.task-item__check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--color-text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: border-color 0.2s ease;
 }
 
-.cal-scroll { flex: 1; overflow-y: auto; }
-
-.task-group { margin: 8px 16px; }
-
-.task-cell { align-items: center; }
-.task-cell.is-done { opacity: 0.6; }
-
-.task-time {
-  font-size: 13px; font-weight: 600; color: var(--color-text-2);
-  font-variant-numeric: tabular-nums; min-width: 36px; display: inline-block;
+.task-item.is-done .task-item__check {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
 }
 
-.task-title {
-  font-size: 15px; font-weight: 500; color: var(--color-text-1);
+.task-item__check svg {
+  width: 14px;
+  height: 14px;
 }
 
-.task-title.done { text-decoration: line-through; color: var(--color-text-3); }
+.task-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-item__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-item.is-done .task-item__title {
+  text-decoration: line-through;
+  color: var(--color-text-3);
+}
+
+.task-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.task-item__priority {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--p-color, var(--color-text-3));
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--p-color, var(--color-text-3)) 12%, transparent);
+}
+
+.task-item__time {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.task-item__due {
+  font-size: 11px;
+  color: var(--color-text-4);
+}
+
+.task-item__arrow {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  color: var(--color-text-4);
+  opacity: 0.4;
+}
+.task-item__arrow svg {
+  width: 14px;
+  height: 14px;
+}
 </style>

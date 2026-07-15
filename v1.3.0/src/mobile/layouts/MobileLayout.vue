@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import MobileTabBar from '@/mobile/components/MobileTabBar.vue'
+import MobileTabBar from '../components/MobileTabBar.vue'
 </script>
 
 <template>
-  <div class="mobile-layout">
-    <router-view />
+  <div class="m-layout">
+    <div class="m-layout__body">
+      <router-view v-slot="{ Component }">
+        <keep-alive :include="['MobileHome', 'MobileCalendar', 'MobileProfile']">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
+    </div>
     <MobileTabBar />
   </div>
 </template>
 
 <style scoped>
-.mobile-layout {
+.m-layout {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--van-background);
-  overflow: hidden;
+  background: var(--color-bg-1);
+}
+
+.m-layout__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

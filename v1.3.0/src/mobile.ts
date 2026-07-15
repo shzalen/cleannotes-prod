@@ -1,9 +1,13 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './mobile/router'
-import MobileApp from './MobileApp.vue'
+import MobileApp from './mobile/MobileApp.vue'
+
+// Vant 全量注册（移动端 bundle 大小可接受，换取开发便利）
+import Vant from 'vant'
 import 'vant/lib/index.css'
 import './mobile/style.css'
+
 import { isMobileDevice } from './utils/device'
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -16,17 +20,31 @@ window.addEventListener('error', (event) => {
   event.preventDefault()
 })
 
+// ── 初始化主题（默认腾讯蓝）──
+// useTheme 的持久化 key 与 PC 端共享（cleannotes_theme），此处仅做首屏兜底，
+// 避免 Vue 挂载前的白屏闪烁。真正的响应式切换由 useTheme() 在组件内接管。
+;(function initThemeEarly() {
+  const stored = localStorage.getItem('cleannotes_theme')
+  let theme = 'tencent'
+  if (stored === 'dark' || stored === 'zuru' || stored === 'tencent') {
+    theme = stored
+  } else if (stored === 'auto') {
+    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+  document.documentElement.setAttribute('data-theme', theme)
+})()
+
 // ── 桌面端反向重定向 ──
-// 桌面设备误访问 mobile.html → 跳回 PC 端 index.html
 if (!isMobileDevice()) {
   window.location.replace('./index.html')
 } else {
   const app = createApp(MobileApp)
   app.use(createPinia())
   app.use(router)
+  app.use(Vant)
   app.mount('#app')
 
-  // Register PWA Service Worker
+  // 注册 PWA Service Worker（添加到桌面）
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw-mobile.js').catch((err) => {
