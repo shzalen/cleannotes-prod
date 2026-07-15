@@ -10,6 +10,7 @@
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
 - Git：`https://github.com/shzalen/cleannotes.git`（prod: `cleannotes-prod`）
 - **报告公约**：所有生成的报告（HTML 测试报告、审查报告等）统一使用**深色模式**（深色背景 + 浅色文字）
+- **会话约定（2026-07-15）**：当前会话默认目标是 H5 移动端优化，若无特别说明，所有请求都针对 `src/mobile/` 下的 H5 页面和组件
 
 ## 移动端 PWA 架构（2026-07-14）
 - **多入口构建**：`vite.config.ts` 中 `rollupOptions.input` = `{ main: index.html, mobile: mobile.html }`

@@ -1,18 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { filterTasksByDate, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { showToast } from 'vant'
+import { useTouchInteraction } from '../composables/useTouchInteraction'
 
-// ── 下拉刷新 ──
-const refreshing = ref(false)
-
-async function onRefresh() {
-  await taskStore.load(true)
-  refreshing.value = false
-}
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
 import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
@@ -134,41 +128,18 @@ const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
 const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
-// ── 长按逻辑 ──
-let longPressTimer: ReturnType<typeof setTimeout> | null = null
-let longPressTriggered = false
-const LONG_PRESS_DURATION = 1000
+// ── 下拉刷新 ──
+const refreshing = ref(false)
 
-function onTaskTouchStart(task: Task) {
-  longPressTriggered = false
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true
-    if (navigator.vibrate) {
-      navigator.vibrate(15)
-    }
-    progressPopup.value?.open(task)
-  }, LONG_PRESS_DURATION)
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
 }
 
-function onTaskTouchEnd(task: Task) {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  if (!longPressTriggered) {
-    detailPopup.value?.open(task)
-  }
-}
-
-function onTaskTouchMove() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-}
-
-onUnmounted(() => {
-  if (longPressTimer) clearTimeout(longPressTimer)
+// ── 统一触控交互（位移阈值防误触） ──
+const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteraction<Task>({
+  onTap: (task) => detailPopup.value?.open(task),
+  onLongPress: (task) => progressPopup.value?.open(task),
 })
 
 // ── 打开完整创建弹窗 ──
@@ -232,9 +203,9 @@ function openAdd() {
             :key="task.id"
             class="task-item"
             :class="{ 'is-done': task.status === 'done' }"
-            @touchstart.passive="onTaskTouchStart(task)"
-            @touchend.passive="onTaskTouchEnd(task)"
-            @touchmove.passive="onTaskTouchMove()"
+            @touchstart.passive="handleTouchStart(task, $event)"
+            @touchend.passive="handleTouchEnd()"
+            @touchmove.passive="handleTouchMove($event)"
           >
             <span class="task-item__check">
               <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">

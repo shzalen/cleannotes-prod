@@ -1,19 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { showToast } from 'vant'
+import { useTouchInteraction } from '../composables/useTouchInteraction'
 
-// ── 下拉刷新 ──
-const refreshing = ref(false)
-
-async function onRefresh() {
-  await taskStore.load(true)
-  refreshing.value = false
-}
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
@@ -52,49 +46,23 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   low: { label: '低', color: 'var(--color-success)' },
 }
 
+// ── 下拉刷新 ──
+const refreshing = ref(false)
+
+async function onRefresh() {
+  await taskStore.load(true)
+  refreshing.value = false
+}
+
 // ── 弹窗引用 ──
 const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
 const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
-// ── 长按逻辑 ──
-let longPressTimer: ReturnType<typeof setTimeout> | null = null
-let longPressTriggered = false
-const LONG_PRESS_DURATION = 1000
-
-function onTouchStart(task: Task) {
-  longPressTriggered = false
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true
-    // 振动反馈（如果支持）
-    if (navigator.vibrate) {
-      navigator.vibrate(15)
-    }
-    progressPopup.value?.open(task)
-  }, LONG_PRESS_DURATION)
-}
-
-function onTouchEnd(task: Task) {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-  if (!longPressTriggered) {
-    // 短按 → 显示详情
-    detailPopup.value?.open(task)
-  }
-}
-
-function onTouchMove() {
-  // 移动超过一定距离则取消长按
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-}
-
-onUnmounted(() => {
-  if (longPressTimer) clearTimeout(longPressTimer)
+// ── 统一触控交互（位移阈值防误触） ──
+const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteraction<Task>({
+  onTap: (task) => detailPopup.value?.open(task),
+  onLongPress: (task) => progressPopup.value?.open(task),
 })
 
 // ── 任务创建 ──
@@ -148,9 +116,9 @@ function openTaskCreate() {
             :key="task.id"
             class="task-item"
             :class="{ 'is-done': task.status === 'done' }"
-            @touchstart.passive="onTouchStart(task)"
-            @touchend.passive="onTouchEnd(task)"
-            @touchmove.passive="onTouchMove()"
+            @touchstart.passive="handleTouchStart(task, $event)"
+            @touchend.passive="handleTouchEnd()"
+            @touchmove.passive="handleTouchMove($event)"
           >
             <span class="task-item__check">
               <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
