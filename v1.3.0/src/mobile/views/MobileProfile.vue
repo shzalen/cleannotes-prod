@@ -172,7 +172,11 @@ function openWeeklyApp() {
   subApp.value?.open('周报', MobileWeeklyApp)
 }
 
-const version = '1.3.0'
+declare const __APP_VERSION__: string
+declare const __BUILD_TIME__: string
+
+const appVersion = __APP_VERSION__
+const buildTime = __BUILD_TIME__
 </script>
 
 <template>
@@ -282,6 +286,11 @@ const version = '1.3.0'
           :loading="loggingOut"
           @click="handleLogout"
         >退出登录</van-button>
+      </div>
+
+      <!-- 版本信息 -->
+      <div class="profile-version">
+        v{{ appVersion }} · {{ buildTime }}
       </div>
     </div>
 
@@ -522,6 +531,15 @@ const version = '1.3.0'
 .profile-logout {
   margin-top: 24px;
   padding: 0 4px;
+}
+
+/* ── 版本信息 ── */
+.profile-version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-4);
+  opacity: 0.5;
+  padding: 16px 0 8px;
 }
 
 /* ── 编辑弹窗 ── */
