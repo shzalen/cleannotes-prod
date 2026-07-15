@@ -189,7 +189,7 @@ defineExpose({ open, close })
 .progress-popup__title {
   flex: 1;
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-1);
   overflow: hidden;
@@ -222,7 +222,7 @@ defineExpose({ open, close })
 }
 
 .pp-label {
-  font-size: 12px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--color-text-3);
 }
@@ -235,7 +235,7 @@ defineExpose({ open, close })
 .pp-status-btn {
   flex: 1;
   padding: 10px 0;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 500;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -252,14 +252,14 @@ defineExpose({ open, close })
 
 .pp-time-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
 .pp-input {
   width: 100%;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: 17px;
   color: var(--color-text-1);
   background: var(--color-bg-3);
   border: 1px solid var(--color-border-light);

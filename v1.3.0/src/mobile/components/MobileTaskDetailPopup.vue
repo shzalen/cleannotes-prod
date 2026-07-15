@@ -75,7 +75,7 @@ defineExpose({ open, close })
     position="bottom"
     round
     teleport="body"
-    :style="{ height: '70%', '--van-popup-background': 'var(--color-surface)' }"
+    :style="{ height: '75%', '--van-popup-background': 'var(--color-surface)' }"
   >
     <div class="detail-popup" v-if="detailTask">
       <!-- 头部 -->
@@ -237,13 +237,13 @@ defineExpose({ open, close })
 }
 
 .detail-field__label {
-  font-size: 11px;
+  font-size: 17px;
   font-weight: 500;
   color: var(--color-text-3);
 }
 
 .detail-field__value {
-  font-size: 13px;
+  font-size: 17px;
   color: var(--color-text-1);
   font-weight: 500;
   padding: 4px 0;
@@ -254,7 +254,7 @@ defineExpose({ open, close })
 }
 
 .detail-field__tag {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 500;
   padding: 2px 10px;
   border-radius: 6px;
@@ -266,7 +266,7 @@ defineExpose({ open, close })
   padding: 10px 12px;
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 17px;
   line-height: 1.65;
   color: var(--color-text-2);
   background: var(--color-bg-3);

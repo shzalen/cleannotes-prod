@@ -442,7 +442,7 @@ const buildTime = __BUILD_TIME__
 
 .profile-card__name {
   margin: 0;
-  font-size: 19px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-1);
 }
@@ -454,7 +454,7 @@ const buildTime = __BUILD_TIME__
 
 .profile-card__email {
   margin: 4px 0 0;
-  font-size: 17px;
+  font-size: 15px;
   color: var(--color-text-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -483,7 +483,7 @@ const buildTime = __BUILD_TIME__
 .profile-menu__item:active { background: var(--color-bg-3); }
 
 .profile-menu__label {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--color-text-1);
 }
@@ -495,19 +495,19 @@ const buildTime = __BUILD_TIME__
 }
 
 .profile-menu__value {
-  font-size: 17px;
+  font-size: 15px;
   color: var(--color-text-3);
 }
 
 .profile-menu__hint {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--color-text-4);
 }
 
 .profile-menu__select {
   border: none;
   background: transparent;
-  font-size: 17px;
+  font-size: 15px;
   color: var(--color-text-2);
   outline: none;
   cursor: pointer;
@@ -533,7 +533,7 @@ const buildTime = __BUILD_TIME__
 .profile-section__title {
   margin: 0 0 8px;
   padding: 0 4px;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-3);
 }
@@ -568,7 +568,7 @@ const buildTime = __BUILD_TIME__
 }
 
 .edit-sheet__title {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-1);
 }
