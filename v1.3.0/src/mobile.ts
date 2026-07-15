@@ -20,6 +20,12 @@ window.addEventListener('error', (event) => {
   event.preventDefault()
 })
 
+// ── 禁止双击缩放 / 双指缩放手势 ──
+// viewport user-scalable=no 在 iOS Safari 10+ 部分场景被忽略，
+// 此处通过 gesturestart + dblclick 双重兜底。
+document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false })
+document.addEventListener('dblclick', (e) => e.preventDefault())
+
 // ── 初始化主题（默认腾讯蓝）──
 // useTheme 的持久化 key 与 PC 端共享（cleannotes_theme），此处仅做首屏兜底，
 // 避免 Vue 挂载前的白屏闪烁。真正的响应式切换由 useTheme() 在组件内接管。
