@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
@@ -43,6 +43,22 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   high: { label: '高', color: 'var(--color-danger)' },
   medium: { label: '中', color: 'var(--color-warning)' },
   low: { label: '低', color: 'var(--color-success)' },
+}
+
+// ── 定时刷新：确保 isTimeReached / 到点脉冲随时间自动更新 ──
+const now = ref(new Date())
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => { refreshTimer = setInterval(() => { now.value = new Date() }, 30_000) })
+onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
+
+function isTimeReached(task: Task) {
+  if (!task.startTime || task.status === 'done') return false
+  const dateToCheck = task.startDate ?? task.createdAt.slice(0, 10)
+  if (dateToCheck > todayStr.value) return false
+  if (dateToCheck < todayStr.value) return true
+  const currentMinutes = now.value.getHours() * 60 + now.value.getMinutes()
+  const [h, m] = task.startTime.split(':').map(Number)
+  return currentMinutes >= (h * 60 + m)
 }
 
 // ── 弹窗引用 ──
@@ -111,7 +127,10 @@ function openTaskCreate() {
             @touchend.passive="handleTouchEnd()"
             @touchmove.passive="handleTouchMove($event)"
           >
-            <span class="task-item__check">
+            <span
+              class="task-item__check"
+              :class="[task.status, { 'is-due': isTimeReached(task) }]"
+            >
               <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 13l4 4L19 7" />
               </svg>
@@ -327,13 +346,43 @@ function openTaskCreate() {
   align-items: center;
   justify-content: center;
   margin-top: 1px;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  position: relative;
 }
 
-.task-item.is-done .task-item__check {
+/* 待办 → 灰色 */
+.task-item__check.todo {
+  border-color: var(--color-border);
+  background: var(--color-text-4);
+}
+
+/* 进行中 → 橙色 */
+.task-item__check.in_progress {
+  border-color: var(--color-warning-text);
+  background: var(--color-warning);
+}
+
+/* 已完成 → 绿色（主色填充） */
+.task-item__check.done {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: #fff;
+}
+
+/* 到点脉冲线圈 — 与 PC 端 TodayProgress 一致 */
+.task-item__check.is-due::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-warning);
+  animation: h5-dot-pulse 1.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes h5-dot-pulse {
+  0%   { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
 }
 
 .task-item__check svg {
