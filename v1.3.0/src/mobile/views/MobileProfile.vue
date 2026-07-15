@@ -94,33 +94,44 @@ async function savePassword() {
   }
 }
 
-// ── 清空缓存 ──
-function handleClearCache() {
-  showConfirmDialog({
-    title: '清空缓存',
-    message: '清空缓存后需要重新登录，确定继续？',
-    confirmButtonText: '确定清空',
+// ── 清空页面缓存（保留登录态） ──
+async function handleClearCache() {
+  await showConfirmDialog({
+    title: '清空页面缓存',
+    message: '清除浏览器缓存以加载最新版本，登录状态不受影响。',
+    confirmButtonText: '确定',
     cancelButtonText: '取消',
-  }).then(async () => {
-    try {
-      // 清除所有 localStorage 中的 Sync 时间戳
-      clearAllLastSyncAt()
-      // 清除主题缓存外的所有数据标记
-      const keys = Object.keys(localStorage).filter(k =>
-        k.startsWith('cleannotes_') && k !== 'cleannotes_theme'
-      )
-      keys.forEach(k => localStorage.removeItem(k))
-      // 清除 sessionStorage
-      sessionStorage.clear()
-      showToast('缓存已清空，请刷新页面')
-      // 延迟刷新让用户看到提示
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
-    } catch (e) {
-      showToast('清理失败，请手动清除浏览器缓存')
+  })
+
+  try {
+    // 1. 清除 Service Worker 缓存（缓存旧版 JS/CSS 的主因）
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(n => caches.delete(n)))
     }
-  }).catch(() => {})
+
+    // 2. 注销旧 Service Worker，下次加载后自动注册新版本
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    }
+
+    // 3. 清除应用层缓存标记（同步时间戳、growth flags 等）
+    clearAllLastSyncAt()
+    const keys = Object.keys(localStorage).filter(k =>
+      k.startsWith('cleannotes_') && k !== 'cleannotes_theme'
+    )
+    keys.forEach(k => localStorage.removeItem(k))
+
+    showToast('缓存已清空，正在刷新…')
+
+    // 延迟让提示可见后硬刷新（跳过 HTTP 缓存）
+    setTimeout(() => {
+      window.location.reload()
+    }, 800)
+  } catch {
+    showToast('清理失败，请手动清除浏览器缓存')
+  }
 }
 
 // ── 退出登录 ──
