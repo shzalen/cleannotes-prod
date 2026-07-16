@@ -79,8 +79,6 @@ watch(
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* 为 TabBar 留出空间 */
-  padding-bottom: var(--tabbar-height);
 }
 
 /* 路由切换淡入淡出，消除白屏闪烁 */
