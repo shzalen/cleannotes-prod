@@ -624,7 +624,7 @@ function openTaskCreate() {
 .home-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+  bottom: calc(var(--tabbar-height) + max(var(--safe-bottom), 16px) + 16px);
   width: 48px;
   height: 48px;
   border-radius: 50%;

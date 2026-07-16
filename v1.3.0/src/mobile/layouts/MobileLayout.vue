@@ -29,6 +29,6 @@ import MobileTabBar from '../components/MobileTabBar.vue'
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(var(--tabbar-height) + max(var(--safe-bottom), 12px));
+  padding-bottom: calc(var(--tabbar-height) + max(var(--safe-bottom), 16px));
 }
 </style>

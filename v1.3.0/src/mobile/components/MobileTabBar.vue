@@ -74,15 +74,16 @@ function go(name: string) {
   right: 0;
   z-index: 100;
   display: flex;
+  align-items: flex-start; /* 关键：项目不拉伸，避免图标随安全区整体上移 */
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
-  padding-bottom: max(var(--safe-bottom), 12px);
+  padding-bottom: max(var(--safe-bottom), 16px); /* 提高底部安全区兜底，覆盖底部留白 */
   box-shadow: 0 -1px 8px var(--color-shadow);
 }
 
 .tabbar__item {
   flex: 1;
-  min-height: var(--tabbar-height);
+  height: var(--tabbar-height); /* 固定内容区高度，不随安全区变化 */
   display: flex;
   flex-direction: column;
   align-items: center;
