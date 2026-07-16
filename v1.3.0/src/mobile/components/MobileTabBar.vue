@@ -110,8 +110,8 @@ function handleTabClick(tabKey: string, tabName: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 8px;
+  justify-content: center;
+  padding-bottom: 4px;
   gap: 2px;
   border: none;
   background: transparent;
