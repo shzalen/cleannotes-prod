@@ -28,6 +28,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* TabBar 已回归文档流，不再需要 padding-bottom 留白 */
+  /* 为 fixed TabBar 留出空间 */
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 </style>
