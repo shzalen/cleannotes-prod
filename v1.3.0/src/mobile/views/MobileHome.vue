@@ -128,9 +128,6 @@ function openTaskCreate() {
         <span class="bubble bubble--3" />
         <span class="bubble bubble--4" />
         <span class="bubble bubble--5" />
-        <span class="bubble bubble--6" />
-        <span class="bubble bubble--7" />
-        <span class="bubble bubble--8" />
       </div>
 
       <div class="home-header__safe-area" />
@@ -291,7 +288,7 @@ function openTaskCreate() {
   z-index: 1;
 }
 
-/* ── 头部气泡装饰（限制在蓝色头部区域内） ── */
+/* ── 头部气泡装饰（固定位置 + 微微漂移） ── */
 .home-bubbles {
   position: absolute;
   inset: 0;
@@ -302,46 +299,33 @@ function openTaskCreate() {
 
 .bubble {
   position: absolute;
-  bottom: 0;
   border-radius: 50%;
   background: radial-gradient(
     circle at 30% 30%,
-    rgba(255, 255, 255, 0.28),
+    rgba(255, 255, 255, 0.30),
     rgba(255, 255, 255, 0.10) 55%,
     transparent 80%
   );
   border: 1px solid rgba(255, 255, 255, 0.18);
-  opacity: 0;
-  animation: bubble-float linear infinite;
+  opacity: 0.5;
+  animation: bubble-drift ease-in-out infinite alternate;
 }
 
-.bubble--1 { left: 6%;  width: 26px; height: 26px; animation-duration: 12s; animation-delay: 0s; }
-.bubble--2 { left: 20%; width: 14px; height: 14px; animation-duration: 9s;  animation-delay: 1.5s; }
-.bubble--3 { left: 34%; width: 32px; height: 32px; animation-duration: 15s; animation-delay: 0.8s; }
-.bubble--4 { left: 48%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 3s; }
-.bubble--5 { left: 62%; width: 22px; height: 22px; animation-duration: 13s; animation-delay: 2.2s; }
-.bubble--6 { left: 76%; width: 12px; height: 12px; animation-duration: 8s;  animation-delay: 4s; }
-.bubble--7 { left: 86%; width: 28px; height: 28px; animation-duration: 14s; animation-delay: 5s; }
-.bubble--8 { left: 50%; width: 10px; height: 10px; animation-duration: 7s;  animation-delay: 6s; }
+.bubble--1 { top: 18%; left: 8%;  width: 30px; height: 30px; animation-duration: 6s;  animation-delay: 0s;   --dx: 6px;  --dy: -4px; }
+.bubble--2 { top: 55%; left: 78%; width: 20px; height: 20px; animation-duration: 5s;  animation-delay: 1.2s; --dx: -5px; --dy: 5px; }
+.bubble--3 { top: 35%; left: 55%; width: 12px; height: 12px; animation-duration: 4.5s; animation-delay: 0.6s; --dx: 4px;  --dy: 3px; }
+.bubble--4 { top: 68%; left: 22%; width: 16px; height: 16px; animation-duration: 7s;  animation-delay: 2s;   --dx: -3px; --dy: -5px; }
+.bubble--5 { top: 12%; left: 88%; width: 10px; height: 10px; animation-duration: 5.5s; animation-delay: 1.8s; --dx: 5px;  --dy: 4px; }
 
-@keyframes bubble-float {
+@keyframes bubble-drift {
   0% {
-    transform: translateY(0) scale(0.6);
-    opacity: 0;
-  }
-  15% {
-    opacity: 0.7;
+    transform: translate(0, 0);
   }
   50% {
-    opacity: 0.5;
-    transform: translateY(-55%) scale(1) translateX(8px);
-  }
-  85% {
-    opacity: 0.25;
+    transform: translate(var(--dx), var(--dy));
   }
   100% {
-    transform: translateY(-120%) scale(0.8) translateX(-5px);
-    opacity: 0;
+    transform: translate(calc(var(--dx) * -0.5), calc(var(--dy) * -0.8));
   }
 }
 
