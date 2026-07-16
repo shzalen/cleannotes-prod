@@ -56,7 +56,7 @@ watch(
 </template>
 
 <style>
-/* ── App Shell：Flex 列布局，TabBar 在底部自然文档流 ── */
+/* ── App Shell：Flex 列布局，全屏覆盖 ── */
 .app-shell {
   position: fixed;
   top: 0;
@@ -71,10 +71,12 @@ watch(
 
 .app-content {
   flex: 1;
-  min-height: 0; /* 允许收缩，确保 flex 子元素正确分配空间 */
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 为 fixed TabBar 留出空间（52px 内容 + 安全区） */
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 34px));
 }
 
 /* 路由切换淡入淡出，消除白屏闪烁 */
