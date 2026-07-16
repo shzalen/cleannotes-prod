@@ -271,7 +271,12 @@ function openTaskCreate() {
 /* ── 沉浸式头部（含问候语） ── */
 .home-header {
   flex-shrink: 0;
-  background: var(--color-primary);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 85%, #000 15%) 0%,
+    var(--color-primary) 45%,
+    color-mix(in srgb, var(--color-primary) 80%, #fff 20%) 100%
+  );
   position: relative;
   z-index: 1;
 }
@@ -302,21 +307,21 @@ function openTaskCreate() {
   border-radius: 50%;
   background: radial-gradient(
     circle at 30% 30%,
-    rgba(255, 255, 255, 0.26),
-    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0.10) 50%,
     transparent 80%
   );
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  opacity: 0.45;
-  filter: blur(0.6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.5;
+  filter: blur(0.5px);
   animation: bubble-drift ease-in-out infinite alternate;
 }
 
-.bubble--1 { top: 8%;  left: 52%; width: 52px; height: 52px; animation-duration: 8s;  animation-delay: 0s;   --dx: 8px;  --dy: -6px; }
-.bubble--2 { top: 55%; left: 88%; width: 22px; height: 22px; animation-duration: 5s;  animation-delay: 1.2s; --dx: -6px; --dy: 7px; }
-.bubble--3 { top: 28%; left: 68%; width: 14px; height: 14px; animation-duration: 4.5s; animation-delay: 0.6s; --dx: 5px;  --dy: 4px; }
-.bubble--4 { top: 72%; left: 78%; width: 34px; height: 34px; animation-duration: 7s;  animation-delay: 2s;   --dx: -4px; --dy: -6px; }
-.bubble--5 { top: 6%;  left: 42%; width: 10px; height: 10px; animation-duration: 5.5s; animation-delay: 1.8s; --dx: 6px;  --dy: 5px; }
+.bubble--1 { top: 6%;  left: 50%; width: 72px; height: 72px; animation-duration: 8s;  animation-delay: 0s;   --dx: 10px; --dy: -8px; }
+.bubble--2 { top: 50%; left: 86%; width: 32px; height: 32px; animation-duration: 5s;  animation-delay: 1.2s; --dx: -7px; --dy: 8px; }
+.bubble--3 { top: 25%; left: 65%; width: 20px; height: 20px; animation-duration: 4.5s; animation-delay: 0.6s; --dx: 6px;  --dy: 5px; }
+.bubble--4 { top: 68%; left: 75%; width: 48px; height: 48px; animation-duration: 7s;  animation-delay: 2s;   --dx: -5px; --dy: -7px; }
+.bubble--5 { top: 4%;  left: 38%; width: 16px; height: 16px; animation-duration: 5.5s; animation-delay: 1.8s; --dx: 7px;  --dy: 6px; }
 
 @keyframes bubble-drift {
   0% {
