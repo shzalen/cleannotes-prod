@@ -476,7 +476,8 @@ function openAdd() {
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .cal-content {
   min-height: 100%;
-  padding: 12px 12px calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + 16px);
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), constant(safe-area-inset-bottom, 0px), 34px);
+  padding: 12px 12px calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 
