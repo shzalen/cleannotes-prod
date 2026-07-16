@@ -27,6 +27,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom));
+  /* 只保留 TabBar 交互区高度；安全区由 TabBar 自身 padding-bottom 处理 */
+  padding-bottom: var(--tabbar-height);
 }
 </style>

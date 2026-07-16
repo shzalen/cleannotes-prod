@@ -324,23 +324,22 @@ async function refreshAll() {
       teleport="body"
     >
       <div class="weather-detail">
-        <!-- 拖动条 + 刷新按钮 -->
+        <!-- 拖动条 -->
         <div class="weather-detail__header">
           <div class="weather-detail__handle">
             <div class="weather-detail__handle-bar" />
           </div>
-          <button
-            class="weather-detail__refresh"
-            :class="{ 'weather-detail__refresh--spinning': refreshing }"
-            :disabled="refreshing"
-            @click="refreshAll"
-            title="刷新定位和天气"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 4v6h6" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-          </button>
+        </div>
+
+        <!-- 当前天气大图标展示（弹窗内参考基准） -->
+        <div v-if="weather" class="weather-detail__now">
+          <div class="weather-detail__now-icon">
+            <MobileWeatherIcon :code="weather.code" />
+          </div>
+          <div class="weather-detail__now-info">
+            <span class="weather-detail__now-temp">{{ weather.temp }}°</span>
+            <span class="weather-detail__now-desc">{{ weather.description }}</span>
+          </div>
         </div>
 
         <!-- A 区块：定位信息 -->
@@ -353,15 +352,31 @@ async function refreshAll() {
             当前位置
           </h3>
           <div class="weather-detail__location">
-            <template v-if="addressLoading">
-              <span class="weather-detail__loc-loading">获取地址中…</span>
-            </template>
-            <template v-else-if="detailAddress">
-              <p class="weather-detail__loc-text">{{ detailAddress }}</p>
-            </template>
-            <template v-else>
-              <p class="weather-detail__loc-text weather-detail__loc-text--fallback">无法获取详细地址</p>
-            </template>
+            <div class="weather-detail__loc-row">
+              <div class="weather-detail__loc-text-wrap">
+                <template v-if="addressLoading">
+                  <span class="weather-detail__loc-loading">获取地址中…</span>
+                </template>
+                <template v-else-if="detailAddress">
+                  <span class="weather-detail__loc-text">{{ detailAddress }}</span>
+                </template>
+                <template v-else>
+                  <span class="weather-detail__loc-text weather-detail__loc-text--fallback">无法获取详细地址</span>
+                </template>
+              </div>
+              <button
+                class="weather-detail__refresh"
+                :class="{ 'weather-detail__refresh--spinning': refreshing }"
+                :disabled="refreshing"
+                @click="refreshAll"
+                title="刷新定位和天气"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 4v6h6" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+              </button>
+            </div>
             <p class="weather-detail__coords">{{ currentLat.toFixed(4) }}, {{ currentLon.toFixed(4) }}</p>
           </div>
         </div>
@@ -524,8 +539,8 @@ async function refreshAll() {
 .weather-detail__header {
   display: flex;
   align-items: center;
-  position: relative;
-  padding: 16px 0 8px;
+  justify-content: center;
+  padding: 16px 0 4px;
 }
 
 .weather-detail__handle {
@@ -543,33 +558,28 @@ async function refreshAll() {
 }
 
 .weather-detail__refresh {
-  position: absolute;
-  right: 0;
-  bottom: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
   border: none;
-  border-radius: 50%;
-  background: var(--color-bg-3);
+  background: transparent;
   color: var(--color-text-3);
   cursor: pointer;
   padding: 0;
-  transition: color 0.15s, background 0.15s, transform 0.12s;
+  transition: color 0.15s, transform 0.12s;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 4px var(--color-shadow);
 }
 
 .weather-detail__refresh svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 .weather-detail__refresh:active {
   color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .weather-detail__refresh:disabled {
@@ -608,7 +618,52 @@ async function refreshAll() {
   color: var(--color-primary);
 }
 
+/* ── 当前天气大图标展示 ── */
+.weather-detail__now {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 16px;
+}
+
+.weather-detail__now-icon {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.weather-detail__now-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.weather-detail__now-temp {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--color-text-1);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.weather-detail__now-desc {
+  font-size: 14px;
+  color: var(--color-text-2);
+  margin-top: 2px;
+}
+
 /* ── A 区块：定位信息 ── */
+.weather-detail__loc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.weather-detail__loc-text-wrap {
+  flex: 1;
+  min-width: 0;
+}
 .weather-detail__location {
   background: var(--color-bg-3);
   border-radius: 10px;
@@ -621,7 +676,6 @@ async function refreshAll() {
 }
 
 .weather-detail__loc-text {
-  margin: 0;
   font-size: 13px;
   line-height: 1.55;
   color: var(--color-text-1);

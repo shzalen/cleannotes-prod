@@ -106,10 +106,11 @@ function handleTabClick(tabKey: string, tabName: string) {
   right: 0;
   z-index: 100;
   display: flex;
-  align-items: flex-start; /* 关键：项目不拉伸，避免图标随安全区整体上移 */
+  /* align-items 默认 stretch → 子项填满容器内容高度 */
+  height: var(--tabbar-height); /* 固定交互区高度 52px */
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
-  padding-bottom: var(--safe-bottom); /* 仅使用系统安全区，避免非安全区设备产生多余留白 */
+  padding-bottom: var(--safe-bottom); /* 安全区：背景色延伸到底，内容自然抬升 */
   box-shadow: 0 -1px 8px var(--color-shadow);
 }
 
@@ -123,17 +124,16 @@ function handleTabClick(tabKey: string, tabName: string) {
   height: 60px;
   background: inherit;
   pointer-events: none;
-  z-index: -1;
+  /* 继承父级 z-index: 100，无需显式设置 */
 }
 
 .tabbar__item {
   flex: 1;
-  height: var(--tabbar-height); /* 固定内容区高度，不随安全区变化 */
+  /* 不设 height — 由 align-items:stretch 拉伸到容器内容高度 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 6px;
+  justify-content: center; /* 图标+标签垂直居中 */
   gap: 2px;
   border: none;
   background: transparent;

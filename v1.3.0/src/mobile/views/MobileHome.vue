@@ -395,7 +395,7 @@ function openTaskCreate() {
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .home-content {
   min-height: 100%;
-  padding: 12px 12px 80px;
+  padding: 12px 12px 0;
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 
@@ -663,7 +663,7 @@ function openTaskCreate() {
 .home-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+  bottom: calc(var(--tabbar-height) + 16px);
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -691,6 +691,6 @@ function openTaskCreate() {
 
 /* ── 底部留白 ── */
 .home-bottom-spacer {
-  height: 16px;
+  height: 8px;
 }
 </style>
