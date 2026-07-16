@@ -66,17 +66,11 @@ watch(
   top: 0;
   left: 0;
   right: 0;
-  height: 100vh;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--color-surface);
-}
-
-/* 有 TabBar 时：用 padding-bottom 延伸背景到安全区底部 */
-.app-shell.has-tabbar {
-  padding-bottom: 34px;
-  box-sizing: content-box;
 }
 
 .app-content {
