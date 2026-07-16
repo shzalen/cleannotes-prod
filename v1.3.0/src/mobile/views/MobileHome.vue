@@ -133,6 +133,11 @@ watch(refreshCounter, () => {
 function openTaskCreate() {
   editPopup.value?.openNew()
 }
+
+// ── 从详情弹窗跳转编辑 ──
+function handleEditFromDetail(task: Task) {
+  editPopup.value?.openEdit(task)
+}
 </script>
 
 <template>
@@ -272,7 +277,7 @@ function openTaskCreate() {
     </button>
 
     <!-- 任务详情弹窗 -->
-    <MobileTaskDetailPopup ref="detailPopup" />
+    <MobileTaskDetailPopup ref="detailPopup" @edit="handleEditFromDetail" />
 
     <!-- 进度更新弹窗 -->
     <MobileTaskProgressPopup ref="progressPopup" />
