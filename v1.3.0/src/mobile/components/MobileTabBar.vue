@@ -49,71 +49,60 @@ function handleTabClick(tabKey: string, tabName: string) {
 
 <template>
   <nav class="tabbar">
-    <div class="tabbar__inner">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="tabbar__item"
-        :class="{ 'is-active': active === tab.key }"
-        @click="handleTabClick(tab.key, tab.name)"
-      >
-        <span class="tabbar__icon">
-          <!-- 首页 -->
-          <template v-if="tab.key === 'home'">
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z" />
-            </svg>
-          </template>
-          <!-- 日历 -->
-          <template v-else-if="tab.key === 'calendar'">
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
-              <path d="M3.5 9h17M8 2.5v4M16 2.5v4" stroke-linecap="round" />
-            </svg>
-          </template>
-          <!-- 我的 -->
-          <template v-else>
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke-linecap="round" />
-            </svg>
-          </template>
-        </span>
-        <span class="tabbar__label">{{ tab.label }}</span>
-      </button>
-    </div>
+    <button
+      v-for="tab in tabs"
+      :key="tab.key"
+      class="tabbar__item"
+      :class="{ 'is-active': active === tab.key }"
+      @click="handleTabClick(tab.key, tab.name)"
+    >
+      <span class="tabbar__icon">
+        <!-- 首页 -->
+        <template v-if="tab.key === 'home'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z" />
+          </svg>
+        </template>
+        <!-- 日历 -->
+        <template v-else-if="tab.key === 'calendar'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+            <path d="M3.5 9h17M8 2.5v4M16 2.5v4" stroke-linecap="round" />
+          </svg>
+        </template>
+        <!-- 我的 -->
+        <template v-else>
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="3.5" />
+            <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke-linecap="round" />
+          </svg>
+        </template>
+      </span>
+      <span class="tabbar__label">{{ tab.label }}</span>
+    </button>
   </nav>
 </template>
 
 <style scoped>
-/* ── 外层：fixed 定位到底部，用负 bottom 延伸到安全区下方 ── */
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: -34px;
+  flex-shrink: 0;
   z-index: 100;
-  height: calc(var(--tabbar-height) + 34px);
+  display: flex;
+  align-items: stretch;
+  height: var(--tabbar-height);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);
-}
-
-/* ── 内层：固定高度 52px，内容在安全区内 ── */
-.tabbar__inner {
-  height: var(--tabbar-height);
-  display: flex;
-  align-items: stretch;
 }
 
 .tabbar__item {
