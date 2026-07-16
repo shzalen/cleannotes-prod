@@ -196,7 +196,7 @@ body {
    ========================================================================== */
 .van-pull-refresh__track {
   min-height: 100%;
-  touch-action: pan-y;
+  touch-action: pan-y pan-x; /* 允许垂直滚动 + 水平滑动（SwipeCell） */
 }
 
 /* 下拉刷新 loading 图标颜色 */

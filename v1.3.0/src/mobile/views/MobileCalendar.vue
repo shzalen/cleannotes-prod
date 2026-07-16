@@ -479,7 +479,7 @@ function openAdd() {
 .cal-content {
   min-height: 100%;
   padding: 12px 12px 16px;
-  touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
+  touch-action: pan-y pan-x; /* 允许垂直滚动 + 水平滑动（SwipeCell） */
 }
 
 .cal-content__header {
