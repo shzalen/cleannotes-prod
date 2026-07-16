@@ -25,21 +25,17 @@ const doubleTapTimers: Record<string, ReturnType<typeof setTimeout> | null> = {}
 const DOUBLE_TAP_WINDOW = 350 // ms
 
 function handleTabClick(tabKey: string, tabName: string) {
-  // 非首页/日历不走双击逻辑
   if (tabKey !== 'home' && tabKey !== 'calendar') {
     go(tabName)
     return
   }
 
-  // 当前已在目标页 → 检测双击
   if (active.value === tabKey) {
     if (doubleTapTimers[tabKey]) {
-      // 第二次点击（双击）
       clearTimeout(doubleTapTimers[tabKey])
       doubleTapTimers[tabKey] = null
       triggerRefresh()
     } else {
-      // 第一次点击，设定时器
       doubleTapTimers[tabKey] = setTimeout(() => {
         doubleTapTimers[tabKey] = null
       }, DOUBLE_TAP_WINDOW)
@@ -47,80 +43,66 @@ function handleTabClick(tabKey: string, tabName: string) {
     return
   }
 
-  // 切换 Tab
   go(tabName)
 }
 </script>
 
 <template>
   <nav class="tabbar">
-    <div class="tabbar__inner">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="tabbar__item"
-        :class="{ 'is-active': active === tab.key }"
-        @click="handleTabClick(tab.key, tab.name)"
-      >
-        <span class="tabbar__icon">
-          <!-- 首页 -->
-          <template v-if="tab.key === 'home'">
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z" />
-            </svg>
-          </template>
-          <!-- 日历 -->
-          <template v-else-if="tab.key === 'calendar'">
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
-              <path d="M3.5 9h17M8 2.5v4M16 2.5v4" stroke-linecap="round" />
-            </svg>
-          </template>
-          <!-- 我的 -->
-          <template v-else>
-            <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke-linecap="round" />
-            </svg>
-          </template>
-        </span>
-        <span class="tabbar__label">{{ tab.label }}</span>
-      </button>
-    </div>
+    <button
+      v-for="tab in tabs"
+      :key="tab.key"
+      class="tabbar__item"
+      :class="{ 'is-active': active === tab.key }"
+      @click="handleTabClick(tab.key, tab.name)"
+    >
+      <span class="tabbar__icon">
+        <!-- 首页 -->
+        <template v-if="tab.key === 'home'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z" />
+          </svg>
+        </template>
+        <!-- 日历 -->
+        <template v-else-if="tab.key === 'calendar'">
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+            <path d="M3.5 9h17M8 2.5v4M16 2.5v4" stroke-linecap="round" />
+          </svg>
+        </template>
+        <!-- 我的 -->
+        <template v-else>
+          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="3.5" />
+            <path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2" stroke-linecap="round" />
+          </svg>
+        </template>
+      </span>
+      <span class="tabbar__label">{{ tab.label }}</span>
+    </button>
   </nav>
 </template>
 
 <style scoped>
-/* ── 外层：fixed 定位 + 背景色 + 安全区 padding ── */
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   z-index: 100;
-  /* iOS PWA 安全区：env() 在 PWA 下可能返回 0，直接用 34px */
-  padding-bottom: 34px;
+  display: flex;
+  align-items: stretch;
+  height: var(--tabbar-height);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);
-}
-
-/* ── 内层：固定高度，放图标文字 ── */
-.tabbar__inner {
-  height: var(--tabbar-height);
-  display: flex;
-  align-items: stretch;
-  background: transparent;
 }
 
 .tabbar__item {
@@ -138,7 +120,6 @@ function handleTabClick(tabKey: string, tabName: string) {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 点击反馈：轻微下压 */
 .tabbar__item:active {
   transform: scale(0.9);
 }
