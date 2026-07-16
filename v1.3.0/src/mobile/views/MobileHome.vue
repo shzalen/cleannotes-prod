@@ -13,7 +13,7 @@ import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
 import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
-import { PullRefresh as VanPullRefresh } from 'vant'
+import { PullRefresh as VanPullRefresh, showConfirmDialog, showToast } from 'vant'
 
 defineOptions({ name: 'MobileHome' })
 
@@ -103,7 +103,24 @@ const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 // ── 统一触控交互（800ms 长按 + 进度条） ──
 const { handleTouchStart, handleTouchMove, handleTouchEnd, pressingTask, progressPercent } = useTouchInteraction<Task>({
   onTap: (task) => detailPopup.value?.open(task),
-  onLongPress: (task) => progressPopup.value?.open(task),
+  onLongPress: (task) => {
+    // 已完成任务 → 弹出重新激活确认框（同 PC 端逻辑）
+    if (task.status === 'done') {
+      showConfirmDialog({
+        title: '重新激活任务',
+        message: `将已完成任务「${task.title}」重新激活为待办？\n激活后将保留历史耗时记录，重新开始执行时会刷新计时。`,
+        confirmButtonText: '确认激活',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#0052D9',
+      }).then(() => {
+        taskStore.toggleStatus(task.id)
+        showToast('任务已重新激活')
+      }).catch(() => {})
+      return
+    }
+    // 非已完成 → 打开进度更新弹窗
+    progressPopup.value?.open(task)
+  },
   longPressMs: 800,
 })
 
