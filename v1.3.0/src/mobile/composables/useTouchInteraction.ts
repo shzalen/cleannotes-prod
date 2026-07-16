@@ -7,6 +7,8 @@ interface TouchInteractionOptions<T = unknown> {
   onLongPress: (data: T) => void
   /** 长按触发时长（毫秒），默认 800 */
   longPressMs?: number
+  /** 进度条延迟显示（毫秒），短按在此时间内松手则不显示进度条，默认 150 */
+  progressDelay?: number
   /** 位移阈值（像素），超过此值视为滚动/下拉，取消一切交互，默认 15 */
   moveThreshold?: number
 }
@@ -24,13 +26,14 @@ interface TouchInteractionOptions<T = unknown> {
  * - 模板中用 v-if + :style.width 渲染顶部进度条
  */
 export function useTouchInteraction<T = unknown>(options: TouchInteractionOptions<T>) {
-  const { onTap, onLongPress, longPressMs = 800, moveThreshold = 15 } = options
+  const { onTap, onLongPress, longPressMs = 800, progressDelay = 150, moveThreshold = 15 } = options
 
   // ── 内部状态 ──
   let startX = 0
   let startY = 0
   let hasMoved = false
   let timer: ReturnType<typeof setTimeout> | null = null
+  let progressTimer: ReturnType<typeof setTimeout> | null = null
   let animFrame: number | null = null
   let currentData: T | null = null
 
@@ -52,6 +55,10 @@ export function useTouchInteraction<T = unknown>(options: TouchInteractionOption
       clearTimeout(timer)
       timer = null
     }
+    if (progressTimer) {
+      clearTimeout(progressTimer)
+      progressTimer = null
+    }
     resetProgress()
   }
 
@@ -64,20 +71,24 @@ export function useTouchInteraction<T = unknown>(options: TouchInteractionOption
     hasMoved = false
     currentData = data
 
-    // 启动进度条动画
-    pressingTask.value = data
-    progressPercent.value = 0
-
+    // 延迟 progressDelay 后再启动进度条动画（短按不会触发）
     const startTime = performance.now()
-    function tick() {
-      if (!pressingTask.value) return // 已被清理
-      const elapsed = performance.now() - startTime
-      progressPercent.value = Math.min(100, (elapsed / longPressMs) * 100)
-      if (progressPercent.value < 100) {
+    progressTimer = setTimeout(() => {
+      if (!hasMoved && currentData !== null) {
+        pressingTask.value = data
+        progressPercent.value = ((performance.now() - startTime) / longPressMs) * 100
+        function tick() {
+          if (!pressingTask.value) return
+          const elapsed = performance.now() - startTime
+          progressPercent.value = Math.min(100, (elapsed / longPressMs) * 100)
+          if (progressPercent.value < 100) {
+            animFrame = requestAnimationFrame(tick)
+          }
+        }
         animFrame = requestAnimationFrame(tick)
       }
-    }
-    animFrame = requestAnimationFrame(tick)
+      progressTimer = null
+    }, progressDelay)
 
     timer = setTimeout(() => {
       if (!hasMoved && currentData !== null) {

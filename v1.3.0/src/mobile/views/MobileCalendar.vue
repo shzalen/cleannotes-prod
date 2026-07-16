@@ -521,9 +521,9 @@ function openAdd() {
 /* SwipeCell 容器样式覆盖 */
 .task-list :deep(.van-swipe-cell) {
   border-radius: 12px;
-  overflow: hidden;
   box-shadow: 0 1px 3px var(--color-shadow);
 }
+/* 注意：.van-swipe-cell 不能设 overflow:hidden，否则右滑按钮会被裁剪 */
 
 .task-list :deep(.van-swipe-cell__wrapper) {
   border-radius: 12px;
