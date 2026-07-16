@@ -210,7 +210,6 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  height: auto;              /* 覆盖 Vant 默认 height:100%，配合 bottom:0 拉伸到底 */
-  bottom: 0;                 /* 覆盖底部安全区 */
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), constant(safe-area-inset-bottom, 0px), 34px);
+  /* 强制延伸到屏幕物理底部，覆盖 Home Indicator 区域 */
+  padding-bottom: 34px !important;
 }
