@@ -9,6 +9,7 @@ import type { Task, TaskStatus } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { showConfirmDialog } from 'vant'
 import MobileIOSPicker from './MobileIOSPicker.vue'
+import { playProgressSound } from '../composables/useSound'
 
 defineOptions({ name: 'MobileTaskProgressPopup' })
 
@@ -114,6 +115,7 @@ async function save() {
   setTimeout(() => {
     saving.value = false
     saved.value = true
+    playProgressSound()
     setTimeout(() => {
       saved.value = false
       close()

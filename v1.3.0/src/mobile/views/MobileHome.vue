@@ -7,6 +7,7 @@ import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
 import { useTabRefresh } from '../composables/useTabRefresh'
+import { playDingSound } from '../composables/useSound'
 
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
@@ -99,41 +100,16 @@ const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
 const progressPopup = ref<InstanceType<typeof MobileTaskProgressPopup> | null>(null)
 const editPopup = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
-// ── 统一触控交互（位移阈值防误触） ──
-const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteraction<Task>({
+// ── 统一触控交互（800ms 长按 + 进度条） ──
+const { handleTouchStart, handleTouchMove, handleTouchEnd, pressingTask, progressPercent } = useTouchInteraction<Task>({
   onTap: (task) => detailPopup.value?.open(task),
   onLongPress: (task) => progressPopup.value?.open(task),
+  longPressMs: 800,
 })
 
 // ── 下拉刷新 ──
 const refreshing = ref(false)
 const { refreshCounter, triggerRefresh } = useTabRefresh()
-
-// ── 清脆提示音（Web Audio API 合成） ──
-function playDingSound() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-
-    // 双层泛音模拟清脆"叮"声
-    const t = ctx.currentTime
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(1760, t)       // A6
-    osc.frequency.setValueAtTime(2093, t + 0.04) // C7 快速上滑
-    osc.frequency.setValueAtTime(2637, t + 0.06) // E7
-    gain.gain.setValueAtTime(0.25, t)
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
-
-    osc.start(t)
-    osc.stop(t + 0.25)
-    osc.onended = () => ctx.close()
-  } catch {
-    // 静默降级：部分浏览器不支持 Web Audio
-  }
-}
 
 async function doRefresh() {
   refreshing.value = true
@@ -210,15 +186,21 @@ function openTaskCreate() {
       <!-- 任务列表 -->
       <template v-if="todayTasks.length > 0">
         <div class="task-list">
-          <div
+            <div
             v-for="task in todayTasks"
             :key="task.id"
             class="task-item"
-            :class="{ 'is-done': task.status === 'done' }"
+            :class="{ 'is-done': task.status === 'done', 'is-pressing': pressingTask === task }"
             @touchstart.passive="handleTouchStart(task, $event)"
             @touchend.passive="handleTouchEnd()"
             @touchmove.passive="handleTouchMove($event)"
           >
+            <!-- 长按进度条：800ms 填充完成即打开弹窗 -->
+            <div
+              v-if="pressingTask === task"
+              class="task-item__press-bar"
+              :style="{ width: progressPercent + '%' }"
+            />
             <span
               class="task-item__check"
               :class="[task.status, { 'is-due': isTimeReached(task) }]"
@@ -474,6 +456,8 @@ function openTaskCreate() {
 }
 
 .task-item {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -490,6 +474,19 @@ function openTaskCreate() {
 
 .task-item:active {
   transform: scale(0.98);
+}
+
+/* 长按进度条 — 顶部边框线从左到右填充 */
+.task-item__press-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-primary);
+  border-radius: 12px 0 0 0;
+  z-index: 2;
+  pointer-events: none;
+  will-change: width;
 }
 
 .task-item.is-done {
