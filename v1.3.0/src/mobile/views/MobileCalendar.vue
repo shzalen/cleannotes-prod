@@ -358,7 +358,8 @@ function openAdd() {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
+  /* overflow: hidden 会裁剪内部滚动容器的橡皮筋回弹效果；
+     m-layout__body 已做 overflow:hidden 防止穿透 */
   background: var(--color-bg-1);
 }
 
@@ -475,7 +476,7 @@ function openAdd() {
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .cal-content {
   min-height: 100%;
-  padding: 12px 12px 80px;
+  padding: 12px 12px 16px;
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 

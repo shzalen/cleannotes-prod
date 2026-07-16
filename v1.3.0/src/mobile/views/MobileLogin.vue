@@ -86,7 +86,10 @@ async function onSubmit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0 32px;
   background: var(--color-bg-1);
 }

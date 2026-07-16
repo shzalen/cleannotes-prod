@@ -17,7 +17,8 @@
 .m-layout {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: var(--color-bg-1);
 }
 
@@ -27,7 +28,6 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* 只保留 TabBar 交互区高度；安全区由 TabBar 自身 padding-bottom 处理 */
-  padding-bottom: var(--tabbar-height);
+  /* TabBar 已回归文档流，不再需要 padding-bottom 留白 */
 }
 </style>

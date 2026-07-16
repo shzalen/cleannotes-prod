@@ -431,7 +431,7 @@ const buildTime = __BUILD_TIME__
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
-  padding: 12px 12px 80px;
+  padding: 12px 12px 16px;
 }
 
 /* ── 用户卡片 ── */

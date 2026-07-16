@@ -288,7 +288,8 @@ function openTaskCreate() {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
+  /* overflow: hidden 会裁剪内部滚动容器的橡皮筋回弹效果；
+     m-layout__body 已做 overflow:hidden 防止穿透 */
   background: var(--color-bg-1);
 }
 

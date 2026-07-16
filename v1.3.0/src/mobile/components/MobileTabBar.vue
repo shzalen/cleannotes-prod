@@ -100,10 +100,7 @@ function handleTabClick(tabKey: string, tabName: string) {
 
 <style scoped>
 .tabbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0; /* App Shell flex 子元素，不压缩 */
   z-index: 100;
   display: flex;
   align-items: stretch;
