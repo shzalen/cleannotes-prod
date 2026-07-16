@@ -76,6 +76,7 @@ watch(
   display: flex;
   flex-direction: column;
   /* 为 fixed TabBar 留出空间（52px 内容 + 安全区） */
+  padding-bottom: calc(var(--tabbar-height) + 34px);
   padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 34px));
 }
 

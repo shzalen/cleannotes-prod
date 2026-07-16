@@ -108,7 +108,8 @@ function handleTabClick(tabKey: string, tabName: string) {
   right: 0;
   bottom: 0;
   z-index: 100;
-  /* 背景通过 padding-bottom 延伸到 Home Indicator 区域 */
+  /* 保底 34px，env() 有效时覆盖 */
+  padding-bottom: 34px;
   padding-bottom: env(safe-area-inset-bottom, 34px);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
