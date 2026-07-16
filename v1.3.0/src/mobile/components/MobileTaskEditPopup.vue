@@ -1,13 +1,15 @@
 <script setup lang="ts">
 /**
- * 移动端完整任务创建/编辑弹窗 — 占页面 75-80% 高度
+ * 移动端完整任务创建/编辑弹窗 — 占页面 75% 高度
  * 参考 PC 端 TaskEditModal.vue 的字段
+ * 使用 iOS 风格日期/时间选择器
  */
-import { ref, reactive, computed, nextTick, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { toLocalDate } from '@/utils/time'
 import type { Task, TaskPriority } from '@/types'
 import { showToast } from 'vant'
+import MobileIOSPicker from './MobileIOSPicker.vue'
 
 defineOptions({ name: 'MobileTaskEditPopup' })
 
@@ -150,7 +152,6 @@ defineExpose({ openNew, openEdit, close })
             v-model="title"
             class="ep-input"
             placeholder="输入任务标题"
-            autofocus
           />
         </div>
 
@@ -161,7 +162,7 @@ defineExpose({ openNew, openEdit, close })
             v-model="description"
             class="ep-textarea"
             placeholder="输入任务描述..."
-            rows="4"
+            rows="3"
           ></textarea>
         </div>
 
@@ -180,29 +181,29 @@ defineExpose({ openNew, openEdit, close })
           </div>
         </div>
 
-        <!-- 日期/时间 -->
+        <!-- 日期/时间 — iOS 风格选择器 -->
         <div class="ep-section">
-          <label class="ep-label">日期</label>
-          <input
+          <MobileIOSPicker
             v-model="startDate"
             type="date"
-            class="ep-input"
+            label="日期"
+            placeholder="选择日期"
           />
         </div>
         <div class="ep-section">
-          <label class="ep-label">时间</label>
-          <input
+          <MobileIOSPicker
             v-model="startTime"
             type="time"
-            class="ep-input"
+            label="时间"
+            placeholder="选择时间"
           />
         </div>
         <div class="ep-section">
-          <label class="ep-label">截止日期</label>
-          <input
+          <MobileIOSPicker
             v-model="dueDate"
             type="date"
-            class="ep-input"
+            label="截止日期"
+            placeholder="选择截止日期"
           />
         </div>
 
@@ -248,7 +249,7 @@ defineExpose({ openNew, openEdit, close })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 12px;
+  padding: 14px 16px 10px;
   border-bottom: 1px solid var(--color-border-light);
   flex-shrink: 0;
 }
@@ -273,12 +274,13 @@ defineExpose({ openNew, openEdit, close })
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 0;
+  padding: 10px 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   touch-action: pan-y;
   max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ep-section {
@@ -287,43 +289,45 @@ defineExpose({ openNew, openEdit, close })
 
 .ep-label {
   display: block;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 500;
-  color: var(--color-text-2);
-  margin-bottom: 8px;
+  color: var(--color-text-3);
+  margin-bottom: 6px;
 }
 
 .ep-input {
   width: 100%;
   padding: 10px 12px;
-  font-size: 17px;
+  font-size: 15px;
   color: var(--color-text-1);
-  background: var(--color-surface);
+  background: var(--color-bg-3);
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
   outline: none;
   font-family: inherit;
   box-sizing: border-box;
+  min-width: 0;
 }
 .ep-input:focus { border-color: var(--color-primary); }
-.ep-input::placeholder { color: var(--color-text-3); }
+.ep-input::placeholder { color: var(--color-text-4); }
 
 .ep-textarea {
   width: 100%;
   padding: 10px 12px;
-  font-size: 17px;
+  font-size: 15px;
   color: var(--color-text-1);
-  background: var(--color-surface);
+  background: var(--color-bg-3);
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
   outline: none;
-  resize: vertical;
+  resize: none;
   font-family: inherit;
-  line-height: 1.6;
+  line-height: 1.5;
   box-sizing: border-box;
+  min-width: 0;
 }
 .ep-textarea:focus { border-color: var(--color-primary); }
-.ep-textarea::placeholder { color: var(--color-text-3); }
+.ep-textarea::placeholder { color: var(--color-text-4); }
 
 .ep-radio-row {
   display: flex;
@@ -333,7 +337,7 @@ defineExpose({ openNew, openEdit, close })
 .ep-radio-btn {
   flex: 1;
   padding: 8px 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 500;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -352,7 +356,7 @@ defineExpose({ openNew, openEdit, close })
 .edit-popup__footer {
   display: flex;
   gap: 10px;
-  padding: 12px 16px calc(12px + var(--safe-bottom));
+  padding: 10px 16px calc(10px + var(--safe-bottom));
   border-top: 1px solid var(--color-border-light);
   flex-shrink: 0;
 }

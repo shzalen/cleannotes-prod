@@ -58,6 +58,20 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   low: { label: '低', color: 'var(--color-success)' },
 }
 
+const statusMeta: Record<string, { label: string; color: string }> = {
+  todo: { label: '待办', color: 'var(--color-text-3)' },
+  in_progress: { label: '进行中', color: 'var(--color-warning-text)' },
+  done: { label: '已完成', color: 'var(--color-primary)' },
+}
+
+// ── 截止日期格式化 mm-dd ──
+function formatDueDate(due: string | null | undefined): string {
+  if (!due) return ''
+  const parts = due.split('-')
+  if (parts.length >= 3) return `${parts[1]}-${parts[2]}`
+  return due
+}
+
 // ── 定时刷新：确保 isTimeReached / 到点脉冲随时间自动更新 ──
 const now = ref(new Date())
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -100,20 +114,20 @@ function openTaskCreate() {
 
 <template>
   <div class="home-page">
-    <!-- 背景气泡装饰 -->
-    <div class="home-bubbles" aria-hidden="true">
-      <span class="bubble bubble--1" />
-      <span class="bubble bubble--2" />
-      <span class="bubble bubble--3" />
-      <span class="bubble bubble--4" />
-      <span class="bubble bubble--5" />
-      <span class="bubble bubble--6" />
-      <span class="bubble bubble--7" />
-      <span class="bubble bubble--8" />
-    </div>
-
     <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
+      <!-- 背景气泡装饰：仅显示在头部蓝色区域 -->
+      <div class="home-bubbles" aria-hidden="true">
+        <span class="bubble bubble--1" />
+        <span class="bubble bubble--2" />
+        <span class="bubble bubble--3" />
+        <span class="bubble bubble--4" />
+        <span class="bubble bubble--5" />
+        <span class="bubble bubble--6" />
+        <span class="bubble bubble--7" />
+        <span class="bubble bubble--8" />
+      </div>
+
       <div class="home-header__safe-area" />
       <div class="home-header__content">
         <!-- 顶部行 -->
@@ -176,13 +190,22 @@ function openTaskCreate() {
             <div class="task-item__body">
               <p class="task-item__title">{{ task.title }}</p>
               <div class="task-item__meta">
+                <span class="task-item__time">{{ task.startTime || '--:--' }}</span>
+                <span class="task-item__divider">·</span>
+                <span
+                  class="task-item__status"
+                  :style="{ color: statusMeta[task.status]?.color }"
+                >{{ statusMeta[task.status]?.label }}</span>
+                <span class="task-item__divider">·</span>
                 <span
                   v-if="task.priority"
                   class="task-item__priority"
                   :style="{ '--p-color': priorityMeta[task.priority]?.color }"
                 >{{ priorityMeta[task.priority]?.label }}</span>
-                <span v-if="task.startTime" class="task-item__time">{{ task.startTime }}</span>
-                <span v-if="task.dueDate" class="task-item__due">{{ task.dueDate }}</span>
+                <template v-if="task.dueDate">
+                  <span class="task-item__divider">·</span>
+                  <span class="task-item__due">{{ formatDueDate(task.dueDate) }}</span>
+                </template>
               </div>
             </div>
 
@@ -238,61 +261,6 @@ function openTaskCreate() {
   min-height: 0;
   overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
   background: var(--color-bg-1);
-  position: relative; /* 为气泡定位提供参照 */
-}
-
-/* ── 背景气泡装饰 ── */
-.home-bubbles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.bubble {
-  position: absolute;
-  bottom: -60px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 30% 30%,
-    color-mix(in srgb, var(--color-primary) 18%, transparent),
-    color-mix(in srgb, var(--color-primary) 6%, transparent) 60%,
-    transparent 80%
-  );
-  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
-  opacity: 0;
-  animation: bubble-float linear infinite;
-}
-
-.bubble--1 { left: 8%;  width: 34px; height: 34px; animation-duration: 14s; animation-delay: 0s; }
-.bubble--2 { left: 22%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 2s; }
-.bubble--3 { left: 38%; width: 48px; height: 48px; animation-duration: 18s; animation-delay: 1s; }
-.bubble--4 { left: 52%; width: 24px; height: 24px; animation-duration: 12s; animation-delay: 4s; }
-.bubble--5 { left: 66%; width: 40px; height: 40px; animation-duration: 16s; animation-delay: 3s; }
-.bubble--6 { left: 78%; width: 16px; height: 16px; animation-duration: 9s;  animation-delay: 5s; }
-.bubble--7 { left: 88%; width: 30px; height: 30px; animation-duration: 15s; animation-delay: 6s; }
-.bubble--8 { left: 48%; width: 12px; height: 12px; animation-duration: 8s;  animation-delay: 7s; }
-
-@keyframes bubble-float {
-  0% {
-    transform: translateY(0) scale(0.6);
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.5;
-    transform: translateY(-50vh) scale(1) translateX(10px);
-  }
-  90% {
-    opacity: 0.3;
-  }
-  100% {
-    transform: translateY(-100vh) scale(0.8) translateX(-6px);
-    opacity: 0;
-  }
 }
 
 /* ── 沉浸式头部（含问候语） ── */
@@ -305,10 +273,68 @@ function openTaskCreate() {
 
 .home-header__safe-area {
   height: var(--safe-top);
+  position: relative;
+  z-index: 1;
 }
 
 .home-header__content {
   padding: 0 16px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 头部气泡装饰（限制在蓝色头部区域内） ── */
+.home-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bubble {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 255, 255, 0.28),
+    rgba(255, 255, 255, 0.10) 55%,
+    transparent 80%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  animation: bubble-float linear infinite;
+}
+
+.bubble--1 { left: 6%;  width: 26px; height: 26px; animation-duration: 12s; animation-delay: 0s; }
+.bubble--2 { left: 20%; width: 14px; height: 14px; animation-duration: 9s;  animation-delay: 1.5s; }
+.bubble--3 { left: 34%; width: 32px; height: 32px; animation-duration: 15s; animation-delay: 0.8s; }
+.bubble--4 { left: 48%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 3s; }
+.bubble--5 { left: 62%; width: 22px; height: 22px; animation-duration: 13s; animation-delay: 2.2s; }
+.bubble--6 { left: 76%; width: 12px; height: 12px; animation-duration: 8s;  animation-delay: 4s; }
+.bubble--7 { left: 86%; width: 28px; height: 28px; animation-duration: 14s; animation-delay: 5s; }
+.bubble--8 { left: 50%; width: 10px; height: 10px; animation-duration: 7s;  animation-delay: 6s; }
+
+@keyframes bubble-float {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-55%) scale(1) translateX(8px);
+  }
+  85% {
+    opacity: 0.25;
+  }
+  100% {
+    transform: translateY(-120%) scale(0.8) translateX(-5px);
+    opacity: 0;
+  }
 }
 
 .home-header__top {
@@ -330,6 +356,8 @@ function openTaskCreate() {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   padding: 12px 14px;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── 下拉刷新容器 ── */
@@ -505,8 +533,20 @@ function openTaskCreate() {
 .task-item__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.task-item__divider {
+  font-size: 11px;
+  color: var(--color-text-4);
+  flex-shrink: 0;
+}
+
+.task-item__status {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .task-item__priority {
@@ -521,11 +561,13 @@ function openTaskCreate() {
 .task-item__time {
   font-size: 12px;
   color: var(--color-text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item__due {
   font-size: 11px;
   color: var(--color-text-4);
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item__arrow {

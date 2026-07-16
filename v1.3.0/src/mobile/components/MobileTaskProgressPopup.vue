@@ -2,11 +2,13 @@
 /**
  * 移动端任务进度更新弹窗 — 长按任务项时弹出
  * 参考 PC 端 TaskProgressModal.vue
+ * 使用 iOS 风格日期时间选择器
  */
 import { ref } from 'vue'
 import type { Task, TaskStatus } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { showConfirmDialog } from 'vant'
+import MobileIOSPicker from './MobileIOSPicker.vue'
 
 defineOptions({ name: 'MobileTaskProgressPopup' })
 
@@ -142,16 +144,22 @@ defineExpose({ open, close })
           </div>
         </div>
 
-        <!-- 时间编辑 -->
-        <div class="pp-time-grid">
-          <div class="pp-group">
-            <label class="pp-label">实际开始时间</label>
-            <input v-model="inProgressAtInput" type="datetime-local" class="pp-input" />
-          </div>
-          <div class="pp-group">
-            <label class="pp-label">实际完成时间</label>
-            <input v-model="completedAtInput" type="datetime-local" class="pp-input" />
-          </div>
+        <!-- 时间编辑 — iOS 风格选择器 -->
+        <div class="pp-group">
+          <MobileIOSPicker
+            v-model="inProgressAtInput"
+            type="datetime"
+            label="实际开始时间"
+            placeholder="选择开始时间"
+          />
+        </div>
+        <div class="pp-group">
+          <MobileIOSPicker
+            v-model="completedAtInput"
+            type="datetime"
+            label="实际完成时间"
+            placeholder="选择完成时间"
+          />
         </div>
       </div>
 
@@ -175,7 +183,7 @@ defineExpose({ open, close })
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 16px 12px;
+  padding: 14px 16px 10px;
   border-bottom: 1px solid var(--color-border-light);
 }
 
@@ -212,10 +220,10 @@ defineExpose({ open, close })
 .progress-popup__close svg { width: 20px; height: 20px; }
 
 .progress-popup__body {
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-x: hidden;
   touch-action: pan-y;
   max-width: 100%;
@@ -228,7 +236,7 @@ defineExpose({ open, close })
 }
 
 .pp-label {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--color-text-3);
 }
@@ -241,7 +249,7 @@ defineExpose({ open, close })
 .pp-status-btn {
   flex: 1;
   padding: 10px 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 500;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -256,30 +264,10 @@ defineExpose({ open, close })
   border-color: var(--color-primary);
 }
 
-.pp-time-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.pp-input {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 17px;
-  color: var(--color-text-1);
-  background: var(--color-bg-3);
-  border: 1px solid var(--color-border-light);
-  border-radius: 8px;
-  outline: none;
-  font-family: inherit;
-  box-sizing: border-box;
-}
-.pp-input:focus { border-color: var(--color-primary); }
-
 .progress-popup__footer {
   display: flex;
   gap: 10px;
-  padding: 12px 16px 16px;
+  padding: 10px 16px 16px;
   border-top: 1px solid var(--color-border-light);
 }
 .progress-popup__footer .van-button { flex: 1; }

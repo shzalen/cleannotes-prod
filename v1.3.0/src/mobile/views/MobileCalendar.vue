@@ -9,7 +9,7 @@ import { useTouchInteraction } from '../composables/useTouchInteraction'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
 import MobileTaskEditPopup from '../components/MobileTaskEditPopup.vue'
-import { PullRefresh as VanPullRefresh } from 'vant'
+import { PullRefresh as VanPullRefresh, SwipeCell as VanSwipeCell, showConfirmDialog, showToast } from 'vant'
 
 defineOptions({ name: 'MobileCalendar' })
 
@@ -123,6 +123,44 @@ const priorityMeta: Record<string, { label: string; color: string }> = {
   low: { label: '低', color: 'var(--color-success)' },
 }
 
+const statusMeta: Record<string, { label: string; color: string }> = {
+  todo: { label: '待办', color: 'var(--color-text-3)' },
+  in_progress: { label: '进行中', color: 'var(--color-warning-text)' },
+  done: { label: '已完成', color: 'var(--color-primary)' },
+}
+
+// ── 截止日期格式化 mm-dd ──
+function formatDueDate(due: string | null | undefined): string {
+  if (!due) return ''
+  const parts = due.split('-')
+  if (parts.length >= 3) return `${parts[1]}-${parts[2]}`
+  return due
+}
+
+// ── 删除任务（带确认） ──
+function handleDeleteTask(task: Task) {
+  showConfirmDialog({
+    title: '删除任务',
+    message: `确定要删除「${task.title}」吗？`,
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+  })
+    .then(() => {
+      taskStore.deleteTask(task.id)
+      showToast('已删除')
+    })
+    .catch(() => {})
+}
+
+// ── 编辑任务（仅未完成可编辑） ──
+function handleEditTask(task: Task) {
+  if (task.status === 'done') {
+    showToast('已完成的任务不可编辑')
+    return
+  }
+  editPopup.value?.openEdit(task)
+}
+
 // ── 定时刷新：确保 isTimeReached / 到点脉冲随时间自动更新 ──
 const now = ref(new Date())
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -216,46 +254,66 @@ function openAdd() {
 
       <template v-if="selectedTasks.length > 0">
         <div class="task-list">
-          <div
+          <VanSwipeCell
             v-for="task in selectedTasks"
             :key="task.id"
-            class="task-item"
-            :class="{ 'is-done': task.status === 'done' }"
-            @touchstart.passive="handleTouchStart(task, $event)"
-            @touchend.passive="handleTouchEnd()"
-            @touchmove.passive="handleTouchMove($event)"
+            :disabled="task.status === 'done'"
           >
-            <span
-              class="task-item__check"
-              :class="[task.status, { 'is-due': isTimeReached(task) }]"
+            <div
+              class="task-item"
+              :class="{ 'is-done': task.status === 'done' }"
+              @touchstart.passive="handleTouchStart(task, $event)"
+              @touchend.passive="handleTouchEnd()"
+              @touchmove.passive="handleTouchMove($event)"
             >
-              <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 13l4 4L19 7" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            </span>
+              <span
+                class="task-item__check"
+                :class="[task.status, { 'is-due': isTimeReached(task) }]"
+              >
+                <svg v-if="task.status === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              </span>
 
-            <div class="task-item__body">
-              <p class="task-item__title">{{ task.title }}</p>
-              <div class="task-item__meta">
-                <span
-                  v-if="task.priority"
-                  class="task-item__priority"
-                  :style="{ '--p-color': priorityMeta[task.priority]?.color }"
-                >{{ priorityMeta[task.priority]?.label }}</span>
-                <span v-if="task.startTime" class="task-item__time">{{ task.startTime }}</span>
-                <span v-if="task.dueDate" class="task-item__due">{{ task.dueDate }}</span>
+              <div class="task-item__body">
+                <p class="task-item__title">{{ task.title }}</p>
+                <div class="task-item__meta">
+                  <span class="task-item__time">{{ task.startTime || '--:--' }}</span>
+                  <span class="task-item__divider">·</span>
+                  <span
+                    class="task-item__status"
+                    :style="{ color: statusMeta[task.status]?.color }"
+                  >{{ statusMeta[task.status]?.label }}</span>
+                  <span class="task-item__divider">·</span>
+                  <span
+                    v-if="task.priority"
+                    class="task-item__priority"
+                    :style="{ '--p-color': priorityMeta[task.priority]?.color }"
+                  >{{ priorityMeta[task.priority]?.label }}</span>
+                  <template v-if="task.dueDate">
+                    <span class="task-item__divider">·</span>
+                    <span class="task-item__due">{{ formatDueDate(task.dueDate) }}</span>
+                  </template>
+                </div>
               </div>
+
+              <span class="task-item__arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </span>
             </div>
 
-            <span class="task-item__arrow">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </span>
-          </div>
+            <template #right>
+              <div class="task-swipe-actions">
+                <button class="task-swipe-btn task-swipe-btn--edit" @click="handleEditTask(task)">编辑</button>
+                <button class="task-swipe-btn task-swipe-btn--delete" @click="handleDeleteTask(task)">删除</button>
+              </div>
+            </template>
+          </VanSwipeCell>
         </div>
       </template>
 
@@ -442,6 +500,18 @@ function openAdd() {
   gap: 8px;
 }
 
+/* SwipeCell 容器样式覆盖 */
+.task-list :deep(.van-swipe-cell) {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+.task-list :deep(.van-swipe-cell__wrapper) {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .task-item {
   display: flex;
   align-items: flex-start;
@@ -449,7 +519,6 @@ function openAdd() {
   padding: 12px 14px;
   background: var(--color-surface);
   border-radius: 12px;
-  box-shadow: 0 1px 3px var(--color-shadow);
   cursor: pointer;
   transition: transform 0.12s ease, opacity 0.2s ease;
   -webkit-tap-highlight-color: transparent;
@@ -543,8 +612,20 @@ function openAdd() {
 .task-item__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.task-item__divider {
+  font-size: 11px;
+  color: var(--color-text-4);
+  flex-shrink: 0;
+}
+
+.task-item__status {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .task-item__priority {
@@ -559,11 +640,41 @@ function openAdd() {
 .task-item__time {
   font-size: 12px;
   color: var(--color-text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .task-item__due {
   font-size: 11px;
   color: var(--color-text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── SwipeCell 滑动操作按钮 ── */
+.task-swipe-actions {
+  display: flex;
+  height: 100%;
+}
+
+.task-swipe-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 100%;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.task-swipe-btn--edit {
+  background: var(--color-primary);
+}
+
+.task-swipe-btn--delete {
+  background: var(--color-danger);
 }
 
 .task-item__arrow {

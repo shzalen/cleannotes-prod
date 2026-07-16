@@ -478,17 +478,19 @@ const buildTime = __BUILD_TIME__
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  min-height: 54px;
+  padding: 16px 16px;
   cursor: pointer;
   transition: background 0.12s;
   border-bottom: 1px solid var(--color-border-light);
+  box-sizing: border-box;
 }
 .profile-menu__item:last-child { border-bottom: none; }
 .profile-menu__item:active { background: var(--color-bg-3); }
 
 .profile-menu__label {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 400;
   color: var(--color-text-1);
 }
 
