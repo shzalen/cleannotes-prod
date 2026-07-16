@@ -4,6 +4,7 @@
  * 过滤规则（isTodayTask）与排序规则（sortTasks）与 PC 首页完全一致。
  */
 import type { Task } from '@/types'
+import { toLocalDate } from './time'
 
 /**
  * 判断任务是否属于"今日任务"。
@@ -64,11 +65,27 @@ export function sortTasks(tasks: Task[]): Task[] {
   return [...active, ...done]
 }
 
-/** 按指定日期（YYYY-MM-DD）过滤任务：开始日期 == 该日，或该日完成的任务 */
+/** 按指定日期（YYYY-MM-DD）过滤任务，与 PC 端 TaskRightPanel dayTasks 逻辑一致 */
 export function filterTasksByDate(tasks: Task[], dateStr: string): Task[] {
+  const today = toLocalDate()
+  const isToday = dateStr === today
+
   return tasks.filter((t) => {
+    // 1. 开始日期为选中日期
     if (t.startDate === dateStr) return true
-    if (!t.startDate && t.createdAt.startsWith(dateStr)) return true
+    // 2. 开始日期早于选中日期且未完成（延迟/逾期任务）—— 仅今日视图显示
+    if (isToday && t.startDate && t.startDate < dateStr && t.status !== 'done') return true
+    // 3. 无开始日期（旧数据）→ 回退到 createdAt 逻辑
+    if (!t.startDate) {
+      const createdOnDay = t.createdAt.startsWith(dateStr)
+      if (isToday) {
+        const createdBeforeAndUndone = t.createdAt.slice(0, 10) < dateStr && t.status !== 'done'
+        const completedOnDay = !!t.completedAt && t.completedAt.startsWith(dateStr)
+        return createdOnDay || createdBeforeAndUndone || completedOnDay
+      }
+      return createdOnDay
+    }
+    // 4. 选中日期完成的任务（无论开始日期是什么，方便追溯）
     if (t.completedAt && t.completedAt.startsWith(dateStr)) return true
     return false
   })

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Tabbar as VanTabbar, TabbarItem as VanTabbarItem } from 'vant'
+import { useTabRefresh } from '../composables/useTabRefresh'
 
 const route = useRoute()
 const router = useRouter()
+const { triggerRefresh } = useTabRefresh()
 
 const active = computed(() => (route.meta.tab as string) || 'home')
 
@@ -18,6 +19,37 @@ function go(name: string) {
   if (route.name === name) return
   router.replace({ name })
 }
+
+// ── 双击刷新检测（仅首页/日历） ──
+const doubleTapTimers: Record<string, ReturnType<typeof setTimeout> | null> = {}
+const DOUBLE_TAP_WINDOW = 350 // ms
+
+function handleTabClick(tabKey: string, tabName: string) {
+  // 非首页/日历不走双击逻辑
+  if (tabKey !== 'home' && tabKey !== 'calendar') {
+    go(tabName)
+    return
+  }
+
+  // 当前已在目标页 → 检测双击
+  if (active.value === tabKey) {
+    if (doubleTapTimers[tabKey]) {
+      // 第二次点击（双击）
+      clearTimeout(doubleTapTimers[tabKey])
+      doubleTapTimers[tabKey] = null
+      triggerRefresh()
+    } else {
+      // 第一次点击，设定时器
+      doubleTapTimers[tabKey] = setTimeout(() => {
+        doubleTapTimers[tabKey] = null
+      }, DOUBLE_TAP_WINDOW)
+    }
+    return
+  }
+
+  // 切换 Tab
+  go(tabName)
+}
 </script>
 
 <template>
@@ -27,7 +59,7 @@ function go(name: string) {
       :key="tab.key"
       class="tabbar__item"
       :class="{ 'is-active': active === tab.key }"
-      @click="go(tab.name)"
+      @click="handleTabClick(tab.key, tab.name)"
     >
       <span class="tabbar__icon">
         <!-- 首页 -->

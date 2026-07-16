@@ -19,6 +19,8 @@ const task = ref<Task | null>(null)
 const statusInput = ref<TaskStatus>('todo')
 const inProgressAtInput = ref('')
 const completedAtInput = ref('')
+const saving = ref(false)
+const saved = ref(false)
 
 const statuses: { value: TaskStatus; label: string }[] = [
   { value: 'todo', label: '待办' },
@@ -77,7 +79,7 @@ function close() {
   task.value = null
 }
 
-function save() {
+async function save() {
   if (!task.value) return
 
   const originalStatus = task.value.status
@@ -102,8 +104,21 @@ function save() {
     return
   }
 
+  // 保存动效：saving → saved ✓ → 短暂延迟 → 关闭
+  saving.value = true
+
+  // 本地状态立即更新
   store.updateTask(task.value.id, patch as any)
-  close()
+
+  // 短暂延迟让"保存中"状态可见，然后展示成功
+  setTimeout(() => {
+    saving.value = false
+    saved.value = true
+    setTimeout(() => {
+      saved.value = false
+      close()
+    }, 700)
+  }, 180)
 }
 
 defineExpose({ open, close })
@@ -164,15 +179,32 @@ defineExpose({ open, close })
       </div>
 
       <div class="progress-popup__footer">
-        <van-button plain round @click="close">取消</van-button>
-        <van-button type="primary" round @click="save">保存</van-button>
+        <van-button plain round @click="close" :disabled="saving">取消</van-button>
+        <van-button type="primary" round @click="save" :loading="saving" :disabled="saving">
+          {{ saving ? '保存中' : '保存' }}
+        </van-button>
       </div>
+
+      <!-- 保存成功动效 -->
+      <Transition name="saved-pop">
+        <div v-if="saved" class="progress-popup__saved-overlay" @click.stop>
+          <div class="saved-check">
+            <svg viewBox="0 0 52 52" class="saved-check__circle">
+              <circle cx="26" cy="26" r="23" fill="none" stroke="var(--color-primary)" stroke-width="3" />
+            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="saved-check__mark">
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div>
+      </Transition>
     </div>
   </van-popup>
 </template>
 
 <style scoped>
 .progress-popup {
+  position: relative;
   padding-bottom: var(--safe-bottom);
   overflow-x: hidden;
   touch-action: pan-y;
@@ -271,4 +303,79 @@ defineExpose({ open, close })
   border-top: 1px solid var(--color-border-light);
 }
 .progress-popup__footer .van-button { flex: 1; }
+
+/* ── 保存成功动效 ── */
+.progress-popup__saved-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--color-bg-rgb, 255, 255, 255), 0.92);
+  z-index: 10;
+  border-radius: 16px 16px 0 0;
+}
+
+.saved-check {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-check__circle {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  transform: rotate(-90deg);
+}
+
+.saved-check__circle circle {
+  stroke-dasharray: 145;
+  stroke-dashoffset: 145;
+  animation: saved-draw-circle 0.4s 0.05s ease-out forwards;
+}
+
+.saved-check__mark {
+  width: 34px;
+  height: 34px;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: saved-pop-mark 0.3s 0.2s ease-out forwards;
+}
+
+@keyframes saved-draw-circle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes saved-pop-mark {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Transition */
+.saved-pop-enter-active {
+  transition: opacity 0.15s ease;
+}
+.saved-pop-leave-active {
+  transition: opacity 0.2s ease;
+}
+.saved-pop-enter-from,
+.saved-pop-leave-to {
+  opacity: 0;
+}
 </style>

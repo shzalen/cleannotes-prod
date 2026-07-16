@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { filterTasksByDate, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
+import { useTabRefresh } from '../composables/useTabRefresh'
 
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
 import MobileTaskProgressPopup from '../components/MobileTaskProgressPopup.vue'
@@ -157,12 +158,8 @@ function handleDeleteTask(task: Task) {
     .catch(() => {})
 }
 
-// ── 编辑任务（仅未完成可编辑） ──
-function handleEditTask(task: Task) {
-  if (task.status === 'done') {
-    showToast('已完成的任务不可编辑')
-    return
-  }
+// ── 详情弹窗中点击编辑：打开编辑弹窗 ──
+function onDetailEdit(task: Task) {
   editPopup.value?.openEdit(task)
 }
 
@@ -184,10 +181,24 @@ function isTimeReached(task: Task) {
 
 // ── 下拉刷新 ──
 const refreshing = ref(false)
-async function onRefresh() {
+const { refreshCounter } = useTabRefresh()
+
+async function doRefresh() {
+  refreshing.value = true
   await taskStore.load(true)
   refreshing.value = false
 }
+
+async function onRefresh() {
+  await doRefresh()
+}
+
+// ── 监听 TabBar 双击刷新 ──
+watch(refreshCounter, () => {
+  if (!refreshing.value) {
+    doRefresh()
+  }
+})
 
 // ── 弹窗引用 ──
 const detailPopup = ref<InstanceType<typeof MobileTaskDetailPopup> | null>(null)
@@ -317,7 +328,6 @@ function openAdd() {
 
             <template #right>
               <div class="task-swipe-actions">
-                <button class="task-swipe-btn task-swipe-btn--edit" @click="handleEditTask(task)">编辑</button>
                 <button class="task-swipe-btn task-swipe-btn--delete" @click="handleDeleteTask(task)">删除</button>
               </div>
             </template>
@@ -332,7 +342,7 @@ function openAdd() {
     </van-pull-refresh>
 
     <!-- 任务详情弹窗 -->
-    <MobileTaskDetailPopup ref="detailPopup" />
+    <MobileTaskDetailPopup ref="detailPopup" @edit="onDetailEdit" />
 
     <!-- 进度更新弹窗 -->
     <MobileTaskProgressPopup ref="progressPopup" />
@@ -683,10 +693,6 @@ function openAdd() {
   color: #fff;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.task-swipe-btn--edit {
-  background: var(--color-primary);
 }
 
 .task-swipe-btn--delete {

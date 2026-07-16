@@ -56,6 +56,8 @@ const statusLabels: Record<string, string> = {
   done: '已完成',
 }
 
+const emit = defineEmits<{ (e: 'edit', task: Task): void }>()
+
 function open(task: Task) {
   detailTask.value = task
   visible.value = true
@@ -64,6 +66,14 @@ function open(task: Task) {
 function close() {
   visible.value = false
   detailTask.value = null
+}
+
+/** 点击编辑：关闭详情并通知父组件打开编辑界面 */
+function handleEdit() {
+  const t = detailTask.value
+  if (!t) return
+  close()
+  emit('edit', t)
 }
 
 defineExpose({ open, close })
@@ -153,6 +163,18 @@ defineExpose({ open, close })
       <!-- 底部按钮 -->
       <div class="detail-popup__footer">
         <van-button plain round @click="close">关闭</van-button>
+        <van-button
+          v-if="detailTask.status !== 'done'"
+          type="primary"
+          round
+          @click="handleEdit"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          编辑
+        </van-button>
       </div>
     </div>
   </van-popup>
@@ -295,6 +317,10 @@ defineExpose({ open, close })
 .detail-field__desc :deep(img) { max-width: 100%; border-radius: 4px; }
 
 .detail-popup__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   padding: 12px 16px calc(12px + var(--safe-bottom));
   border-top: 1px solid var(--color-border-light);
   flex-shrink: 0;

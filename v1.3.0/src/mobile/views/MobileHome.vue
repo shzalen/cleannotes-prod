@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useAuthStore } from '@/stores/auth'
 import { filterTodayTasks, sortTasks } from '@/utils/todayTasks'
 import { toLocalDate } from '@/utils/time'
 import type { Task } from '@/types'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
+import { useTabRefresh } from '../composables/useTabRefresh'
 
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
@@ -106,10 +107,51 @@ const { handleTouchStart, handleTouchMove, handleTouchEnd } = useTouchInteractio
 
 // ── 下拉刷新 ──
 const refreshing = ref(false)
-async function onRefresh() {
+const { refreshCounter, triggerRefresh } = useTabRefresh()
+
+// ── 清脆提示音（Web Audio API 合成） ──
+function playDingSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    // 双层泛音模拟清脆"叮"声
+    const t = ctx.currentTime
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(1760, t)       // A6
+    osc.frequency.setValueAtTime(2093, t + 0.04) // C7 快速上滑
+    osc.frequency.setValueAtTime(2637, t + 0.06) // E7
+    gain.gain.setValueAtTime(0.25, t)
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
+
+    osc.start(t)
+    osc.stop(t + 0.25)
+    osc.onended = () => ctx.close()
+  } catch {
+    // 静默降级：部分浏览器不支持 Web Audio
+  }
+}
+
+async function doRefresh() {
+  refreshing.value = true
   await taskStore.load(true)
   refreshing.value = false
+  playDingSound()
 }
+
+async function onRefresh() {
+  await doRefresh()
+}
+
+// ── 监听 TabBar 双击刷新 ──
+watch(refreshCounter, () => {
+  if (!refreshing.value) {
+    doRefresh()
+  }
+})
 
 // ── 任务创建 ──
 function openTaskCreate() {
