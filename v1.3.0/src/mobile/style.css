@@ -208,5 +208,6 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  bottom: 0;                 /* 覆盖底部安全区（Vant 默认 height:100% 不含 safe-area） */
+  height: auto;              /* 覆盖 Vant 默认 height:100%，配合 bottom:0 拉伸到底 */
+  bottom: 0;                 /* 覆盖底部安全区 */
 }
