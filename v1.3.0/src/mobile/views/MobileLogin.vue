@@ -39,47 +39,42 @@ async function onSubmit() {
 
 <template>
   <div class="login-page">
+    <!-- 顶部安全区 -->
     <div class="login-page__safe-area" />
 
-    <!-- 品牌区 -->
+    <!-- 品牌区 — 轻量 -->
     <div class="login-page__brand">
       <div class="login-page__logo">清</div>
-      <h1 class="login-page__title">清记</h1>
+      <p class="login-page__subtitle">清简记事，井然有序</p>
     </div>
 
     <!-- 表单区 -->
     <div class="login-page__form">
-      <div class="login-field">
-        <label class="login-field__label">邮箱</label>
-        <input
-          v-model="form.email"
-          type="email"
-          class="login-field__input"
-          placeholder="请输入邮箱"
-          autocomplete="email"
-          inputmode="email"
-        />
-      </div>
+      <input
+        v-model="form.email"
+        type="email"
+        class="login-input"
+        placeholder="邮箱"
+        autocomplete="email"
+        inputmode="email"
+      />
 
-      <div class="login-field">
-        <label class="login-field__label">密码</label>
-        <input
-          v-model="form.password"
-          type="password"
-          class="login-field__input"
-          placeholder="请输入密码"
-          autocomplete="current-password"
-          @keyup.enter="onSubmit"
-        />
-      </div>
+      <input
+        v-model="form.password"
+        type="password"
+        class="login-input"
+        placeholder="密码"
+        autocomplete="current-password"
+        @keyup.enter="onSubmit"
+      />
 
       <button
-        class="login-submit"
+        class="login-btn"
         :disabled="loading"
         @click="onSubmit"
       >
-        <span v-if="loading" class="login-submit__spinner" />
-        <span v-else>登 录</span>
+        <span v-if="loading" class="login-btn__spinner" />
+        <span v-else>登录</span>
       </button>
     </div>
   </div>
@@ -90,13 +85,14 @@ async function onSubmit() {
 .login-page {
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-height: 100%;
+  padding: 0 32px;
   background: var(--color-bg-1);
 }
 
 .login-page__safe-area {
   height: var(--safe-top);
-  background: var(--color-primary);
 }
 
 /* ── 品牌区 ── */
@@ -104,107 +100,91 @@ async function onSubmit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 0 48px;
-  background: var(--color-primary);
-  border-radius: 0 0 20px 20px;
+  padding: 60px 0 40px;
 }
 
 .login-page__logo {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.18);
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 700;
   color: #fff;
   margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(0, 82, 217, 0.25);
 }
 
-.login-page__title {
+.login-page__subtitle {
   margin: 0;
-  font-size: 36px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 6px;
+  font-size: 15px;
+  color: var(--color-text-3);
 }
 
 /* ── 表单区 ── */
 .login-page__form {
-  padding: 40px 24px 0;
-  flex: 1;
-}
-
-.login-field {
-  margin-bottom: 24px;
-}
-
-.login-field__label {
-  display: block;
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--color-text-2);
-  margin-bottom: 10px;
-  padding-left: 4px;
-}
-
-.login-field__input {
   width: 100%;
-  height: 56px;
-  padding: 0 18px;
-  font-size: 18px;
+  max-width: 320px;
+}
+
+.login-input {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-bottom: 16px;
+  padding: 0 16px;
+  font-size: 16px;
   color: var(--color-text-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  border-radius: 12px;
+  border-radius: 10px;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
   -webkit-appearance: none;
 }
 
-.login-field__input:focus {
+.login-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 82, 217, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 82, 217, 0.08);
 }
 
-.login-field__input::placeholder {
+.login-input::placeholder {
   color: var(--color-text-3);
-  font-size: 17px;
+  font-size: 15px;
 }
 
-/* ── 登录按钮 ── */
-.login-submit {
+/* ── 按钮 ── */
+.login-btn {
   width: 100%;
-  height: 56px;
-  margin-top: 12px;
+  height: 48px;
+  margin-top: 8px;
   background: var(--color-primary);
   color: #fff;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
   border: none;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: opacity 0.2s;
-  letter-spacing: 4px;
+  transition: opacity 0.15s;
 }
 
-.login-submit:active {
+.login-btn:active {
   opacity: 0.85;
 }
 
-.login-submit:disabled {
-  opacity: 0.6;
+.login-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* ── 加载旋转器 ── */
-.login-submit__spinner {
+.login-btn__spinner {
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: 2.5px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
