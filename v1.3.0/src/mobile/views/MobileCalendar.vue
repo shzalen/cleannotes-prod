@@ -530,7 +530,7 @@ function openAdd() {
 
 .task-list :deep(.van-swipe-cell__wrapper) {
   border-radius: 12px;
-  overflow: hidden;
+  /* overflow: hidden 不能设，否则右滑按钮会被裁剪 */
 }
 
 .task-item {
