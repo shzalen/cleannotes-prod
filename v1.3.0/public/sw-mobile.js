@@ -1,7 +1,7 @@
 // CleanNotes Mobile PWA Service Worker
 // v3: 改进缓存策略，预缓存 app shell，减少白屏
 
-const CACHE_NAME = 'cleannotes-mobile-v1.3.0-r20';
+const CACHE_NAME = 'cleannotes-mobile-v1.3.0-r21';
 const APP_SHELL = [
   './mobile.html',
   './manifest.json',
