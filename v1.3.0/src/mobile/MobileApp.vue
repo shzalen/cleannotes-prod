@@ -84,7 +84,6 @@ watch(
 /* 有 TabBar 时留出底部空间 */
 .app-content.has-tabbar {
   padding-bottom: calc(var(--tabbar-height) + 34px);
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 34px));
 }
 
 /* 路由切换淡入淡出，消除白屏闪烁 */

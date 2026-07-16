@@ -108,9 +108,8 @@ function handleTabClick(tabKey: string, tabName: string) {
   right: 0;
   bottom: 0;
   z-index: 100;
-  /* 保底 34px，env() 有效时覆盖 */
+  /* iOS PWA 安全区：env() 在 PWA 下可能返回 0，直接用 34px */
   padding-bottom: 34px;
-  padding-bottom: env(safe-area-inset-bottom, 34px);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);
