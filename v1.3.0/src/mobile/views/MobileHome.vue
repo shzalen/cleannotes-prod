@@ -100,6 +100,18 @@ function openTaskCreate() {
 
 <template>
   <div class="home-page">
+    <!-- 背景气泡装饰 -->
+    <div class="home-bubbles" aria-hidden="true">
+      <span class="bubble bubble--1" />
+      <span class="bubble bubble--2" />
+      <span class="bubble bubble--3" />
+      <span class="bubble bubble--4" />
+      <span class="bubble bubble--5" />
+      <span class="bubble bubble--6" />
+      <span class="bubble bubble--7" />
+      <span class="bubble bubble--8" />
+    </div>
+
     <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
       <div class="home-header__safe-area" />
@@ -226,12 +238,69 @@ function openTaskCreate() {
   min-height: 0;
   overflow: hidden; /* 禁止滚动穿透，内容区独立滚动 */
   background: var(--color-bg-1);
+  position: relative; /* 为气泡定位提供参照 */
+}
+
+/* ── 背景气泡装饰 ── */
+.home-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bubble {
+  position: absolute;
+  bottom: -60px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    color-mix(in srgb, var(--color-primary) 18%, transparent),
+    color-mix(in srgb, var(--color-primary) 6%, transparent) 60%,
+    transparent 80%
+  );
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  opacity: 0;
+  animation: bubble-float linear infinite;
+}
+
+.bubble--1 { left: 8%;  width: 34px; height: 34px; animation-duration: 14s; animation-delay: 0s; }
+.bubble--2 { left: 22%; width: 18px; height: 18px; animation-duration: 10s; animation-delay: 2s; }
+.bubble--3 { left: 38%; width: 48px; height: 48px; animation-duration: 18s; animation-delay: 1s; }
+.bubble--4 { left: 52%; width: 24px; height: 24px; animation-duration: 12s; animation-delay: 4s; }
+.bubble--5 { left: 66%; width: 40px; height: 40px; animation-duration: 16s; animation-delay: 3s; }
+.bubble--6 { left: 78%; width: 16px; height: 16px; animation-duration: 9s;  animation-delay: 5s; }
+.bubble--7 { left: 88%; width: 30px; height: 30px; animation-duration: 15s; animation-delay: 6s; }
+.bubble--8 { left: 48%; width: 12px; height: 12px; animation-duration: 8s;  animation-delay: 7s; }
+
+@keyframes bubble-float {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-50vh) scale(1) translateX(10px);
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100vh) scale(0.8) translateX(-6px);
+    opacity: 0;
+  }
 }
 
 /* ── 沉浸式头部（含问候语） ── */
 .home-header {
   flex-shrink: 0;
   background: var(--color-primary);
+  position: relative;
+  z-index: 1;
 }
 
 .home-header__safe-area {
@@ -268,6 +337,8 @@ function openTaskCreate() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
@@ -516,7 +587,7 @@ function openTaskCreate() {
   justify-content: center;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 40%, rgba(0, 0, 0, 0.2));
   cursor: pointer;
-  z-index: 15;
+  z-index: 16;
   transition: transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
 }
