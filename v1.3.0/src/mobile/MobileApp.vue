@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
@@ -10,9 +10,13 @@ import MobileTabBar from './components/MobileTabBar.vue'
 // 激活主题（模块级单例，与 PC 端共享持久化）
 useTheme()
 
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const taskStore = useTaskStore()
+
+// 仅在有 meta.tab 的页面显示 TabBar（登录页等不显示）
+const showTabBar = computed(() => !!route.meta.tab)
 
 async function bootstrapData() {
   if (!auth.isAuthenticated || !auth.userId) return
@@ -44,14 +48,14 @@ watch(
 
 <template>
   <div class="app-shell">
-    <div class="app-content">
+    <div class="app-content" :class="{ 'has-tabbar': showTabBar }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
     </div>
-    <MobileTabBar />
+    <MobileTabBar v-if="showTabBar" />
   </div>
 </template>
 
@@ -75,7 +79,10 @@ watch(
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* 为 fixed TabBar 留出空间（52px 内容 + 安全区） */
+}
+
+/* 有 TabBar 时留出底部空间 */
+.app-content.has-tabbar {
   padding-bottom: calc(var(--tabbar-height) + 34px);
   padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 34px));
 }
