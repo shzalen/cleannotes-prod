@@ -25,12 +25,14 @@ body {
   overscroll-behavior: none; /* 禁止 iOS Safari 橡皮筋回弹 */
   /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
   touch-action: manipulation;
+  /* 与 TabBar 背景一致，填补底部安全区 */
+  background: var(--color-surface);
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: var(--color-bg-1);
+  background: var(--color-surface);
   color: var(--color-text-1);
   -webkit-font-smoothing: antialiased;
   -webkit-user-select: none;
