@@ -69,20 +69,21 @@ function go(name: string) {
 <style scoped>
 .tabbar {
   position: fixed;
-  bottom: 0;
+  bottom: -8px;
   left: 0;
   right: 0;
   z-index: 100;
   display: flex;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: max(var(--safe-bottom), 12px);
   box-shadow: 0 -1px 8px var(--color-shadow);
 }
 
 .tabbar__item {
   flex: 1;
   min-height: var(--tabbar-height);
+  padding-bottom: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;

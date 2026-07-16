@@ -3,8 +3,8 @@
  * iOS 风格日期/时间选择器组件
  * 点击触发器单元格 → 弹出底部滚轮选择器（模拟 iOS 原生 Picker）
  */
-import { ref, computed, watch } from 'vue'
-import { DatePicker, TimePicker, Popup, Button } from 'vant'
+import { ref, computed } from 'vue'
+import { DatePicker, TimePicker, Popup } from 'vant'
 
 type PickerType = 'date' | 'time' | 'datetime'
 
@@ -26,37 +26,34 @@ const emit = defineEmits(['update:modelValue'])
 
 const showPicker = ref(false)
 
-// ── 日期解析 ──
-function parseDate(str: string): Date | null {
-  if (!str) return null
-  const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
-}
+// ── 当前日期值（DatePicker 用 string[]） ──
+const datePickerValue = ref<string[]>(defaultDateValues())
 
-// ── 当前日期值（DatePicker 用） ──
-const datePickerValue = ref<Date>(parseDate(props.modelValue) || new Date())
-
-// ── 当前时间值（TimePicker 用） ──
-const timePickerValue = ref<string>(props.modelValue || '12:00')
+// ── 当前时间值（TimePicker 用 string[]） ──
+const timePickerValue = ref<string[]>(['08', '00'])
 
 // ── datetime 模式：拆分为日期 + 时间 ──
-const dtDatePart = ref<string>(props.type === 'datetime' ? props.modelValue.slice(0, 10) : '')
-const dtTimePart = ref<string>(props.type === 'datetime' ? props.modelValue.slice(11, 16) || '12:00' : '12:00')
+const dtDatePart = ref<string>('')
+const dtTimePart = ref<string>('08:00')
 const dtShowTimePicker = ref(false)
 
-watch(() => props.modelValue, (val) => {
-  if (props.type === 'date') {
-    const d = parseDate(val)
-    if (d) datePickerValue.value = d
-  } else if (props.type === 'time') {
-    if (val) timePickerValue.value = val
-  } else if (props.type === 'datetime') {
-    if (val) {
-      dtDatePart.value = val.slice(0, 10)
-      dtTimePart.value = val.slice(11, 16) || '12:00'
-    }
-  }
+const showDatePicker = computed(() =>
+  props.type === 'date' || (props.type === 'datetime' && !dtShowTimePicker.value)
+)
+
+const showTimePicker = computed(() =>
+  props.type === 'time' || (props.type === 'datetime' && dtShowTimePicker.value)
+)
+
+const title = computed(() => {
+  if (props.type === 'time') return `选择${props.label.replace(/[:：]$/, '')}`
+  if (props.type === 'datetime' && dtShowTimePicker.value) return '选择时间'
+  return '选择日期'
 })
+
+const leftButtonText = computed(() =>
+  props.type === 'datetime' && dtShowTimePicker.value ? '上一步' : '取消'
+)
 
 // ── 显示文本 ──
 const displayText = computed(() => {
@@ -67,28 +64,56 @@ const displayText = computed(() => {
   return props.modelValue.replace('T', ' ').slice(0, 16)
 })
 
+function todayStr() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function defaultDateValues(): string[] {
+  return todayStr().split('-')
+}
+
+function parseDateToValues(dateStr: string): string[] {
+  if (!dateStr) return defaultDateValues()
+  const parts = dateStr.split('-')
+  if (parts.length >= 3) {
+    return [parts[0], parts[1].padStart(2, '0'), parts[2].padStart(2, '0')]
+  }
+  return defaultDateValues()
+}
+
+function parseTimeToValues(timeStr: string): string[] {
+  if (!timeStr) return ['08', '00']
+  const [h, m] = timeStr.split(':')
+  return [h ? h.padStart(2, '0') : '08', m ? m.padStart(2, '0') : '00']
+}
+
 function openPicker() {
   if (props.type === 'date') {
-    const d = parseDate(props.modelValue)
-    datePickerValue.value = d || new Date()
+    datePickerValue.value = parseDateToValues(props.modelValue)
   } else if (props.type === 'time') {
-    timePickerValue.value = props.modelValue || '12:00'
+    timePickerValue.value = parseTimeToValues(props.modelValue)
   } else if (props.type === 'datetime') {
     if (props.modelValue) {
-      dtDatePart.value = props.modelValue.slice(0, 10)
-      dtTimePart.value = props.modelValue.slice(11, 16) || '12:00'
+      const [datePart, timePart] = props.modelValue.split('T')
+      dtDatePart.value = datePart || todayStr()
+      dtTimePart.value = timePart ? timePart.slice(0, 5) : '08:00'
     } else {
-      dtDatePart.value = ''
-      dtTimePart.value = '12:00'
+      dtDatePart.value = todayStr()
+      dtTimePart.value = '08:00'
     }
+    datePickerValue.value = parseDateToValues(dtDatePart.value)
+    timePickerValue.value = parseTimeToValues(dtTimePart.value)
     dtShowTimePicker.value = false
   }
   showPicker.value = true
 }
 
-// ── 日期确认 ──
-function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
-  const dateStr = selectedValues.join('-')
+function onDateConfirm() {
+  const dateStr = datePickerValue.value.join('-')
   if (props.type === 'date') {
     emit('update:modelValue', dateStr)
     showPicker.value = false
@@ -98,9 +123,8 @@ function onDateConfirm({ selectedValues }: { selectedValues: string[] }) {
   }
 }
 
-// ── 时间确认 ──
-function onTimeConfirm({ selectedValues }: { selectedValues: string[] }) {
-  const timeStr = selectedValues.join(':')
+function onTimeConfirm() {
+  const timeStr = timePickerValue.value.join(':')
   if (props.type === 'time') {
     emit('update:modelValue', timeStr)
     showPicker.value = false
@@ -112,17 +136,20 @@ function onTimeConfirm({ selectedValues }: { selectedValues: string[] }) {
   }
 }
 
-// ── datetime 模式：返回日期选择 ──
-function backToDate() {
-  dtShowTimePicker.value = false
+function onConfirm() {
+  if (showDatePicker.value) {
+    onDateConfirm()
+  } else {
+    onTimeConfirm()
+  }
 }
 
-// ── datetime 模式：日期选择后，先不关闭，切到时间选择 ──
-// 已在 onDateConfirm 中处理
-
-function clearValue() {
-  emit('update:modelValue', '')
-  showPicker.value = false
+function onCancel() {
+  if (props.type === 'datetime' && dtShowTimePicker.value) {
+    dtShowTimePicker.value = false
+  } else {
+    showPicker.value = false
+  }
 }
 </script>
 
@@ -148,49 +175,28 @@ function clearValue() {
       :close-on-click-overlay="true"
     >
       <div class="ios-picker__toolbar">
-        <Button v-if="type === 'datetime' && dtShowTimePicker" plain size="small" @click="backToDate">上一步</Button>
-        <Button v-else plain size="small" @click="clearValue">清除</Button>
-        <span class="ios-picker__title">{{ label }}</span>
-        <Button plain size="small" @click="showPicker = false">关闭</Button>
+        <span class="ios-picker__btn ios-picker__btn--cancel" @click="onCancel">
+          {{ leftButtonText }}
+        </span>
+        <span class="ios-picker__title">{{ title }}</span>
+        <span class="ios-picker__btn ios-picker__btn--confirm" @click="onConfirm">
+          确认
+        </span>
       </div>
 
-      <!-- 日期选择 -->
-      <template v-if="type === 'date'">
-        <DatePicker
-          v-model="datePickerValue"
-          :min-date="minDate"
-          :max-date="maxDate"
-          @confirm="onDateConfirm"
-          @cancel="showPicker = false"
-        />
-      </template>
+      <DatePicker
+        v-if="showDatePicker"
+        v-model="datePickerValue"
+        :min-date="minDate"
+        :max-date="maxDate"
+        :show-toolbar="false"
+      />
 
-      <!-- 时间选择 -->
-      <template v-else-if="type === 'time'">
-        <TimePicker
-          v-model="timePickerValue"
-          @confirm="onTimeConfirm"
-          @cancel="showPicker = false"
-        />
-      </template>
-
-      <!-- 日期时间选择（两步） -->
-      <template v-else>
-        <DatePicker
-          v-if="!dtShowTimePicker"
-          v-model="datePickerValue"
-          :min-date="minDate"
-          :max-date="maxDate"
-          @confirm="onDateConfirm"
-          @cancel="showPicker = false"
-        />
-        <TimePicker
-          v-else
-          v-model="dtTimePart"
-          @confirm="onTimeConfirm"
-          @cancel="showPicker = false"
-        />
-      </template>
+      <TimePicker
+        v-if="showTimePicker"
+        v-model="timePickerValue"
+        :show-toolbar="false"
+      />
     </Popup>
   </div>
 </template>
@@ -255,13 +261,33 @@ function clearValue() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-surface);
 }
 
 .ios-picker__title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-text-1);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ios-picker__btn {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 4px 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ios-picker__btn--cancel {
+  color: var(--color-text-3);
+}
+
+.ios-picker__btn--confirm {
+  color: var(--color-primary);
 }
 </style>

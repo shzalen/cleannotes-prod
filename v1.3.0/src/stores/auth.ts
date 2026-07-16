@@ -151,18 +151,24 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** 修改昵称 */
-  async function changeNickname(nickname: string) {
-    if (!user.value) return
+  async function changeNickname(nickname: string): Promise<boolean> {
+    if (!user.value) {
+      error.value = '未登录'
+      return false
+    }
     error.value = ''
     try {
       const result = await authUpdateNickname(nickname)
       if (result.success) {
         user.value.nickname = nickname
+        return true
       } else {
         error.value = result.error || '修改昵称失败'
+        return false
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : '修改昵称失败'
+      return false
     }
   }
 
