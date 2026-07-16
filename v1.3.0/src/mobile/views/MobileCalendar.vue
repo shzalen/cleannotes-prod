@@ -478,10 +478,7 @@ function openAdd() {
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .cal-content {
   min-height: 100%;
-  padding-top: 12px;
-  padding-right: 12px;
-  padding-left: 12px;
-  padding-bottom: calc(var(--tabbar-height) + 34px + 16px);
+  padding: 12px 12px 16px;
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 

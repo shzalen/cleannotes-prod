@@ -100,16 +100,13 @@ function handleTabClick(tabKey: string, tabName: string) {
 
 <style scoped>
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   z-index: 100;
   display: flex;
   align-items: stretch;
-  /* iOS PWA 安全区：env() 在 PWA 下可能返回 0，直接用 34px 保底 */
-  height: calc(var(--tabbar-height) + 34px);
-  box-sizing: border-box;
+  /* iOS PWA 安全区：用 padding-bottom 延伸背景到 Home Indicator 区域 */
+  height: var(--tabbar-height);
+  box-sizing: content-box;
   padding-bottom: 34px;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
