@@ -44,6 +44,7 @@ body {
   right: 0;
   bottom: 0;
   overflow: hidden; /* 切断滚动穿透，内容区域各自独立滚动 */
+  background: var(--color-surface); /* 与 TabBar 背景一致，填补底部空白 */
 }
 
 /* ---- safe-area 变量 ---- */
@@ -207,4 +208,5 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
+  bottom: 0;                 /* 覆盖底部安全区（Vant 默认 height:100% 不含 safe-area） */
 }

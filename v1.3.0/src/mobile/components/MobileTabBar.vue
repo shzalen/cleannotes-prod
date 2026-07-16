@@ -106,34 +106,20 @@ function handleTabClick(tabKey: string, tabName: string) {
   right: 0;
   z-index: 100;
   display: flex;
-  /* align-items 默认 stretch → 子项填满容器内容高度 */
-  height: var(--tabbar-height); /* 固定交互区高度 52px */
+  align-items: flex-start; /* 子项顶部对齐 — 图标在 TabBar 上部，safe-area 留白在下方 */
+  height: calc(var(--tabbar-height) + var(--safe-bottom)); /* 总高度含安全区，背景自然填充到底 */
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
-  padding-bottom: var(--safe-bottom); /* 安全区：背景色延伸到底，内容自然抬升 */
   box-shadow: 0 -1px 8px var(--color-shadow);
-}
-
-/* 底部背景延伸：覆盖 iOS/Android 动态工具栏收起时露出的视口外区域 */
-.tabbar::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 60px;
-  background: inherit;
-  pointer-events: none;
-  /* 继承父级 z-index: 100，无需显式设置 */
 }
 
 .tabbar__item {
   flex: 1;
-  /* 不设 height — 由 align-items:stretch 拉伸到容器内容高度 */
+  height: var(--tabbar-height); /* 固定交互区高度，不参与 safe-area 拉伸 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* 图标+标签垂直居中 */
+  justify-content: center; /* 图标+标签垂直居中于 52px 交互区内 */
   gap: 2px;
   border: none;
   background: transparent;
