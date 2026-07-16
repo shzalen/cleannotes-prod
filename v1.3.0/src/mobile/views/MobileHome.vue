@@ -273,9 +273,9 @@ function openTaskCreate() {
   flex-shrink: 0;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-primary) 85%, #000 15%) 0%,
+    color-mix(in srgb, var(--color-primary) 80%, #fff 20%) 0%,
     var(--color-primary) 45%,
-    color-mix(in srgb, var(--color-primary) 80%, #fff 20%) 100%
+    color-mix(in srgb, var(--color-primary) 85%, #000 15%) 100%
   );
   position: relative;
   z-index: 1;

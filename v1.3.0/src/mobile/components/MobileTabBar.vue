@@ -69,7 +69,7 @@ function go(name: string) {
 <style scoped>
 .tabbar {
   position: fixed;
-  bottom: -8px;
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: 100;
@@ -83,7 +83,6 @@ function go(name: string) {
 .tabbar__item {
   flex: 1;
   min-height: var(--tabbar-height);
-  padding-bottom: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
