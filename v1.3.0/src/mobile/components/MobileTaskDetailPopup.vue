@@ -162,11 +162,11 @@ defineExpose({ open, close })
 
       <!-- 底部按钮 -->
       <div class="detail-popup__footer">
-        <van-button plain round @click="close">关闭</van-button>
+        <van-button plain class="footer-btn footer-btn--close" @click="close">关闭</van-button>
         <van-button
           v-if="detailTask.status !== 'done'"
           type="primary"
-          round
+          class="footer-btn footer-btn--edit"
           @click="handleEdit"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -324,5 +324,33 @@ defineExpose({ open, close })
   padding: 12px 16px calc(12px + var(--safe-bottom));
   border-top: 1px solid var(--color-border-light);
   flex-shrink: 0;
+}
+
+.footer-btn {
+  flex: 1;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 22px;
+}
+
+.footer-btn--close {
+  color: var(--color-text-2);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.footer-btn--edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.footer-btn--edit svg {
+  width: 14px;
+  height: 14px;
 }
 </style>
