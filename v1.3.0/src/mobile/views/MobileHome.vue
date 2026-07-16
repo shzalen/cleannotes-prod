@@ -111,7 +111,8 @@ const { handleTouchStart, handleTouchMove, handleTouchEnd, pressingTask, progres
         message: `将已完成任务「${task.title}」重新激活为待办？\n激活后将保留历史耗时记录，重新开始执行时会刷新计时。`,
         confirmButtonText: '确认激活',
         cancelButtonText: '取消',
-        confirmButtonColor: '#0052D9',
+        confirmButtonColor: '#e34d59',
+        theme: 'danger',
       }).then(() => {
         taskStore.toggleStatus(task.id)
         showToast('任务已重新激活')
