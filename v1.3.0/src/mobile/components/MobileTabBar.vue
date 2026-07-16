@@ -107,11 +107,10 @@ function handleTabClick(tabKey: string, tabName: string) {
   z-index: 100;
   display: flex;
   align-items: stretch;
-  /* iOS PWA 安全区：env() 可能返回 0，用 max() 保底 34px（iPhone X+ Home Indicator 高度） */
-  --safe-bottom: max(env(safe-area-inset-bottom, 0px), constant(safe-area-inset-bottom, 0px), 34px);
-  height: calc(var(--tabbar-height) + var(--safe-bottom));
+  /* iOS PWA 安全区：env() 在 PWA 下可能返回 0，直接用 34px 保底 */
+  height: calc(var(--tabbar-height) + 34px);
   box-sizing: border-box;
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: 34px;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);

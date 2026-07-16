@@ -391,13 +391,17 @@ function openTaskCreate() {
   overflow-y: auto;
   position: relative;
   z-index: 1;
+  overscroll-behavior-y: auto; /* 恢复 iOS 橡皮筋效果 */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── 内容区（原生滚动 + 阻尼效果） ── */
 .home-content {
   min-height: 100%;
-  --safe-bottom: max(env(safe-area-inset-bottom, 0px), constant(safe-area-inset-bottom, 0px), 34px);
-  padding: 12px 12px calc(var(--tabbar-height) + var(--safe-bottom) + 12px);
+  padding-top: 12px;
+  padding-right: 12px;
+  padding-left: 12px;
+  padding-bottom: calc(var(--tabbar-height) + 34px + 12px);
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
 }
 

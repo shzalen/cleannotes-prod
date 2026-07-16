@@ -431,8 +431,10 @@ const buildTime = __BUILD_TIME__
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y; /* 确保垂直滑动手势正确传递 */
-  --safe-bottom: max(env(safe-area-inset-bottom, 0px), constant(safe-area-inset-bottom, 0px), 34px);
-  padding: 12px 12px calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+  padding-top: 12px;
+  padding-right: 12px;
+  padding-left: 12px;
+  padding-bottom: calc(var(--tabbar-height) + 34px + 16px);
 }
 
 /* ── 用户卡片 ── */
