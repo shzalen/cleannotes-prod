@@ -47,8 +47,8 @@ watch(
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'has-tabbar': showTabBar }">
-    <div class="app-content">
+  <div class="app-shell">
+    <div class="app-content" :class="{ 'has-tabbar': showTabBar }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -73,19 +73,17 @@ watch(
   background: var(--color-surface);
 }
 
-/* 有 TabBar 时：app-shell 用 padding-bottom 延伸背景到安全区底部
-   tabbar 在文档流中自然位于底部，两者背景色一致融为一体 */
-.app-shell.has-tabbar {
-  padding-bottom: 34px;
-  box-sizing: content-box;
-}
-
 .app-content {
   flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* 有 TabBar 时留出底部空间（52px 内容 + 34px 安全区） */
+.app-content.has-tabbar {
+  padding-bottom: calc(var(--tabbar-height) + 34px);
 }
 
 /* 路由切换淡入淡出，消除白屏闪烁 */
