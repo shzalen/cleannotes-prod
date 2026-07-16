@@ -215,6 +215,7 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* 强制延伸到屏幕物理底部，覆盖 Home Indicator 区域 */
-  padding-bottom: 34px !important;
+  /* 延伸到屏幕物理底部，覆盖 Home Indicator 区域 */
+  bottom: -34px !important;
+  height: calc(100% + 34px) !important;
 }
