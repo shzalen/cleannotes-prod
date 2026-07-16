@@ -283,7 +283,7 @@ function openTaskCreate() {
 }
 
 .home-header__content {
-  padding: 0 16px 16px;
+  padding: 0 16px 20px;
   position: relative;
   z-index: 1;
 }
@@ -312,11 +312,11 @@ function openTaskCreate() {
   animation: bubble-drift ease-in-out infinite alternate;
 }
 
-.bubble--1 { top: 8%;  left: 4%;  width: 52px; height: 52px; animation-duration: 8s;  animation-delay: 0s;   --dx: 8px;  --dy: -6px; }
-.bubble--2 { top: 55%; left: 82%; width: 22px; height: 22px; animation-duration: 5s;  animation-delay: 1.2s; --dx: -6px; --dy: 7px; }
-.bubble--3 { top: 28%; left: 58%; width: 14px; height: 14px; animation-duration: 4.5s; animation-delay: 0.6s; --dx: 5px;  --dy: 4px; }
-.bubble--4 { top: 72%; left: 18%; width: 34px; height: 34px; animation-duration: 7s;  animation-delay: 2s;   --dx: -4px; --dy: -6px; }
-.bubble--5 { top: 6%;  left: 78%; width: 10px; height: 10px; animation-duration: 5.5s; animation-delay: 1.8s; --dx: 6px;  --dy: 5px; }
+.bubble--1 { top: 8%;  left: 52%; width: 52px; height: 52px; animation-duration: 8s;  animation-delay: 0s;   --dx: 8px;  --dy: -6px; }
+.bubble--2 { top: 55%; left: 88%; width: 22px; height: 22px; animation-duration: 5s;  animation-delay: 1.2s; --dx: -6px; --dy: 7px; }
+.bubble--3 { top: 28%; left: 68%; width: 14px; height: 14px; animation-duration: 4.5s; animation-delay: 0.6s; --dx: 5px;  --dy: 4px; }
+.bubble--4 { top: 72%; left: 78%; width: 34px; height: 34px; animation-duration: 7s;  animation-delay: 2s;   --dx: -4px; --dy: -6px; }
+.bubble--5 { top: 6%;  left: 42%; width: 10px; height: 10px; animation-duration: 5.5s; animation-delay: 1.8s; --dx: 6px;  --dy: 5px; }
 
 @keyframes bubble-drift {
   0% {
@@ -334,7 +334,7 @@ function openTaskCreate() {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .home-header__title {
@@ -342,7 +342,8 @@ function openTaskCreate() {
   font-size: 22px;
   font-weight: 600;
   color: #fff;
-  line-height: 1.2;
+  line-height: 1.5;
+  letter-spacing: 0.2px;
 }
 
 .home-header__greeting {

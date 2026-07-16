@@ -68,7 +68,11 @@ function go(name: string) {
 
 <style scoped>
 .tabbar {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
   display: flex;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
@@ -78,7 +82,7 @@ function go(name: string) {
 
 .tabbar__item {
   flex: 1;
-  height: var(--tabbar-height);
+  min-height: var(--tabbar-height);
   display: flex;
   flex-direction: column;
   align-items: center;
