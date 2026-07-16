@@ -75,8 +75,6 @@ watch(
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* 为 fixed TabBar 留出空间：高度 + 底部安全区 */
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 /* 路由切换淡入淡出，消除白屏闪烁 */

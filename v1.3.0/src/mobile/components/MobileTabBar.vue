@@ -107,10 +107,9 @@ function handleTabClick(tabKey: string, tabName: string) {
   z-index: 100;
   display: flex;
   align-items: stretch;
-  height: var(--tabbar-height);
-  /* 关键：box-sizing:content-box 让 padding-bottom 在 height 之外扩展背景色
-     覆盖底部安全区，同时内容区保持 52px 不变 */
-  box-sizing: content-box;
+  /* 高度包含安全区 padding，图标文字位置不变 */
+  height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);

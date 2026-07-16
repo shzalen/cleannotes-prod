@@ -28,7 +28,5 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* 为 fixed TabBar 留出空间 */
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 </style>
