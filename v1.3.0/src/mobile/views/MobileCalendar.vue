@@ -137,6 +137,11 @@ function formatDueDate(due: string | null | undefined): string {
   return due
 }
 
+// ── 截止日期是否已逾期（与 PC 端 TodayProgress 一致） ──
+function isOverdue(task: Task) {
+  return !!task.dueDate && task.dueDate < todayStr.value
+}
+
 // ── 删除任务（带确认） ──
 function handleDeleteTask(task: Task) {
   showConfirmDialog({
@@ -295,7 +300,10 @@ function openAdd() {
                   >{{ priorityMeta[task.priority]?.label }}</span>
                   <template v-if="task.dueDate">
                     <span class="task-item__divider">·</span>
-                    <span class="task-item__due">{{ formatDueDate(task.dueDate) }}</span>
+                    <span
+                      class="task-item__due"
+                      :class="{ 'is-overdue': isOverdue(task) }"
+                    >{{ isOverdue(task) ? '延期 ' : '截止 ' }}{{ formatDueDate(task.dueDate) }}</span>
                   </template>
                 </div>
               </div>
@@ -647,6 +655,14 @@ function openAdd() {
   font-size: 11px;
   color: var(--color-text-4);
   font-variant-numeric: tabular-nums;
+}
+
+.task-item__due.is-overdue {
+  color: var(--color-danger);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 /* ── SwipeCell 滑动操作按钮 ── */
