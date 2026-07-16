@@ -5,6 +5,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
 import { switchUser } from '@/services/storage'
+import MobileTabBar from './components/MobileTabBar.vue'
 
 // 激活主题（模块级单例，与 PC 端共享持久化）
 useTheme()
@@ -42,6 +43,7 @@ watch(
 </script>
 
 <template>
+  <MobileTabBar />
   <router-view v-slot="{ Component }">
     <transition name="fade" mode="out-in">
       <component :is="Component" />

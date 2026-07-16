@@ -18,6 +18,8 @@ html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
   height: 100%;
   overflow: hidden;          /* 彻底切断文档级滚动 */
   overscroll-behavior: none; /* 禁止 iOS Safari 橡皮筋回弹 */

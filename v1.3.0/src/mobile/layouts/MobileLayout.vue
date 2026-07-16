@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MobileTabBar from '../components/MobileTabBar.vue'
 </script>
 
 <template>
@@ -11,7 +10,6 @@ import MobileTabBar from '../components/MobileTabBar.vue'
         </keep-alive>
       </router-view>
     </div>
-    <MobileTabBar />
   </div>
 </template>
 
@@ -29,6 +27,6 @@ import MobileTabBar from '../components/MobileTabBar.vue'
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(var(--tabbar-height) + max(var(--safe-bottom), 16px));
+  padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom));
 }
 </style>

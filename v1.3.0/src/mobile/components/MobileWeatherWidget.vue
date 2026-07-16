@@ -9,6 +9,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { Popup as VanPopup } from 'vant'
+import MobileWeatherIcon from './MobileWeatherIcon.vue'
 
 interface WeatherData {
   temp: number
@@ -133,44 +134,44 @@ async function fetchWeather(lat: number, lon: number) {
 }
 
 // ── 请求定位 ──
-function requestLocation() {
+function requestLocation(): Promise<{ lat: number; lon: number } | null> {
   if (!navigator.geolocation) {
     errorMsg.value = '位置不可用'
     loading.value = false
     locationFailed.value = true
-    return
+    return Promise.resolve(null)
   }
 
   const cached = readCachedCoords()
   if (cached) {
     loading.value = false
     fetchWeather(cached.lat, cached.lon)
-    return
+    return Promise.resolve({ lat: cached.lat, lon: cached.lon })
   }
 
   loading.value = true
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude } = pos.coords
-      saveCachedCoords(latitude, longitude)
-      fetchWeather(latitude, longitude)
-    },
-    () => {
-      errorMsg.value = '定位失败'
-      loading.value = false
-      locationFailed.value = true
-    },
-    { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }
-  )
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        saveCachedCoords(latitude, longitude)
+        fetchWeather(latitude, longitude)
+        resolve({ lat: latitude, lon: longitude })
+      },
+      () => {
+        errorMsg.value = '定位失败'
+        loading.value = false
+        locationFailed.value = true
+        resolve(null)
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+    )
+  })
 }
 
 onMounted(() => {
   requestLocation()
 })
-
-// ── 天气图标判断 ──
-const isRainy = (code: number) => [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code)
-const isSnowy = (code: number) => [71, 73, 75, 77, 85, 86].includes(code)
 
 // ── 展开详情弹窗 ──
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
@@ -219,19 +220,47 @@ async function fetchForecast() {
   }
 }
 
-// ── 逆地理编码 ──
+// ── 逆地理编码（带 fallback） ──
 async function reverseGeocode() {
   if (detailAddress.value) return // 已缓存
+  if (!currentLat.value || !currentLon.value) return
   addressLoading.value = true
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLat.value.toFixed(5)}&lon=${currentLon.value.toFixed(5)}&zoom=12&accept-language=zh`
+
+  const lat = currentLat.value
+  const lon = currentLon.value
+
+  // fallback 链：先尝试 Nominatim，再尝试 BigDataCloud 免费接口
+  async function nominatim(): Promise<string | null> {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=12&accept-language=zh`
     const res = await fetch(url, {
       signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': 'CleanNotes-PWA/1.0' },
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    detailAddress.value = data.display_name || '未知位置'
+    return data.display_name || null
+  }
+
+  async function bigDataCloud(): Promise<string | null> {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}&localityLanguage=zh`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const parts: string[] = []
+    if (data.city) parts.push(data.city)
+    if (data.locality) parts.push(data.locality)
+    if (data.principalSubdivision) parts.push(data.principalSubdivision)
+    return parts.length ? parts.join('，') : null
+  }
+
+  try {
+    let address: string | null = null
+    try {
+      address = await nominatim()
+    } catch {
+      address = await bigDataCloud()
+    }
+    detailAddress.value = address || '未知位置'
   } catch {
     detailAddress.value = ''
   } finally {
@@ -247,25 +276,13 @@ async function refreshAll() {
   localStorage.removeItem(LS_KEY)
   dailyForecast.value = []
   detailAddress.value = ''
-  // 重新请求定位（会触发天气刷新）
-  requestLocation()
-  // 并行请求预报和逆地理
-  await Promise.allSettled([fetchForecast(), reverseGeocode()])
+  // 重新请求定位并等待坐标就绪
+  const coords = await requestLocation()
+  if (coords) {
+    // 并行请求预报和逆地理
+    await Promise.allSettled([fetchForecast(), reverseGeocode()])
+  }
   refreshing.value = false
-}
-
-// ── 天气小图标 SVG ──
-function getSmallWeatherIcon(code: number): string {
-  const desc = weatherMap[code]?.label ?? ''
-  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return '🌧️'
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return '❄️'
-  if ([95, 96, 99].includes(code)) return '⛈️'
-  if (code === 0) return '☀️'
-  if (code === 1) return '🌤️'
-  if (code === 2) return '⛅'
-  if (code === 3) return '☁️'
-  if ([45, 48].includes(code)) return '🌫️'
-  return '🌡️'
 }
 </script>
 
@@ -290,73 +307,7 @@ function getSmallWeatherIcon(code: number): string {
     <template v-else-if="weather">
       <!-- 天气图标 -->
       <div class="weather-widget__icon">
-        <svg v-if="isRainy(weather.code)" class="weather-svg weather-svg--rain" viewBox="0 0 40 40">
-          <defs>
-            <line id="raindrop" x1="20" y1="2" x2="20" y2="10" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round" />
-          </defs>
-          <use href="#raindrop" class="rain-d1" />
-          <use href="#raindrop" class="rain-d2" />
-          <use href="#raindrop" class="rain-d3" />
-          <use href="#raindrop" class="rain-d4" />
-          <use href="#raindrop" class="rain-d5" />
-          <g opacity="0.7">
-            <ellipse cx="20" cy="18" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
-            <ellipse cx="13" cy="14" rx="8" ry="7" fill="rgba(255,255,255,0.45)" />
-            <ellipse cx="26" cy="13" rx="9" ry="6" fill="rgba(255,255,255,0.4)" />
-          </g>
-        </svg>
-        <svg v-else-if="isSnowy(weather.code)" class="weather-svg weather-svg--snow" viewBox="0 0 40 40">
-          <defs>
-            <g id="snowflake">
-              <circle cx="0" cy="0" r="2" fill="rgba(255,255,255,0.85)" />
-            </g>
-          </defs>
-          <use href="#snowflake" class="snow-s1" />
-          <use href="#snowflake" class="snow-s2" />
-          <use href="#snowflake" class="snow-s3" />
-          <use href="#snowflake" class="snow-s4" />
-          <use href="#snowflake" class="snow-s5" />
-          <use href="#snowflake" class="snow-s6" />
-          <g opacity="0.7">
-            <ellipse cx="20" cy="18" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
-            <ellipse cx="13" cy="14" rx="8" ry="7" fill="rgba(255,255,255,0.45)" />
-            <ellipse cx="26" cy="13" rx="9" ry="6" fill="rgba(255,255,255,0.4)" />
-          </g>
-        </svg>
-        <svg v-else-if="weather.code >= 95" class="weather-svg weather-svg--thunder" viewBox="0 0 40 40">
-          <polygon class="thunder-bolt" points="22,2 13,18 19,18 15,28 27,12 21,12" fill="rgba(255,220,60,0.9)" />
-          <g opacity="0.6">
-            <ellipse cx="20" cy="18" rx="14" ry="9" fill="rgba(255,255,255,0.25)" />
-            <ellipse cx="13" cy="14" rx="8" ry="7" fill="rgba(255,255,255,0.35)" />
-            <ellipse cx="28" cy="14" rx="9" ry="6" fill="rgba(255,255,255,0.3)" />
-          </g>
-        </svg>
-        <svg v-else-if="weather.code >= 1 && weather.code <= 3" class="weather-svg" viewBox="0 0 40 40">
-          <circle cx="14" cy="12" r="7" fill="rgba(255,255,255,0.7)" />
-          <g v-if="weather.code >= 2" opacity="0.6">
-            <ellipse cx="20" cy="20" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
-            <ellipse cx="14" cy="16" rx="9" ry="7" fill="rgba(255,255,255,0.45)" />
-            <ellipse cx="27" cy="17" rx="8" ry="6" fill="rgba(255,255,255,0.4)" />
-          </g>
-        </svg>
-        <svg v-else-if="weather.code >= 45 && weather.code <= 48" class="weather-svg" viewBox="0 0 40 40">
-          <line x1="6" y1="14" x2="34" y2="14" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round" />
-          <line x1="10" y1="20" x2="30" y2="20" stroke="rgba(255,255,255,0.35)" stroke-width="2" stroke-linecap="round" />
-          <line x1="8" y1="26" x2="32" y2="26" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-linecap="round" />
-        </svg>
-        <svg v-else class="weather-svg weather-svg--sun" viewBox="0 0 40 40">
-          <circle cx="20" cy="20" r="9" fill="rgba(255,255,255,0.85)" />
-          <g stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round">
-            <line x1="20" y1="2" x2="20" y2="8" />
-            <line x1="20" y1="32" x2="20" y2="38" />
-            <line x1="2" y1="20" x2="8" y2="20" />
-            <line x1="32" y1="20" x2="38" y2="20" />
-            <line x1="7" y1="7" x2="12" y2="12" />
-            <line x1="28" y1="28" x2="33" y2="33" />
-            <line x1="33" y1="7" x2="28" y2="12" />
-            <line x1="12" y1="28" x2="7" y2="33" />
-          </g>
-        </svg>
+        <MobileWeatherIcon :code="weather.code" />
       </div>
       <div class="weather-widget__info">
         <span class="weather-widget__temp">{{ weather.temp }}°</span>
@@ -439,7 +390,7 @@ function getSmallWeatherIcon(code: number): string {
                   <span class="fc-card__label">今天</span>
                   <span class="fc-card__date">{{ new Date().getMonth() + 1 }}/{{ new Date().getDate() }}</span>
                 </div>
-                <span class="fc-card__icon">{{ getSmallWeatherIcon(weather.code) }}</span>
+                <span class="fc-card__icon"><MobileWeatherIcon :code="weather.code" /></span>
                 <div class="fc-card__temps">
                   <span class="fc-card__high">{{ weather.temp }}°</span>
                   <span class="fc-card__sep">/</span>
@@ -457,7 +408,7 @@ function getSmallWeatherIcon(code: number): string {
                   <span class="fc-card__label">{{ day.dayLabel }}</span>
                   <span class="fc-card__date">{{ day.dayNum }}</span>
                 </div>
-                <span class="fc-card__icon">{{ getSmallWeatherIcon(day.code) }}</span>
+                <span class="fc-card__icon"><MobileWeatherIcon :code="day.code" /></span>
                 <div class="fc-card__temps">
                   <span class="fc-card__high">{{ day.tempMax }}°</span>
                   <span class="fc-card__sep">/</span>
@@ -536,69 +487,7 @@ function getSmallWeatherIcon(code: number): string {
 .weather-widget__icon {
   width: 32px;
   height: 32px;
-}
-
-.weather-svg {
-  width: 100%;
-  height: 100%;
-}
-
-/* ── 雨天动画 ── */
-.rain-d1, .rain-d2, .rain-d3, .rain-d4, .rain-d5 {
-  animation: rainFall var(--rd, 0.6s) linear infinite;
-  opacity: 0;
-}
-.rain-d1 { --rd: 0.55s; animation-delay: 0s; }
-.rain-d2 { --rd: 0.48s; animation-delay: 0.12s; }
-.rain-d3 { --rd: 0.62s; animation-delay: 0.25s; }
-.rain-d4 { --rd: 0.5s;  animation-delay: 0.38s; }
-.rain-d5 { --rd: 0.57s; animation-delay: 0.45s; }
-
-@keyframes rainFall {
-  0%   { transform: translate(0, -4px); opacity: 0; }
-  15%  { opacity: 0.9; }
-  85%  { opacity: 0.3; }
-  100% { transform: translate(0, 24px); opacity: 0; }
-}
-
-/* ── 雪动画 ── */
-.snow-s1, .snow-s2, .snow-s3, .snow-s4, .snow-s5, .snow-s6 {
-  animation: snowFall var(--sd, 2s) linear infinite;
-  opacity: 0;
-}
-.snow-s1 { --sd: 2.2s; animation-delay: 0s; }
-.snow-s2 { --sd: 1.8s; animation-delay: 0.4s; }
-.snow-s3 { --sd: 2.5s; animation-delay: 0.8s; }
-.snow-s4 { --sd: 2.0s; animation-delay: 1.2s; }
-.snow-s5 { --sd: 1.9s; animation-delay: 0.6s; }
-.snow-s6 { --sd: 2.3s; animation-delay: 1.6s; }
-
-@keyframes snowFall {
-  0%   { transform: translate(0, -6px) rotate(0deg); opacity: 0; }
-  10%  { opacity: 0.8; }
-  90%  { opacity: 0.2; }
-  100% { transform: translate(4px, 28px) rotate(180deg); opacity: 0; }
-}
-
-/* ── 雷暴闪烁 ── */
-.thunder-bolt {
-  animation: thunderFlash 2s ease-in-out infinite;
-}
-
-@keyframes thunderFlash {
-  0%, 90%, 100% { opacity: 0.2; }
-  92%, 96% { opacity: 1; }
-}
-
-/* ── 太阳旋转 ── */
-.weather-svg--sun {
-  animation: sunSpin 12s linear infinite;
-  transform-origin: center;
-}
-
-@keyframes sunSpin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  color: rgba(255, 255, 255, 0.92);
 }
 
 /* ── 文字信息 ── */
@@ -636,7 +525,7 @@ function getSmallWeatherIcon(code: number): string {
   display: flex;
   align-items: center;
   position: relative;
-  padding: 10px 0 4px;
+  padding: 16px 0 8px;
 }
 
 .weather-detail__handle {
@@ -656,21 +545,21 @@ function getSmallWeatherIcon(code: number): string {
 .weather-detail__refresh {
   position: absolute;
   right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 50%;
-  background: transparent;
+  background: var(--color-bg-3);
   color: var(--color-text-3);
   cursor: pointer;
   padding: 0;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.12s;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 1px 4px var(--color-shadow);
 }
 
 .weather-detail__refresh svg {
@@ -802,10 +691,11 @@ function getSmallWeatherIcon(code: number): string {
 }
 
 .fc-card__icon {
-  font-size: 20px;
   width: 32px;
+  height: 32px;
   text-align: center;
   flex-shrink: 0;
+  color: var(--color-text-2);
 }
 
 .fc-card__temps {

@@ -109,8 +109,21 @@ function handleTabClick(tabKey: string, tabName: string) {
   align-items: flex-start; /* 关键：项目不拉伸，避免图标随安全区整体上移 */
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
-  padding-bottom: max(var(--safe-bottom), 16px); /* 提高底部安全区兜底，覆盖底部留白 */
+  padding-bottom: var(--safe-bottom); /* 仅使用系统安全区，避免非安全区设备产生多余留白 */
   box-shadow: 0 -1px 8px var(--color-shadow);
+}
+
+/* 底部背景延伸：覆盖 iOS/Android 动态工具栏收起时露出的视口外区域 */
+.tabbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 60px;
+  background: inherit;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .tabbar__item {
@@ -119,7 +132,8 @@ function handleTabClick(tabKey: string, tabName: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 6px;
   gap: 2px;
   border: none;
   background: transparent;
