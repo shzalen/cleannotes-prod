@@ -300,8 +300,8 @@ defineExpose({ openNew, openEdit, close })
   padding: 10px 12px;
   font-size: 15px;
   color: var(--color-text-1);
-  background: var(--color-bg-3);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   outline: none;
   font-family: inherit;
@@ -316,8 +316,8 @@ defineExpose({ openNew, openEdit, close })
   padding: 10px 12px;
   font-size: 15px;
   color: var(--color-text-1);
-  background: var(--color-bg-3);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   outline: none;
   resize: none;
