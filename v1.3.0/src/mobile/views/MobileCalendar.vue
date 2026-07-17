@@ -31,10 +31,13 @@ interface DayCell {
   hasTasks: boolean
 }
 
-const weekDays = computed<DayCell[]>(() => {
+/**
+ * 基于选中日期偏移 offset 天，构建一个 7 天的周面板
+ */
+function buildWeekCells(offset: number): DayCell[] {
   const today = todayStr.value
-  const sel = selectedDate.value
-  const ref = new Date(sel)
+  const ref = new Date(selectedDate.value)
+  ref.setDate(ref.getDate() + offset)
   const dayOfWeek = ref.getDay()
   const sunday = new Date(ref)
   sunday.setDate(ref.getDate() - dayOfWeek)
@@ -54,11 +57,16 @@ const weekDays = computed<DayCell[]>(() => {
       day: d.getDate(),
       weekday: weekdays[i],
       isToday: dateStr === today,
-      isSelected: dateStr === sel,
+      isSelected: dateStr === selectedDate.value,
       hasTasks,
     })
   }
   return cells
+}
+
+// 三周面板数据：[上一周, 当前周, 下一周]
+const weekData = computed<DayCell[][]>(() => {
+  return [-7, 0, 7].map(offset => buildWeekCells(offset))
 })
 
 const monthLabel = computed(() => {
@@ -77,37 +85,86 @@ const selectedDateLabel = computed(() => {
   return `${d.getMonth() + 1}月${d.getDate()}日 周${w}`
 })
 
-// ── 周切换 ──
+// ── 跟手滑动无限周历 ──
+const trackOffset = ref(-100 / 3)  // 默认显示中间面板（-33.333%）
+const dragOffset = ref(0)           // 拖拽时的实时偏移（px）
+const isDragging = ref(false)
+const isAnimating = ref(false)     // 动画中禁用交互
+
 let touchStartX = 0
 let touchStartY = 0
+let touchMoved = false
+let containerWidth = 0
 
-function onTouchStart(e: TouchEvent) {
-  touchStartX = e.touches[0].clientX
-  touchStartY = e.touches[0].clientY
+function onWeekTouchStart(e: TouchEvent) {
+  if (isAnimating.value) return
+  const touch = e.touches[0]
+  touchStartX = touch.clientX
+  touchStartY = touch.clientY
+  touchMoved = false
+  const el = e.currentTarget as HTMLElement
+  containerWidth = el.offsetWidth
+  isDragging.value = true
 }
 
-function onTouchEnd(e: TouchEvent) {
-  const dx = e.changedTouches[0].clientX - touchStartX
-  const dy = e.changedTouches[0].clientY - touchStartY
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-    if (dx > 0) {
-      goToPrevWeek()
-    } else {
-      goToNextWeek()
-    }
+function onWeekTouchMove(e: TouchEvent) {
+  if (!isDragging.value) return
+  const touch = e.touches[0]
+  const dx = touch.clientX - touchStartX
+  const dy = touch.clientY - touchStartY
+  // 水平滑动优先：只有水平位移大于垂直时才跟手
+  if (!touchMoved && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+    touchMoved = true
+  }
+  if (touchMoved) {
+    e.preventDefault()
+    dragOffset.value = dx
   }
 }
 
-function goToPrevWeek() {
-  const d = new Date(selectedDate.value)
-  d.setDate(d.getDate() - 7)
-  selectedDate.value = toLocalDate(d)
+function onWeekTouchEnd(e: TouchEvent) {
+  if (!isDragging.value) return
+  isDragging.value = false
+  if (!touchMoved) return
+
+  const dx = e.changedTouches[0].clientX - touchStartX
+  const threshold = containerWidth * 0.2  // 20% 阈值
+
+  if (dx < -threshold) {
+    // 左滑 → 下一周
+    goToWeek(1)
+  } else if (dx > threshold) {
+    // 右滑 → 上一周
+    goToWeek(-1)
+  } else {
+    // 回弹
+    dragOffset.value = 0
+  }
 }
 
-function goToNextWeek() {
-  const d = new Date(selectedDate.value)
-  d.setDate(d.getDate() + 7)
-  selectedDate.value = toLocalDate(d)
+/**
+ * 切换到上一周 / 下一周
+ * dir: -1=上一周, 1=下一周
+ */
+function goToWeek(dir: number) {
+  isAnimating.value = true
+  // 滑动到相邻面板
+  trackOffset.value = -100 / 3 + dir * (100 / 3)
+  dragOffset.value = 0
+
+  // 动画结束后（transitionend）
+  setTimeout(() => {
+    // 更新选中日期
+    const d = new Date(selectedDate.value)
+    d.setDate(d.getDate() + dir * 7)
+    selectedDate.value = toLocalDate(d)
+    // 瞬间重置到中间面板
+    isAnimating.value = false
+    // nextTick 确保数据更新后再重置位置
+    requestAnimationFrame(() => {
+      trackOffset.value = -100 / 3
+    })
+  }, 320)  // 与 transition 时长一致
 }
 
 function selectDay(date: string) {
@@ -233,26 +290,37 @@ function openAdd() {
       </div>
     </header>
 
-    <!-- 周历 -->
+    <!-- 周历 — 跟手滑动无限循环 -->
     <div
-      class="cal-week"
-      @touchstart="onTouchStart"
-      @touchend="onTouchEnd"
+      class="cal-week-wrapper"
+      @touchstart="onWeekTouchStart"
+      @touchmove="onWeekTouchMove"
+      @touchend="onWeekTouchEnd"
     >
       <div
-        v-for="cell in weekDays"
-        :key="cell.date"
-        class="cal-week__day"
-        :class="{
-          'is-today': cell.isToday,
-          'is-selected': cell.isSelected,
-          'has-tasks': cell.hasTasks,
+        class="cal-week-track"
+        :style="{
+          transform: `translateX(calc(${trackOffset}% + ${dragOffset}px))`,
+          transition: isDragging ? 'none' : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }"
-        @click="selectDay(cell.date)"
       >
-        <span class="cal-week__weekday">{{ cell.weekday }}</span>
-        <span class="cal-week__date">{{ cell.day }}</span>
-        <span v-if="cell.hasTasks" class="cal-week__dot" />
+        <div v-for="(week, wi) in weekData" :key="wi" class="cal-week-page">
+          <div
+            v-for="cell in week"
+            :key="cell.date"
+            class="cal-week__day"
+            :class="{
+              'is-today': cell.isToday,
+              'is-selected': cell.isSelected,
+              'has-tasks': cell.hasTasks,
+            }"
+            @click="selectDay(cell.date)"
+          >
+            <span class="cal-week__weekday">{{ cell.weekday }}</span>
+            <span class="cal-week__date">{{ cell.day }}</span>
+            <span v-if="cell.hasTasks" class="cal-week__dot" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -396,14 +464,24 @@ function openAdd() {
   height: 16px;
 }
 
-/* ── 周历 ── */
-.cal-week {
+/* ── 周历 — 3 面板轮转 ── */
+.cal-week-wrapper {
   flex-shrink: 0;
-  display: flex;
+  overflow: hidden;
   padding: 8px 4px;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border-light);
   touch-action: pan-y;
+}
+
+.cal-week-track {
+  display: flex;
+  width: 300%; /* 3 个面板 */
+}
+
+.cal-week-page {
+  flex: 0 0 33.333%;
+  display: flex;
 }
 
 .cal-week__day {
