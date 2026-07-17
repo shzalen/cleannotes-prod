@@ -86,15 +86,25 @@ const selectedDateLabel = computed(() => {
 })
 
 // ── 跟手滑动无限周历 ──
-const trackOffset = ref(-100 / 3)  // 默认显示中间面板（-33.333%）
-const dragOffset = ref(0)           // 拖拽时的实时偏移（px）
-const isDragging = ref(false)
-const isAnimating = ref(false)     // 动画中禁用交互
+// 纯 px 方案：translateX 全部用像素值，避免 % 与 px 混合计算
+const trackX = ref(0)          // track 的 translateX 值（px）
+const isDragging = ref(false)  // 拖拽中（无 transition）
+const isAnimating = ref(false) // 动画中（禁用交互）
+const weekWrapperEl = ref<HTMLElement | null>(null)
 
 let touchStartX = 0
 let touchStartY = 0
 let touchMoved = false
 let containerWidth = 0
+let direction = 0  // 当前切换方向：-1=上一周, 0=未切换, 1=下一周
+
+// 面板宽度 = 容器宽度，track 含 3 个面板所以总宽 = 3 × containerWidth
+// 中间面板的 translateX = -containerWidth（即 -1 个面板宽度）
+
+function setTrackPos(x: number, animate: boolean) {
+  isDragging.value = !animate
+  trackX.value = x
+}
 
 function onWeekTouchStart(e: TouchEvent) {
   if (isAnimating.value) return
@@ -102,69 +112,84 @@ function onWeekTouchStart(e: TouchEvent) {
   touchStartX = touch.clientX
   touchStartY = touch.clientY
   touchMoved = false
-  const el = e.currentTarget as HTMLElement
-  containerWidth = el.offsetWidth
-  isDragging.value = true
+  const el = weekWrapperEl.value
+  containerWidth = el ? el.offsetWidth : window.innerWidth
+  // 停止 transition，立即设到中间面板位置（无动画）
+  setTrackPos(-containerWidth, false)
 }
 
 function onWeekTouchMove(e: TouchEvent) {
-  if (!isDragging.value) return
+  if (isAnimating.value) return
   const touch = e.touches[0]
   const dx = touch.clientX - touchStartX
   const dy = touch.clientY - touchStartY
-  // 水平滑动优先：只有水平位移大于垂直时才跟手
-  if (!touchMoved && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+
+  if (!touchMoved && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
     touchMoved = true
+    isDragging.value = true
   }
+
   if (touchMoved) {
     e.preventDefault()
-    dragOffset.value = dx
+    // 跟手移动：中间面板位置 + 手指偏移
+    trackX.value = -containerWidth + dx
   }
 }
 
 function onWeekTouchEnd(e: TouchEvent) {
-  if (!isDragging.value) return
-  isDragging.value = false
-  if (!touchMoved) return
+  if (isAnimating.value) return
+  if (!touchMoved) {
+    isDragging.value = false
+    return
+  }
 
+  isDragging.value = false
   const dx = e.changedTouches[0].clientX - touchStartX
-  const threshold = containerWidth * 0.2  // 20% 阈值
+  const threshold = containerWidth * 0.2
 
   if (dx < -threshold) {
-    // 左滑 → 下一周
-    goToWeek(1)
+    direction = 1  // 下一周
+    animateToWeek(-containerWidth * 2)
   } else if (dx > threshold) {
-    // 右滑 → 上一周
-    goToWeek(-1)
+    direction = -1  // 上一周
+    animateToWeek(0)
   } else {
     // 回弹
-    dragOffset.value = 0
+    direction = 0
+    animateToWeek(-containerWidth)
   }
 }
 
-/**
- * 切换到上一周 / 下一周
- * dir: -1=上一周, 1=下一周
- */
-function goToWeek(dir: number) {
+function animateToWeek(targetX: number) {
   isAnimating.value = true
-  // 滑动到相邻面板
-  trackOffset.value = -100 / 3 + dir * (100 / 3)
-  dragOffset.value = 0
+  // 触发 transition：设 isDragging=false 后在下一帧设置目标位置
+  requestAnimationFrame(() => {
+    trackX.value = targetX
+  })
+}
 
-  // 动画结束后（transitionend）
-  setTimeout(() => {
-    // 更新选中日期
-    const d = new Date(selectedDate.value)
-    d.setDate(d.getDate() + dir * 7)
-    selectedDate.value = toLocalDate(d)
-    // 瞬间重置到中间面板
+function onTransitionEnd() {
+  if (direction === 0) {
+    // 回弹完成
     isAnimating.value = false
-    // nextTick 确保数据更新后再重置位置
+    return
+  }
+  // 切换完成：更新日期，瞬间重置到中间面板
+  const d = new Date(selectedDate.value)
+  d.setDate(d.getDate() + direction * 7)
+  selectedDate.value = toLocalDate(d)
+
+  // 等数据更新后在下一帧无动画重置位置
+  requestAnimationFrame(() => {
+    isDragging.value = true  // 临时禁用 transition
+    trackX.value = -containerWidth
+    // 再下一帧恢复
     requestAnimationFrame(() => {
-      trackOffset.value = -100 / 3
+      isDragging.value = false
+      isAnimating.value = false
+      direction = 0
     })
-  }, 320)  // 与 transition 时长一致
+  })
 }
 
 function selectDay(date: string) {
@@ -223,7 +248,13 @@ function onDetailEdit(task: Task) {
 // ── 定时刷新：确保 isTimeReached / 到点脉冲随时间自动更新 ──
 const now = ref(new Date())
 let refreshTimer: ReturnType<typeof setInterval> | null = null
-onMounted(() => { refreshTimer = setInterval(() => { now.value = new Date() }, 30_000) })
+onMounted(() => {
+  refreshTimer = setInterval(() => { now.value = new Date() }, 30_000)
+  // 初始化 track 位置到中间面板
+  const el = weekWrapperEl.value
+  containerWidth = el ? el.offsetWidth : window.innerWidth
+  trackX.value = -containerWidth
+})
 onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
 
 function isTimeReached(task: Task) {
@@ -292,6 +323,7 @@ function openAdd() {
 
     <!-- 周历 — 跟手滑动无限循环 -->
     <div
+      ref="weekWrapperEl"
       class="cal-week-wrapper"
       @touchstart="onWeekTouchStart"
       @touchmove="onWeekTouchMove"
@@ -300,9 +332,10 @@ function openAdd() {
       <div
         class="cal-week-track"
         :style="{
-          transform: `translateX(calc(${trackOffset}% + ${dragOffset}px))`,
-          transition: isDragging ? 'none' : 'transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          transform: `translate3d(${trackX}px, 0, 0)`,
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         }"
+        @transitionend="onTransitionEnd"
       >
         <div v-for="(week, wi) in weekData" :key="wi" class="cal-week-page">
           <div
