@@ -7,7 +7,7 @@ import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
-import { showConfirmDialog, showLoadingToast, showToast } from 'vant'
+import { showConfirmDialog, showLoadingToast, showToast, closeToast } from 'vant'
 import MobileSubApp from '../components/MobileSubApp.vue'
 import MobileTodoApp from '../components/MobileTodoApp.vue'
 import MobileMemoApp from '../components/MobileMemoApp.vue'
@@ -135,6 +135,7 @@ async function handleClearCache() {
     keys.forEach(k => localStorage.removeItem(k))
 
     // 切换为刷新提示
+    closeToast()
     showLoadingToast({
       message: '缓存已清空，正在刷新…',
       forbidClick: true,
@@ -143,8 +144,8 @@ async function handleClearCache() {
 
     // 短暂延迟让提示可见后硬刷新
     setTimeout(() => {
-      // 使用 location.replace 替换当前页，避免浏览器后退回缓存清理前的状态
-      window.location.replace(window.location.href)
+      // 使用 reload() 强制重新加载，避免 replace 同 URL 不刷新
+      window.location.reload()
     }, 400)
   } catch {
     clearingCache.value = false
