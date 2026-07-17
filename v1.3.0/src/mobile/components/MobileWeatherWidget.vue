@@ -220,6 +220,50 @@ async function fetchForecast() {
   }
 }
 
+// ── 繁体→简体转换（覆盖中国地理地址常见繁体字） ──
+const t2sMap: Record<string, string> = {
+  '廣':'广','東':'东','區':'区','縣':'县','鎮':'镇','鄉':'乡','灣':'湾','關':'关',
+  '陽':'阳','陰':'阴','開':'开','門':'门','華':'华','國':'国','學':'学','車':'车',
+  '馬':'马','龍':'龙','鳳':'凤','鳥':'鸟','魚':'鱼','島':'岛','嶺':'岭','峽':'峡',
+  '橋':'桥','頭':'头','邊':'边','連':'连','遠':'远','達':'达','進':'进','遲':'迟',
+  '運':'运','過':'过','適':'适','選':'选','鄭':'郑','趙':'赵','劉':'刘','陳':'陈',
+  '楊':'杨','黃':'黄','吳':'吴','張':'张','葉':'叶','謝':'谢','萬':'万','賴':'赖',
+  '蘇':'苏','豐':'丰','鐘':'钟','蕭':'萧','蔣':'蒋','羅':'罗','許':'许','韓':'韩',
+  '鄧':'邓','馮':'冯','譚':'谭','鄒':'邹','顧':'顾','顏':'颜','龔':'龚','龐':'庞',
+  '歐':'欧','倫':'伦','強':'强','樓':'楼','藍':'蓝','簡':'简','習':'习','應':'应',
+  '盧':'卢','閆':'闫','瓊':'琼','蘭':'兰','銀':'银','烏':'乌','魯':'鲁','齊':'齐',
+  '爾':'尔','濱':'滨','長':'长','遼':'辽','鐵':'铁','盤':'盘','錦':'锦','蘆':'芦',
+  '營':'营','撫':'抚','順':'顺','慶':'庆','綏':'绥','雙':'双','鴨':'鸭','興':'兴',
+  '鶴':'鹤','崗':'岗','額':'额','納':'纳','霍':'霍','勒':'勒','錫':'锡','穆':'穆',
+  '沁':'沁','鑲':'镶','涼':'凉','察':'察','翼':'翼','後':'后','卓':'卓','資':'资',
+  '寧':'宁','臨':'临','審':'审','洛':'洛','滄':'沧','潁':'颍','澤':'泽','滙':'汇',
+  '榮':'荣','嶧':'峄','嶗':'崂','嶴':'岙','嶠':'峤','嶢':'峣','嶨':'岘','嶸':'嵘',
+  '巒':'峦','巔':'巅','巖':'岩','參':'参','叢':'丛','厲':'厉','嚴':'严','厭':'厌',
+  '厰':'厂','場':'场','壩':'坝','塊':'块','堅':'坚','壇':'坛','壟':'垄','壯':'壮',
+  '壺':'壶','壽':'寿','夢':'梦','夾':'夹','奐':'奂','奧':'奥','奩':'奁','妝':'妆',
+  '媧':'娲','嫗':'妪','嬰':'婴','嬸':'婶','孫':'孙','孿':'孪','宮':'宫','寬':'宽',
+  '賓':'宾','寵':'宠','寶':'宝','實':'实','專':'专','尋':'寻','對':'对','導':'导',
+  '將':'将','層':'层','屢':'屡','屬':'属','嶼':'屿','幣':'币','幹':'干','彌':'弥',
+  '彎':'弯','彙':'汇','徹':'彻','徵':'征','懷':'怀','懶':'懒','戲':'戏','戶':'户',
+  '拋':'抛','據':'据','擋':'挡','擠':'挤','揮':'挥','搖':'摇','搗':'捣','換':'换',
+  '搶':'抢','掃':'扫','揚':'扬','擊':'击','擱':'搁','擲':'掷','擴':'扩','擺':'摆',
+  '攏':'拢','攔':'拦','攬':'揽','攜':'携','攝':'摄','攣':'挛','攤':'摊','敗':'败',
+  '敘':'叙','斂':'敛','斃':'毙','敵':'敌','數':'数','斷':'断','時':'时','舊':'旧',
+  '書':'书','機':'机','殺':'杀','雜':'杂','權':'权','欄':'栏','樹':'树','桿':'杆',
+  '條':'条','來':'来','楓':'枫','極':'极','樞':'枢','橫':'横','櫃':'柜','櫻':'樱',
+  '欒':'栾','歡':'欢','歲':'岁','歸':'归','歷':'历','殘':'残','殤':'殇','殞':'殒',
+  '毀':'毁','毆':'殴','氣':'气','氫':'氢','氬':'氩','沒':'没','沖':'冲',' 泥':'泥',
+}
+
+function toSimplifiedChinese(text: string): string {
+  if (!text) return text
+  let result = ''
+  for (const ch of text) {
+    result += t2sMap[ch] || ch
+  }
+  return result
+}
+
 // ── 逆地理编码（带 fallback） ──
 async function reverseGeocode() {
   if (detailAddress.value) return // 已缓存
@@ -229,9 +273,21 @@ async function reverseGeocode() {
   const lat = currentLat.value
   const lon = currentLon.value
 
-  // fallback 链：先尝试 Nominatim，再尝试 BigDataCloud 免费接口
+  // fallback 链：优先 BigDataCloud（返回简体中文），失败则用 Nominatim（可能返回繁体，需转换）
+  async function bigDataCloud(): Promise<string | null> {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}&localityLanguage=zh`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    const parts: string[] = []
+    if (data.principalSubdivision) parts.push(data.principalSubdivision)
+    if (data.city) parts.push(data.city)
+    if (data.locality) parts.push(data.locality)
+    return parts.length ? parts.join('，') : null
+  }
+
   async function nominatim(): Promise<string | null> {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=12&accept-language=zh`
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=12&accept-language=zh-CN`
     const res = await fetch(url, {
       signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': 'CleanNotes-PWA/1.0' },
@@ -241,26 +297,15 @@ async function reverseGeocode() {
     return data.display_name || null
   }
 
-  async function bigDataCloud(): Promise<string | null> {
-    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}&localityLanguage=zh`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    const parts: string[] = []
-    if (data.city) parts.push(data.city)
-    if (data.locality) parts.push(data.locality)
-    if (data.principalSubdivision) parts.push(data.principalSubdivision)
-    return parts.length ? parts.join('，') : null
-  }
-
   try {
     let address: string | null = null
     try {
-      address = await nominatim()
-    } catch {
       address = await bigDataCloud()
+    } catch {
+      address = await nominatim()
     }
-    detailAddress.value = address || '未知位置'
+    // 繁体转简体兜底（主要针对 Nominatim 返回的繁体地址）
+    detailAddress.value = address ? toSimplifiedChinese(address) : '未知位置'
   } catch {
     detailAddress.value = ''
   } finally {
@@ -324,77 +369,73 @@ async function refreshAll() {
       teleport="body"
     >
       <div class="weather-detail">
-        <!-- 拖动条 -->
-        <div class="weather-detail__header">
-          <div class="weather-detail__handle">
-            <div class="weather-detail__handle-bar" />
-          </div>
-        </div>
-
-        <!-- 当前天气大图标展示（弹窗内参考基准） -->
-        <div v-if="weather" class="weather-detail__now">
-          <div class="weather-detail__now-icon">
-            <MobileWeatherIcon :code="weather.code" />
-          </div>
-          <div class="weather-detail__now-info">
-            <span class="weather-detail__now-temp">{{ weather.temp }}°</span>
-            <span class="weather-detail__now-desc">{{ weather.description }}</span>
-          </div>
-        </div>
-
-        <!-- A 区块：定位信息 -->
-        <div class="weather-detail__section">
-          <h3 class="weather-detail__title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            当前位置
-          </h3>
-          <div class="weather-detail__location">
-            <div class="weather-detail__loc-row">
-              <div class="weather-detail__loc-text-wrap">
-                <template v-if="addressLoading">
-                  <span class="weather-detail__loc-loading">获取地址中…</span>
-                </template>
-                <template v-else-if="detailAddress">
-                  <span class="weather-detail__loc-text">{{ detailAddress }}</span>
-                </template>
-                <template v-else>
-                  <span class="weather-detail__loc-text weather-detail__loc-text--fallback">无法获取详细地址</span>
-                </template>
-              </div>
-              <button
-                class="weather-detail__refresh"
-                :class="{ 'weather-detail__refresh--spinning': refreshing }"
-                :disabled="refreshing"
-                @click="refreshAll"
-                title="刷新定位和天气"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 4v6h6" />
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                </svg>
-              </button>
+        <!-- 固定区域：拖动条 + 当前天气大图标（不随内容滚动） -->
+        <div class="weather-detail__fixed">
+          <div class="weather-detail__header">
+            <div class="weather-detail__handle">
+              <div class="weather-detail__handle-bar" />
             </div>
-            <p class="weather-detail__coords">{{ currentLat.toFixed(4) }}, {{ currentLon.toFixed(4) }}</p>
+          </div>
+
+          <div v-if="weather" class="weather-detail__now">
+            <div class="weather-detail__now-icon">
+              <MobileWeatherIcon :code="weather.code" />
+            </div>
+            <div class="weather-detail__now-info">
+              <span class="weather-detail__now-temp">{{ weather.temp }}°</span>
+              <span class="weather-detail__now-desc">{{ weather.description }}</span>
+            </div>
+            <button
+              class="weather-detail__refresh"
+              :class="{ 'weather-detail__refresh--spinning': refreshing }"
+              :disabled="refreshing"
+              @click="refreshAll"
+              title="刷新定位和天气"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 4v6h6" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        <!-- B 区块：7 天预报 -->
-        <div class="weather-detail__section">
-          <h3 class="weather-detail__title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-            近 7 天预报
-          </h3>
+        <!-- 可滚动区域：定位信息 + 7 天预报 -->
+        <div class="weather-detail__scroll">
+          <!-- A 区块：定位信息 -->
+          <div class="weather-detail__section">
+            <h3 class="weather-detail__title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              当前位置
+            </h3>
+            <div class="weather-detail__location">
+              <template v-if="addressLoading">
+                <span class="weather-detail__loc-loading">获取地址中…</span>
+              </template>
+              <template v-else-if="detailAddress">
+                <span class="weather-detail__loc-text">{{ detailAddress }}</span>
+              </template>
+              <template v-else>
+                <span class="weather-detail__loc-text weather-detail__loc-text--fallback">无法获取详细地址</span>
+              </template>
+              <p class="weather-detail__coords">{{ currentLat.toFixed(4) }}, {{ currentLon.toFixed(4) }}</p>
+            </div>
+          </div>
 
-          <template v-if="forecastLoading">
-            <div class="weather-detail__fc-loading">加载预报中…</div>
-          </template>
-          <template v-else-if="dailyForecast.length > 0">
+          <!-- B 区块：7 天预报 -->
+          <div class="weather-detail__section">
+            <h3 class="weather-detail__title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="weather-detail__title-icon">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              近 7 天预报
+            </h3>
+
+            <!-- 预报列表：始终保留 7 行占位，避免加载前后高度跳变 -->
             <div class="weather-detail__fc-list">
               <!-- 今天：使用实时观测数据，与首页保持一致 -->
               <div
@@ -414,28 +455,45 @@ async function refreshAll() {
                 <span class="fc-card__desc">{{ weather.description }}</span>
               </div>
               <!-- 后续 6 天：使用 daily forecast -->
-              <div
-                v-for="day in dailyForecast.filter(d => !d.isToday)"
-                :key="day.date"
-                class="fc-card"
-              >
-                <div class="fc-card__day">
-                  <span class="fc-card__label">{{ day.dayLabel }}</span>
-                  <span class="fc-card__date">{{ day.dayNum }}</span>
+              <template v-if="forecastLoading">
+                <div v-for="n in 6" :key="'skeleton-' + n" class="fc-card fc-card--skeleton">
+                  <div class="fc-card__day">
+                    <span class="fc-card__label fc-card__skeleton-text" />
+                    <span class="fc-card__date fc-card__skeleton-text" />
+                  </div>
+                  <span class="fc-card__icon fc-card__skeleton-icon" />
+                  <div class="fc-card__temps">
+                    <span class="fc-card__skeleton-text" />
+                  </div>
+                  <span class="fc-card__desc fc-card__skeleton-text" />
                 </div>
-                <span class="fc-card__icon"><MobileWeatherIcon :code="day.code" /></span>
-                <div class="fc-card__temps">
-                  <span class="fc-card__high">{{ day.tempMax }}°</span>
-                  <span class="fc-card__sep">/</span>
-                  <span class="fc-card__low">{{ day.tempMin }}°</span>
+              </template>
+              <template v-else-if="dailyForecast.length > 0">
+                <div
+                  v-for="day in dailyForecast.filter(d => !d.isToday)"
+                  :key="day.date"
+                  class="fc-card"
+                >
+                  <div class="fc-card__day">
+                    <span class="fc-card__label">{{ day.dayLabel }}</span>
+                    <span class="fc-card__date">{{ day.dayNum }}</span>
+                  </div>
+                  <span class="fc-card__icon"><MobileWeatherIcon :code="day.code" /></span>
+                  <div class="fc-card__temps">
+                    <span class="fc-card__high">{{ day.tempMax }}°</span>
+                    <span class="fc-card__sep">/</span>
+                    <span class="fc-card__low">{{ day.tempMin }}°</span>
+                  </div>
+                  <span class="fc-card__desc">{{ day.description }}</span>
                 </div>
-                <span class="fc-card__desc">{{ day.description }}</span>
-              </div>
+              </template>
+              <template v-else>
+                <div class="fc-card fc-card--empty">
+                  <span class="fc-card__desc">预报数据暂不可用</span>
+                </div>
+              </template>
             </div>
-          </template>
-          <template v-else>
-            <div class="weather-detail__fc-empty">预报数据暂不可用</div>
-          </template>
+          </div>
         </div>
       </div>
     </van-popup>
@@ -533,7 +591,26 @@ async function refreshAll() {
   padding: 0 16px 24px;
   display: flex;
   flex-direction: column;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+/* 固定区域：拖动条 + 天气大图标（不随内容滚动） */
+.weather-detail__fixed {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+/* 可滚动区域：定位信息 + 7 天预报 */
+.weather-detail__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+  padding-top: 20px;
 }
 
 .weather-detail__header {
@@ -634,6 +711,7 @@ async function refreshAll() {
 }
 
 .weather-detail__now-info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   line-height: 1.15;
@@ -654,16 +732,6 @@ async function refreshAll() {
 }
 
 /* ── A 区块：定位信息 ── */
-.weather-detail__loc-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.weather-detail__loc-text-wrap {
-  flex: 1;
-  min-width: 0;
-}
 .weather-detail__location {
   background: var(--color-bg-3);
   border-radius: 10px;
@@ -696,13 +764,6 @@ async function refreshAll() {
 }
 
 /* ── B 区块：7 天预报 ── */
-.weather-detail__fc-loading,
-.weather-detail__fc-empty {
-  font-size: 13px;
-  color: var(--color-text-3);
-  padding: 8px 0;
-  text-align: center;
-}
 
 .weather-detail__fc-list {
   display: flex;
@@ -777,5 +838,56 @@ async function refreshAll() {
   font-size: 12px;
   color: var(--color-text-2);
   margin-left: auto;
+}
+
+/* ── 骨架屏占位（加载中保持高度） ── */
+.fc-card--skeleton {
+  pointer-events: none;
+}
+
+.fc-card__skeleton-text {
+  display: inline-block;
+  height: 12px;
+  min-width: 28px;
+  border-radius: 4px;
+  background: var(--color-border-light);
+  animation: skeletonPulse 1.2s ease-in-out infinite;
+}
+
+.fc-card__skeleton-text.fc-card__label {
+  min-width: 32px;
+  height: 13px;
+}
+
+.fc-card__skeleton-text.fc-card__date {
+  min-width: 24px;
+  height: 10px;
+  margin-top: 1px;
+}
+
+.fc-card__skeleton-text.fc-card__desc {
+  min-width: 24px;
+  height: 12px;
+  margin-left: auto;
+}
+
+.fc-card__skeleton-icon {
+  background: var(--color-border-light);
+  border-radius: 6px;
+  animation: skeletonPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.fc-card--empty {
+  justify-content: center;
+  text-align: center;
+}
+
+.fc-card--empty .fc-card__desc {
+  margin: 0 auto;
 }
 </style>

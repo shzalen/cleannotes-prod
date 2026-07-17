@@ -7,7 +7,7 @@ import { flushPendingWrites, cleanupMemoStorage } from '@/services/memoStorage'
 import { flushGrowthToCloud, cleanupGrowthStorage } from '@/services/growthStorage'
 import { clearAllLastSyncAt } from '@/services/syncState'
 import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
-import { showConfirmDialog, showToast } from 'vant'
+import { showConfirmDialog, showLoadingToast, showToast } from 'vant'
 import MobileSubApp from '../components/MobileSubApp.vue'
 import MobileTodoApp from '../components/MobileTodoApp.vue'
 import MobileMemoApp from '../components/MobileMemoApp.vue'
@@ -95,12 +95,23 @@ async function savePassword() {
 }
 
 // ── 清空页面缓存（保留登录态） ──
+const clearingCache = ref(false)
+
 async function handleClearCache() {
   await showConfirmDialog({
     title: '清空页面缓存',
     message: '清除浏览器缓存以加载最新版本，登录状态不受影响。',
     confirmButtonText: '确定',
     cancelButtonText: '取消',
+  })
+
+  clearingCache.value = true
+
+  // 显示带 loading 图标的提示，不自动消失
+  showLoadingToast({
+    message: '正在清空缓存…',
+    forbidClick: true,
+    duration: 0,
   })
 
   try {
@@ -123,13 +134,20 @@ async function handleClearCache() {
     )
     keys.forEach(k => localStorage.removeItem(k))
 
-    showToast('缓存已清空，正在刷新…')
+    // 切换为刷新提示
+    showLoadingToast({
+      message: '缓存已清空，正在刷新…',
+      forbidClick: true,
+      duration: 0,
+    })
 
-    // 延迟让提示可见后硬刷新（跳过 HTTP 缓存）
+    // 短暂延迟让提示可见后硬刷新
     setTimeout(() => {
-      window.location.reload()
-    }, 800)
+      // 使用 location.replace 替换当前页，避免浏览器后退回缓存清理前的状态
+      window.location.replace(window.location.href)
+    }, 400)
   } catch {
+    clearingCache.value = false
     showToast('清理失败，请手动清除浏览器缓存')
   }
 }

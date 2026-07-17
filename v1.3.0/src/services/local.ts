@@ -24,8 +24,35 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data))
+function write<T>(key: string, data: T): boolean {
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+    return true
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.warn('[local] storage full, clearing old data')
+      // 清理非关键的旧缓存
+      const allKeys = Object.keys(localStorage)
+      const cleanupKeys = allKeys.filter(k =>
+        k.includes('_syncLog_') ||
+        k.includes('_xpEvents_') ||
+        k.includes('_weather_coords')
+      )
+      cleanupKeys.forEach(k => {
+        try { localStorage.removeItem(k) } catch {}
+      })
+      // 重试写入
+      try {
+        localStorage.setItem(key, JSON.stringify(data))
+        return true
+      } catch (retryErr) {
+        console.error('[local] storage still full after cleanup:', retryErr)
+        return false
+      }
+    }
+    console.error('[local] write error:', e)
+    return false
+  }
 }
 
 export const localAdapter: StorageAdapter = {

@@ -65,6 +65,16 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      treeshake: {
+        // Vant 4 的 package.json sideEffects 仅保留 CSS、标记 JS 为无副作用，
+        // 导致 app.use(Vant) 间接注册的组件被 Rollup tree-shake 掉。
+        // 此处强制将 vant 的所有模块标记为有副作用，保留全部组件。
+        moduleSideEffects: (id, external) => {
+          if (external) return null
+          if (id.includes('node_modules/vant')) return true
+          return null
+        },
+      },
       input: {
         main: resolve(__dirname, 'index.html'),
         mobile: resolve(__dirname, 'mobile.html'),
@@ -73,6 +83,10 @@ export default defineConfig({
         manualChunks(id) {
           // Split heavy editor dependencies by functional group for finer-grained loading
           if (id.includes('node_modules')) {
+            // Vant UI — ensure all components are kept (prevent tree-shaking)
+            if (id.includes('node_modules/vant')) {
+              return 'vendor-vant'
+            }
             // Supabase SDK — separate from entry chunk (P-03)
             if (id.includes('@supabase/supabase-js')) {
               return 'vendor-supabase'

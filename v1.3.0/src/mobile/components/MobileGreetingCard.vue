@@ -148,7 +148,7 @@ watch(quote, (nv, ov) => {
 }
 
 .m-greeting__date {
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   white-space: nowrap;
 }
@@ -186,7 +186,7 @@ watch(quote, (nv, ov) => {
 /* ── 引用语 ── */
 .m-greeting__quote {
   margin-top: 0;
-  font-size: 16px;
+  font-size: 18px;
   color: rgba(255, 255, 255, 0.9);
   font-style: italic;
   line-height: 1.5;

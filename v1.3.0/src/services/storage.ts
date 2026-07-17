@@ -53,6 +53,9 @@ export interface StorageAdapter {
   // ---- AI Config ----
   getAiConfig(): Promise<AiConfig | null>
   saveAiConfig(config: AiConfig): Promise<void>
+
+  // ---- Vault (可选) ----
+  getAiConfigSecret?(): Promise<{ data: { secret: string } | null }>
 }
 
 let currentAdapter: StorageAdapter = supabaseAdapter

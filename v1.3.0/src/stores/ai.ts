@@ -4,8 +4,8 @@ import type { AiMessage, AiConfig, AiPendingAction } from '@/types'
 import { useTaskStore } from '@/stores/task'
 import { getStorage } from '@/services/storage'
 import { toUTCISO, toLocalDate } from '@/utils/time'
-import { encryptString, decryptString } from '@/utils/crypto'
-import { getCurrentUserIdSync } from '@/services/supabaseClient'
+import { encryptString, decryptString, initCryptoSecret } from '@/utils/crypto'
+import { getCurrentUserIdSync, SUPABASE_URL } from '@/services/supabaseClient'
 import { buildChatUrl } from '@/utils/ai'
 
 function genId(): string {
@@ -101,6 +101,17 @@ export const useAiStore = defineStore('ai', () => {
     if (loaded.value) return
     const storage = getStorage()
     messages.value = await storage.getAiMessages()
+
+    // 初始化加密密钥（从 Supabase Vault 获取，不可用时降级）
+    try {
+      const { data } = await storage.getAiConfigSecret?.() || {}
+      if (data?.secret) {
+        initCryptoSecret(data.secret)
+      }
+    } catch {
+      console.warn('[AI] 无法获取 Vault 加密密钥，加密降级')
+    }
+
     const saved = await storage.getAiConfig()
     if (saved) {
       // S-05: Decrypt API key on load

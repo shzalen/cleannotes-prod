@@ -3,8 +3,8 @@ import { createPinia } from 'pinia'
 import router from './mobile/router'
 import MobileApp from './mobile/MobileApp.vue'
 
-// Vant 全量注册（移动端 bundle 大小可接受，换取开发便利）
-import Vant from 'vant'
+// Vant 全量注册 — 使用 import * as 方式确保所有导出被引用
+import * as Vant from 'vant'
 import 'vant/lib/index.css'
 import './mobile/style.css'
 
@@ -47,7 +47,12 @@ if (!isMobileDevice()) {
   const app = createApp(MobileApp)
   app.use(createPinia())
   app.use(router)
-  app.use(Vant)
+  // 全量注册 Vant 组件 — 遍历命名空间所有导出，确保不被 tree-shake
+  Object.values(Vant).forEach((mod: any) => {
+    if (mod && typeof mod.install === 'function') {
+      app.use(mod)
+    }
+  })
   app.mount('#app')
 
   // 注册 PWA Service Worker（添加到桌面）

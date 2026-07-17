@@ -219,3 +219,20 @@ body {
   bottom: -34px !important;
   height: calc(100% + 34px) !important;
 }
+
+/* ==========================================================================
+   Toast 宽度加宽 — 避免文字换行
+   ========================================================================== */
+.van-toast {
+  min-width: 140px !important;
+  max-width: 280px !important;
+  padding: 12px 20px !important;
+}
+
+.van-toast--loading {
+  min-width: 160px !important;
+}
+
+.van-toast__text {
+  white-space: nowrap !important;
+}

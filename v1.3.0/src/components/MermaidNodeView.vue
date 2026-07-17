@@ -94,7 +94,7 @@ async function renderMermaid(code: string): Promise<string> {
   mermaid.default.initialize({
     startOnLoad: false,
     theme: getMermaidTheme(),
-    securityLevel: 'loose',
+    securityLevel: 'strict',
   })
 
   const id = `${containerId.value}-${++renderSeq}`

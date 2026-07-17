@@ -429,7 +429,7 @@ function handleEditFromDetail(task: Task) {
 .home-progress {
   background: var(--color-surface);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 7px 16px;
   margin-bottom: 14px;
   box-shadow: 0 1px 3px var(--color-shadow);
 }
@@ -438,7 +438,7 @@ function handleEditFromDetail(task: Task) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .home-progress__label {
@@ -459,7 +459,7 @@ function handleEditFromDetail(task: Task) {
   background: var(--color-bg-3);
   border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 
 .home-progress__fill {
@@ -524,7 +524,6 @@ function handleEditFromDetail(task: Task) {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid var(--color-text-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -533,21 +532,19 @@ function handleEditFromDetail(task: Task) {
   position: relative;
 }
 
-/* 待办 → 灰色 */
+/* 待办 → 灰色（无边框） */
 .task-item__check.todo {
-  border-color: var(--color-border);
   background: var(--color-text-4);
 }
 
-/* 进行中 → 橙色 */
+/* 进行中 → 橙色（无边框） */
 .task-item__check.in_progress {
-  border-color: var(--color-warning-text);
   background: var(--color-warning);
 }
 
-/* 已完成 → 绿色（主色填充） */
+/* 已完成 → 绿色（主色填充，带边框） */
 .task-item__check.done {
-  border-color: var(--color-primary);
+  border: 2px solid var(--color-primary);
   background: var(--color-primary);
   color: #fff;
 }

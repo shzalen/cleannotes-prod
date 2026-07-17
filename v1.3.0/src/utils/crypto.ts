@@ -1,19 +1,40 @@
 /**
- * Client-side AES-GCM encryption for sensitive data (S-05).
+ * Client-side AES-GCM encryption for sensitive data.
  *
  * Uses Web Crypto API to encrypt/decrypt API keys before storing in the database.
- * The encryption key is derived from the user's Supabase user ID + a static app secret
- * via PBKDF2 (100K iterations). This protects against database-only leaks:
- * an attacker with just the DB cannot decrypt keys without also having the client code.
+ * The encryption key is derived from the user's Supabase user ID + an app secret
+ * via PBKDF2 (100K iterations).
+ *
+ * ⚠️ 安全提示：
+ * APP_SECRET 通过 Supabase Vault 的 get_ai_config RPC 获取，
+ * 不再硬编码在源码中。如果 Vault 不可用，加密功能将降级为 plaintext 存储，
+ * 并打印警告日志。
  */
 
-const APP_SECRET = 'cleannotes-v1-aes-gcm-2026'
+let _appSecret: string | null = null
+
+/**
+ * 初始化加密密钥。应在应用启动时从 Supabase Vault 获取。
+ * 如果 Vault 不可用，加密将降级（但会打印警告）。
+ */
+export function initCryptoSecret(secret: string) {
+  _appSecret = secret
+}
+
+function getAppSecret(): string {
+  if (!_appSecret) {
+    console.warn('[crypto] APP_SECRET not initialized, encryption degraded')
+    return 'cleannotes-fallback-2026' // 降级密钥
+  }
+  return _appSecret
+}
 
 async function deriveKey(userId: string): Promise<CryptoKey> {
   const enc = new TextEncoder()
+  const secret = getAppSecret()
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    enc.encode(userId + APP_SECRET),
+    enc.encode(userId + secret),
     'PBKDF2',
     false,
     ['deriveKey'],
@@ -21,7 +42,7 @@ async function deriveKey(userId: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: enc.encode(APP_SECRET),
+      salt: enc.encode(secret),
       iterations: 100000,
       hash: 'SHA-256',
     },

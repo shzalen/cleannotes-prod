@@ -396,6 +396,28 @@ export const supabaseAdapter: StorageAdapter = {
       prefer: 'return=minimal,resolution=merge-duplicates',
     })
   },
+
+  // 从 Supabase Vault 获取加密密钥（通过 RPC）
+  async getAiConfigSecret(): Promise<{ data: { secret: string } | null }> {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/rpc/get_ai_config_secret`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${getCachedAccessToken()}`,
+          },
+        },
+      )
+      if (!res.ok) return { data: null }
+      const data = await res.json()
+      return { data }
+    } catch {
+      return { data: null }
+    }
+  },
 }
 
 // ================================================================

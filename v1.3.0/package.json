@@ -4,12 +4,13 @@
   "version": "1.3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vue-tsc --noEmit && vite build",
-    "build:gh-pages": "vite build --base /cleannotes-prod/",
+    "dev": "node scripts/patch-vant.mjs && vite --host",
+    "build": "node scripts/patch-vant.mjs && vue-tsc --noEmit && vite build",
+    "build:gh-pages": "node scripts/patch-vant.mjs && vite build --base /cleannotes-prod/",
     "copy:prod": "bash scripts/copy-to-prod.sh",
     "preview": "vite preview --host",
-    "start": "vite preview --host --port 4173"
+    "start": "vite preview --host --port 4173",
+    "postinstall": "node scripts/patch-vant.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
