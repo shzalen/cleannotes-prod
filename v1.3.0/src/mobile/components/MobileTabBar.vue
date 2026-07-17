@@ -24,7 +24,25 @@ function go(name: string) {
 const doubleTapTimers: Record<string, ReturnType<typeof setTimeout> | null> = {}
 const DOUBLE_TAP_WINDOW = 350 // ms
 
+// ── 预加载目标组件（首次切换时减少下载等待）──
+const lazyModules: Record<string, () => Promise<unknown>> = {
+  'm-home': () => import('../views/MobileHome.vue'),
+  'm-calendar': () => import('../views/MobileCalendar.vue'),
+  'm-profile': () => import('../views/MobileProfile.vue'),
+}
+const preloaded = new Set<string>()
+
+function preload(name: string) {
+  if (!preloaded.has(name) && lazyModules[name]) {
+    lazyModules[name]()
+    preloaded.add(name)
+  }
+}
+
 function handleTabClick(tabKey: string, tabName: string) {
+  // 预加载目标组件
+  preload(tabName)
+
   if (tabKey !== 'home' && tabKey !== 'calendar') {
     go(tabName)
     return

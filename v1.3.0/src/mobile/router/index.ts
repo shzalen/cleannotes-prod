@@ -39,14 +39,12 @@ const router = createRouter({
   ],
 })
 
-// 鉴权守卫 — 复用 auth store，纯在线会话恢复
-router.beforeEach(async (to, _from, next) => {
+// 鉴权守卫 — 纯在线会话恢复
+router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
 
-  // 先确保会话已从 Supabase 恢复（幂等）
-  if (!auth.initialized) {
-    await auth.init()
-  }
+  // 不阻塞等待 auth.init() — MobileApp.vue 的 onMounted 已负责初始化
+  // 守卫只检查当前状态，未初始化时放行由 MobileApp 后续处理
 
   // 公开路由（登录页）
   if (to.meta.public) {
@@ -58,8 +56,8 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  // 受保护路由需要登录
-  if (!auth.isAuthenticated) {
+  // 受保护路由：auth 未初始化时也放行，MobileApp 会等 init 完成后再决定
+  if (auth.initialized && !auth.isAuthenticated) {
     next({ name: 'm-login' })
     return
   }

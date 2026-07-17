@@ -18,17 +18,23 @@ const taskStore = useTaskStore()
 // 仅在有 meta.tab 的页面显示 TabBar（登录页等不显示）
 const showTabBar = computed(() => !!route.meta.tab)
 
-async function bootstrapData() {
+function bootstrapData() {
   if (!auth.isAuthenticated || !auth.userId) return
   switchUser(auth.userId)
-  await taskStore.load().catch((e) => console.error('[mobile] task load failed', e))
+  // 非阻塞：fire-and-forget，各页面用自己的 loading 状态
+  taskStore.load().catch((e) => console.error('[mobile] task load failed', e))
 }
 
 onMounted(async () => {
   if (!auth.initialized) {
     await auth.init()
   }
-  await bootstrapData()
+  // auth.init 完成后，如果未登录则跳转登录页
+  if (!auth.isAuthenticated) {
+    router.replace({ name: 'm-login' })
+    return
+  }
+  bootstrapData()
 })
 
 // 登录状态变化时（登录成功 / 退出）同步数据
@@ -50,7 +56,7 @@ watch(
   <div class="app-shell" :class="{ 'has-tabbar': showTabBar }">
     <div class="app-content">
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
+        <transition name="fade">
           <component :is="Component" />
         </transition>
       </router-view>
@@ -81,10 +87,15 @@ watch(
   flex-direction: column;
 }
 
-/* 路由切换淡入淡出，消除白屏闪烁 */
+/* 路由切换淡入淡出（叠加模式，无 out-in 等待） */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.15s ease;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 .fade-enter-from,
 .fade-leave-to {
