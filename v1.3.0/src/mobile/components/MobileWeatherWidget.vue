@@ -10,6 +10,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { Popup as VanPopup } from 'vant'
 import MobileWeatherIcon from './MobileWeatherIcon.vue'
+import { useWeatherEffect } from '../composables/useWeatherEffect'
+
+const { setWeather } = useWeatherEffect()
 
 interface WeatherData {
   temp: number
@@ -118,6 +121,8 @@ async function fetchWeather(lat: number, lon: number) {
       wind: Math.round(curr.wind_speed_10m),
       description: weatherMap[code]?.label ?? '未知',
     }
+    // 共享天气 code 给首页头部沉浸式特效
+    setWeather(code)
     currentLat.value = lat
     currentLon.value = lon
     errorMsg.value = ''

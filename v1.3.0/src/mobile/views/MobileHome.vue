@@ -8,6 +8,8 @@ import type { Task } from '@/types'
 import { useTouchInteraction } from '../composables/useTouchInteraction'
 import { useTabRefresh } from '../composables/useTabRefresh'
 import { playDingSound } from '../composables/useSound'
+import { useWeatherEffect } from '../composables/useWeatherEffect'
+import type { WeatherEffect } from '../composables/useWeatherEffect'
 
 import MobileGreetingCard from '../components/MobileGreetingCard.vue'
 import MobileTaskDetailPopup from '../components/MobileTaskDetailPopup.vue'
@@ -41,6 +43,32 @@ const totalCount = computed(() => todayTasks.value.length)
 const progress = computed(() => (totalCount.value === 0 ? 0 : Math.round((doneCount.value / totalCount.value) * 100)))
 
 const nickname = computed(() => auth.user?.nickname || '用户')
+
+// ── 天气沉浸式特效 ──
+const { weatherEffect } = useWeatherEffect()
+
+// 雨滴/雪花粒子数据（生成固定数量避免重复计算）
+const rainDrops = Array.from({ length: 12 }, (_, i) => ({
+  left: Math.random() * 100,
+  delay: Math.random() * 2,
+  duration: 0.6 + Math.random() * 0.5,
+  opacity: 0.3 + Math.random() * 0.4,
+}))
+
+const snowFlakes = Array.from({ length: 10 }, (_, i) => ({
+  left: Math.random() * 100,
+  delay: Math.random() * 3,
+  duration: 3 + Math.random() * 2,
+  size: 4 + Math.random() * 4,
+  drift: 10 + Math.random() * 20,
+}))
+
+const stars = Array.from({ length: 8 }, (_, i) => ({
+  top: Math.random() * 40,
+  left: 50 + Math.random() * 45,
+  delay: Math.random() * 3,
+  size: 2 + Math.random() * 2,
+}))
 
 // ── 时段问候语（移到头部标题栏） ──
 const greeting = computed(() => {
@@ -162,6 +190,70 @@ function handleEditFromDetail(task: Task) {
   <div class="home-page">
     <!-- 沉浸式头部：问候语 + 日期 + 随机语 -->
     <header class="home-header">
+      <!-- 天气沉浸式特效层 -->
+      <div class="weather-fx" :class="weatherEffect" aria-hidden="true">
+        <!-- 晴天：右上角太阳光芒 -->
+        <div v-if="weatherEffect === 'sun'" class="fx-sun-rays" />
+
+        <!-- 多云：漂移云朵 -->
+        <template v-if="weatherEffect === 'cloud'">
+          <div class="fx-cloud fx-cloud--1" />
+          <div class="fx-cloud fx-cloud--2" />
+        </template>
+
+        <!-- 雨天：雨滴粒子 -->
+        <template v-if="weatherEffect === 'rain' || weatherEffect === 'thunder'">
+          <div
+            v-for="(drop, i) in rainDrops"
+            :key="'rain-' + i"
+            class="fx-raindrop"
+            :style="{
+              left: drop.left + '%',
+              animationDelay: drop.delay + 's',
+              animationDuration: drop.duration + 's',
+              opacity: drop.opacity,
+            }"
+          />
+        </template>
+
+        <!-- 雷暴：闪光 -->
+        <div v-if="weatherEffect === 'thunder'" class="fx-lightning" />
+
+        <!-- 雪天：雪花粒子 -->
+        <template v-if="weatherEffect === 'snow'">
+          <div
+            v-for="(flake, i) in snowFlakes"
+            :key="'snow-' + i"
+            class="fx-snowflake"
+            :style="{
+              left: flake.left + '%',
+              width: flake.size + 'px',
+              height: flake.size + 'px',
+              animationDelay: flake.delay + 's',
+              animationDuration: flake.duration + 's',
+              '--drift': flake.drift + 'px',
+            }"
+          />
+        </template>
+
+        <!-- 夜晚：月亮 + 星星 -->
+        <template v-if="weatherEffect === 'night'">
+          <div class="fx-moon" />
+          <div
+            v-for="(star, i) in stars"
+            :key="'star-' + i"
+            class="fx-star"
+            :style="{
+              top: star.top + '%',
+              left: star.left + '%',
+              width: star.size + 'px',
+              height: star.size + 'px',
+              animationDelay: star.delay + 's',
+            }"
+          />
+        </template>
+      </div>
+
       <!-- 背景气泡装饰：仅显示在头部蓝色区域 -->
       <div class="home-bubbles" aria-hidden="true">
         <span class="bubble bubble--1" />
@@ -381,6 +473,194 @@ function handleEditFromDetail(task: Task) {
   100% {
     transform: translate(calc(var(--dx) * -0.5), calc(var(--dy) * -0.8));
   }
+}
+
+/* ── 天气沉浸式特效层 ── */
+.weather-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 晴天：太阳光芒 */
+.fx-sun-rays {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 245, 200, 0.55) 0%,
+    rgba(255, 220, 100, 0.25) 30%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: sun-pulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes sun-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+/* 多云：漂移云朵 */
+.fx-cloud {
+  position: absolute;
+  background: radial-gradient(
+    ellipse at 40% 50%,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 80%
+  );
+  border-radius: 50%;
+  filter: blur(3px);
+}
+
+.fx-cloud--1 {
+  top: 8%;
+  right: -20px;
+  width: 120px;
+  height: 60px;
+  animation: cloud-drift-1 8s ease-in-out infinite alternate;
+}
+
+.fx-cloud--2 {
+  top: 30%;
+  right: 10px;
+  width: 80px;
+  height: 40px;
+  animation: cloud-drift-2 6s ease-in-out infinite alternate;
+}
+
+@keyframes cloud-drift-1 {
+  0% { transform: translateX(0); opacity: 0.4; }
+  100% { transform: translateX(-20px); opacity: 0.6; }
+}
+
+@keyframes cloud-drift-2 {
+  0% { transform: translateX(-10px); opacity: 0.3; }
+  100% { transform: translateX(15px); opacity: 0.5; }
+}
+
+/* 雨天：雨滴 */
+.fx-raindrop {
+  position: absolute;
+  top: -10px;
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(200, 220, 255, 0.7)
+  );
+  border-radius: 1px;
+  animation: rain-fall linear infinite;
+}
+
+@keyframes rain-fall {
+  0% { transform: translateY(-20px) translateX(0); }
+  100% { transform: translateY(200px) translateX(-15px); }
+}
+
+/* 雷暴：闪光 */
+.fx-lightning {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0);
+  animation: lightning-flash 5s ease-in infinite;
+}
+
+@keyframes lightning-flash {
+  0%, 95%, 100% { background: rgba(255, 255, 255, 0); }
+  96%, 98% { background: rgba(255, 255, 255, 0.6); }
+  97% { background: rgba(255, 255, 255, 0); }
+}
+
+/* 雪天：雪花 */
+.fx-snowflake {
+  position: absolute;
+  top: -10px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: snow-fall linear infinite;
+}
+
+@keyframes snow-fall {
+  0% {
+    transform: translateY(-10px) translateX(0);
+    opacity: 0;
+  }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.8; }
+  100% {
+    transform: translateY(200px) translateX(var(--drift, 20px));
+    opacity: 0;
+  }
+}
+
+/* 夜晚：月亮 */
+.fx-moon {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 250, 230, 0.9) 0%,
+    rgba(255, 240, 200, 0.4) 60%,
+    transparent 80%
+  );
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(255, 240, 200, 0.3);
+}
+
+/* 夜晚：星星 */
+.fx-star {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  animation: star-twinkle ease-in-out infinite alternate;
+}
+
+@keyframes star-twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+/* 夜晚头部背景偏深 */
+.home-header:has(.weather-fx.night) {
+  background: linear-gradient(
+    135deg,
+    #0a1a4a 0%,
+    #0d2060 50%,
+    #0a1838 100%
+  );
+}
+
+/* 雨天头部背景偏灰蓝 */
+.home-header:has(.weather-fx.rain),
+.home-header:has(.weather-fx.thunder) {
+  background: linear-gradient(
+    135deg,
+    #2a3a5a 0%,
+    #1e3050 50%,
+    #162840 100%
+  );
+}
+
+/* 雪天头部背景偏冷色 */
+.home-header:has(.weather-fx.snow) {
+  background: linear-gradient(
+    135deg,
+    #3a5080 0%,
+    #2a4070 50%,
+    #1e3060 100%
+  );
 }
 
 .home-header__top {
