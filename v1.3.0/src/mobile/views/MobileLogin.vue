@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { showToast } from 'vant'
+import logoUrl from '/icon-512.png'
 
 defineOptions({ name: 'MobileLogin' })
 
@@ -44,7 +45,7 @@ async function onSubmit() {
 
     <!-- 品牌区 — 轻量 -->
     <div class="login-page__brand">
-      <div class="login-page__logo">清</div>
+      <img class="login-page__logo" :src="logoUrl" alt="清记" />
       <p class="login-page__subtitle">清简记事，井然有序</p>
     </div>
 
@@ -107,18 +108,14 @@ async function onSubmit() {
 }
 
 .login-page__logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: var(--color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: 700;
-  color: #fff;
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
   margin-bottom: 20px;
   box-shadow: 0 4px 16px rgba(0, 82, 217, 0.25);
+  object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .login-page__subtitle {
@@ -136,14 +133,14 @@ async function onSubmit() {
 .login-input {
   display: block;
   width: 100%;
-  height: 48px;
+  height: 56px;
   margin-bottom: 16px;
-  padding: 0 16px;
+  padding: 0 18px;
   font-size: 16px;
   color: var(--color-text-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  border-radius: 10px;
+  border-radius: 12px;
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
@@ -163,14 +160,14 @@ async function onSubmit() {
 /* ── 按钮 ── */
 .login-btn {
   width: 100%;
-  height: 48px;
+  height: 56px;
   margin-top: 8px;
   background: var(--color-primary);
   color: #fff;
   font-size: 17px;
   font-weight: 600;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   transition: opacity 0.15s;
 }
