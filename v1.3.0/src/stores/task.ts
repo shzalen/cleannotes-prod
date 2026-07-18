@@ -127,6 +127,7 @@ export const useTaskStore = defineStore('task', () => {
   const tasks = ref<Task[]>([])
   const trash = ref<DeletedTask[]>([])
   const loaded = ref(false)
+  const loadError = ref(false)  // 网络异常标记
 
   // P-08: Cache the load Promise to prevent race condition when multiple callers
   // call load() concurrently (e.g., App.vue init + cross-tab sync)
@@ -176,10 +177,12 @@ export const useTaskStore = defineStore('task', () => {
 
       await purgeExpired()
       loaded.value = true
+      loadError.value = false
     })().catch((err) => {
       // R5-P03: Reset loadPromise on failure so subsequent load() can retry
       loadPromise = null
-      throw err
+      loadError.value = true
+      console.error('[TaskStore] load failed:', err)
     })
 
     return loadPromise
@@ -468,7 +471,7 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   return {
-    tasks, trash, loaded, reactivateConfirm,
+    tasks, trash, loaded, loadError, reactivateConfirm,
     todoTasks, inProgressTasks, doneTasks, recentTasks, expiringTrash,
     load, reload, persist, persistTrash,
     addTask, updateTask, deleteTask, toggleStatus,
