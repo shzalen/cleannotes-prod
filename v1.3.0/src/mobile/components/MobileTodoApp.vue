@@ -164,6 +164,8 @@ onUnmounted(() => {
       <van-swipe-cell
         v-for="item in todos"
         :key="item.id"
+        :right-width="112"
+        :stop-propagation="true"
       >
         <div class="app-card" @click="viewDetail(item)">
           <div class="app-card__body">
@@ -180,8 +182,10 @@ onUnmounted(() => {
           </div>
         </div>
         <template #right>
-          <button class="swipe-btn swipe-btn--edit" @click="openEdit(item)">编辑</button>
-          <button class="swipe-btn swipe-btn--del" @click="swipeDelete(item)">删除</button>
+          <div class="swipe-actions">
+            <button class="swipe-btn swipe-btn--edit" @click="openEdit(item)">编辑</button>
+            <button class="swipe-btn swipe-btn--del" @click="swipeDelete(item)">删除</button>
+          </div>
         </template>
       </van-swipe-cell>
     </div>
@@ -366,6 +370,10 @@ onUnmounted(() => {
 }
 
 /* 左滑按钮 */
+.swipe-actions {
+  display: flex;
+  height: 100%;
+}
 .swipe-btn {
   display: flex;
   align-items: center;
