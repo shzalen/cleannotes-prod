@@ -137,12 +137,10 @@ function handleTabClick(tabKey: string, tabName: string) {
   z-index: 100;
   display: flex;
   align-items: stretch;
-  height: calc(var(--tabbar-height) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  height: var(--tabbar-height);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);
-  box-sizing: border-box;
 }
 
 .tabbar__item {
@@ -150,8 +148,7 @@ function handleTabClick(tabKey: string, tabName: string) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 6px;
+  justify-content: center;
   padding-bottom: 4px;
   gap: 2px;
   border: none;
@@ -160,8 +157,6 @@ function handleTabClick(tabKey: string, tabName: string) {
   cursor: pointer;
   transition: transform 0.12s ease, color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
-  box-sizing: border-box;
-  height: var(--tabbar-height);
 }
 
 .tabbar__item:active {
