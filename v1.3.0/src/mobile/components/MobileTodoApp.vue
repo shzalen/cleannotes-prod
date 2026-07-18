@@ -7,13 +7,17 @@ import { ref, computed, onMounted, onUnmounted, inject } from 'vue'
 import { useTodoStore } from '@/stores/todo'
 import { showConfirmDialog, showToast } from 'vant'
 import { SwipeCell as VanSwipeCell } from 'vant'
-import type { TodoItem } from '@/stores/todo'
+import type { TodoItem } from '@/types'
 import { SUBAPP_MENU_KEY, type SubAppMenuApi } from '../composables/useSubAppMenu'
+import MobileTaskEditPopup from './MobileTaskEditPopup.vue'
 
 defineOptions({ name: 'MobileTodoApp' })
 
 const todoStore = useTodoStore()
 const subAppMenu = inject<SubAppMenuApi>(SUBAPP_MENU_KEY)
+
+// 任务编辑弹窗引用（待办转任务时使用）
+const taskPopupRef = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
 
 const todos = computed(() => todoStore.activeTodos)
 
@@ -120,6 +124,14 @@ function deleteFromDetail() {
   }).catch(() => {})
 }
 
+// 从详情弹窗转任务
+function convertFromDetail() {
+  if (!detailItem.value) return
+  const item = detailItem.value
+  closeDetail()
+  setTimeout(() => requestConvert(item), 150)
+}
+
 // 左滑删除（列表项）
 function swipeDelete(item: TodoItem) {
   showConfirmDialog({
@@ -131,6 +143,18 @@ function swipeDelete(item: TodoItem) {
     todoStore.removeTodo(item.id)
     showToast('已删除')
   }).catch(() => {})
+}
+
+// 待办转任务
+function requestConvert(item: TodoItem) {
+  taskPopupRef.value?.openFromTodo(item, (taskId: string) => {
+    todoStore.markConverted(item.id, taskId)
+  })
+}
+
+// 左滑转任务（列表项）
+function swipeConvert(item: TodoItem) {
+  requestConvert(item)
 }
 
 // 星级显示
@@ -173,7 +197,7 @@ onUnmounted(() => {
       <van-swipe-cell
         v-for="item in todos"
         :key="item.id"
-        :right-width="112"
+        :right-width="168"
         :stop-propagation="true"
       >
         <div class="app-card" @click="viewDetail(item)">
@@ -192,6 +216,7 @@ onUnmounted(() => {
         </div>
         <template #right>
           <div class="swipe-actions">
+            <button class="swipe-btn swipe-btn--convert" @click="swipeConvert(item)">转任务</button>
             <button class="swipe-btn swipe-btn--edit" @click="openEdit(item)">编辑</button>
             <button class="swipe-btn swipe-btn--del" @click="swipeDelete(item)">删除</button>
           </div>
@@ -294,10 +319,14 @@ onUnmounted(() => {
         </div>
         <div class="detail-view__footer">
           <van-button block round plain type="danger" @click="deleteFromDetail">删除</van-button>
+          <van-button block round plain @click="convertFromDetail">转任务</van-button>
           <van-button block round type="primary" @click="editFromDetail">编辑</van-button>
         </div>
       </div>
     </van-popup>
+
+    <!-- 任务编辑弹窗（待办转任务时弹出） -->
+    <MobileTaskEditPopup ref="taskPopupRef" />
   </div>
 </template>
 
@@ -395,7 +424,9 @@ onUnmounted(() => {
   font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
 }
+.swipe-btn--convert { background: var(--color-success, #16a34a); }
 .swipe-btn--edit { background: var(--color-primary); }
 .swipe-btn--del  { background: var(--color-danger); }
 

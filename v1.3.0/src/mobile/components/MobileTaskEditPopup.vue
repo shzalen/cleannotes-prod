@@ -7,7 +7,7 @@
 import { ref, computed, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { toLocalDate } from '@/utils/time'
-import type { Task, TaskPriority } from '@/types'
+import type { Task, TaskPriority, TodoItem } from '@/types'
 import { showToast } from 'vant'
 import MobileIOSPicker from './MobileIOSPicker.vue'
 
@@ -19,6 +19,11 @@ const visible = ref(false)
 const isEditing = ref(false)
 const editingId = ref<string | null>(null)
 const defaultDate = ref('')
+
+// 待办转任务回调
+const convertOnCreated = ref<((taskId: string) => void) | null>(null)
+// 是否为待办转任务模式（控制标题展示）
+const isConvertMode = ref(false)
 
 const title = ref('')
 const description = ref('')
@@ -51,6 +56,8 @@ function openNew(date?: string) {
   editingId.value = null
   startDate.value = date || toLocalDate()
   defaultDate.value = date || ''
+  isConvertMode.value = false
+  convertOnCreated.value = null
   visible.value = true
 }
 
@@ -66,6 +73,26 @@ function openEdit(task: Task) {
   dueDate.value = task.dueDate || ''
   status.value = task.status
   defaultDate.value = ''
+  isConvertMode.value = false
+  convertOnCreated.value = null
+  visible.value = true
+}
+
+/** 从待办事项创建任务：预填表单并注册转化回调 */
+function openFromTodo(todo: TodoItem, onCreated: (taskId: string) => void) {
+  resetForm()
+  isEditing.value = false
+  editingId.value = null
+  title.value = todo.title
+  description.value = todo.description || ''
+  priority.value = 'medium'
+  startDate.value = todo.estimatedStart || toLocalDate()
+  startTime.value = ''
+  dueDate.value = todo.estimatedEnd || ''
+  status.value = 'todo'
+  defaultDate.value = ''
+  isConvertMode.value = true
+  convertOnCreated.value = onCreated
   visible.value = true
 }
 
@@ -81,6 +108,8 @@ function resetForm() {
 
 function close() {
   visible.value = false
+  convertOnCreated.value = null
+  isConvertMode.value = false
 }
 
 async function save() {
@@ -102,8 +131,9 @@ async function save() {
         dueDate: dueDate.value || null,
         status: status.value,
       })
+      showToast('已保存')
     } else {
-      taskStore.addTask({
+      const task = taskStore.addTask({
         title: t,
         description: description.value.trim(),
         priority: priority.value,
@@ -111,8 +141,15 @@ async function save() {
         startTime: startTime.value || null,
         dueDate: dueDate.value || null,
       })
+      // 待办转任务回调：标记待办 linkedTaskId
+      if (convertOnCreated.value) {
+        convertOnCreated.value(task.id)
+        convertOnCreated.value = null
+        showToast('已转为任务')
+      } else {
+        showToast('已创建')
+      }
     }
-    showToast(isEditing.value ? '已保存' : '已创建')
     close()
   } catch (e) {
     showToast('保存失败，请重试')
@@ -121,7 +158,7 @@ async function save() {
   }
 }
 
-defineExpose({ openNew, openEdit, close })
+defineExpose({ openNew, openEdit, openFromTodo, close })
 </script>
 
 <template>
@@ -135,7 +172,7 @@ defineExpose({ openNew, openEdit, close })
     <div class="edit-popup">
       <!-- 头部 -->
       <div class="edit-popup__header">
-        <span class="edit-popup__title">{{ isEditing ? '编辑任务' : '创建任务' }}</span>
+        <span class="edit-popup__title">{{ isConvertMode ? '转为任务' : isEditing ? '编辑任务' : '创建任务' }}</span>
         <button class="edit-popup__close" @click="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M6 6l12 12M18 6L6 18" />
@@ -227,7 +264,7 @@ defineExpose({ openNew, openEdit, close })
       <div class="edit-popup__footer">
         <van-button plain round @click="close">取消</van-button>
         <van-button type="primary" round :loading="saving" @click="save">
-          {{ isEditing ? '保存' : '创建' }}
+          {{ isConvertMode ? '转为任务' : isEditing ? '保存' : '创建' }}
         </van-button>
       </div>
     </div>
