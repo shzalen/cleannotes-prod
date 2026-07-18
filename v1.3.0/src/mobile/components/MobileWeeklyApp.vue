@@ -1,24 +1,22 @@
 <script setup lang="ts">
 /**
- * 移动端子应用：周报列表与查看
+ * 移动端子应用：周报列表与查看（只读）
  */
 import { ref, computed, onMounted } from 'vue'
 import { useWeeklyReportStore, getWeekLabel } from '@/stores/weeklyReport'
 import DOMPurify from 'dompurify'
-import { showToast } from 'vant'
 
 defineOptions({ name: 'MobileWeeklyApp' })
 
 const reportStore = useWeeklyReportStore()
 
 const reports = computed(() => reportStore.sortedReports)
-const loading = ref(false)
 
 // 查看报告详情
 const viewingReport = ref<any>(null)
 const showDetail = ref(false)
 
-async function viewReport(report: any) {
+function viewReport(report: any) {
   viewingReport.value = report
   showDetail.value = true
 }
@@ -32,18 +30,6 @@ const renderedContent = computed(() => {
   if (!viewingReport.value?.content) return ''
   return DOMPurify.sanitize(viewingReport.value.content)
 })
-
-async function doGenerate(weekStart: string) {
-  loading.value = true
-  try {
-    await reportStore.generateReport(weekStart)
-    reportStore.generateAiSummary(weekStart)
-    showToast('周报已生成')
-  } catch (e) {
-    showToast('生成失败')
-  }
-  loading.value = false
-}
 
 onMounted(() => {
   reportStore.load()

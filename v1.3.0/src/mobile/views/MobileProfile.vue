@@ -10,7 +10,6 @@ import { broadcastChange, closeCrossTabSync } from '@/services/crossTabSync'
 import { showConfirmDialog, showLoadingToast, showToast, closeToast } from 'vant'
 import MobileSubApp from '../components/MobileSubApp.vue'
 import MobileTodoApp from '../components/MobileTodoApp.vue'
-import MobileMemoApp from '../components/MobileMemoApp.vue'
 import MobileWeeklyApp from '../components/MobileWeeklyApp.vue'
 
 defineOptions({ name: 'MobileProfile' })
@@ -194,10 +193,6 @@ function openTodoApp() {
   subApp.value?.open('待办事项', MobileTodoApp)
 }
 
-function openMemoApp() {
-  subApp.value?.open('备忘录', MobileMemoApp)
-}
-
 function openWeeklyApp() {
   subApp.value?.open('周报', MobileWeeklyApp)
 }
@@ -297,21 +292,6 @@ const buildTime = __BUILD_TIME__
                 <path d="M6.5 15L7.5 16 9.5 13.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <span class="profile-menu__label">待办事项</span>
-            </div>
-            <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </div>
-          <div class="profile-menu__item" @click="openMemoApp">
-            <div class="profile-menu__left">
-              <svg class="profile-menu__icon profile-menu__icon--memo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 5a2 2 0 012-2h10l4 4v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" fill="#FAAD14" opacity="0.18"/>
-                <path d="M4 5a2 2 0 012-2h10l4 4v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z" stroke="#FAAD14" stroke-width="1.5" stroke-linejoin="round"/>
-                <path d="M14 3v4h4" stroke="#FAAD14" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <rect x="7" y="10" width="10" height="1.5" rx="0.75" fill="#FAAD14" opacity="0.7"/>
-                <rect x="7" y="14" width="7" height="1.5" rx="0.75" fill="#FAAD14" opacity="0.5"/>
-              </svg>
-              <span class="profile-menu__label">备忘录</span>
             </div>
             <svg class="profile-menu__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M9 6l6 6-6 6" />

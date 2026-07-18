@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
- * 移动端子应用：待办事项列表
+ * 移动端子应用：待办事项
+ * CRUD：新增（FAB）、查看（点击卡片）、编辑（左滑/详情入口）、删除（左滑/详情入口）
  */
 import { ref, computed, onMounted } from 'vue'
 import { useTodoStore } from '@/stores/todo'
 import { showConfirmDialog, showToast } from 'vant'
+import { SwipeCell as VanSwipeCell } from 'vant'
 import type { TodoItem } from '@/stores/todo'
 
 defineOptions({ name: 'MobileTodoApp' })
@@ -13,44 +15,111 @@ const todoStore = useTodoStore()
 
 const todos = computed(() => todoStore.activeTodos)
 
-const showAddForm = ref(false)
-const newTitle = ref('')
-const newImportance = ref(3)
-const newEstStart = ref('')
-const newEstEnd = ref('')
-const newDesc = ref('')
+// ── 表单弹窗（新增/编辑共用） ──
+type FormMode = 'new' | 'edit'
+const showForm = ref(false)
+const formMode = ref<FormMode>('new')
+const editingId = ref<string | null>(null)
+const fTitle = ref('')
+const fImportance = ref(0)
+const fEstStart = ref('')
+const fEstEnd = ref('')
+const fDesc = ref('')
 
-onMounted(() => {
-  todoStore.load()
-})
-
-function openAddForm() {
-  newTitle.value = ''
-  newImportance.value = 3
-  newEstStart.value = ''
-  newEstEnd.value = ''
-  newDesc.value = ''
-  showAddForm.value = true
+function openNew() {
+  formMode.value = 'new'
+  editingId.value = null
+  fTitle.value = ''
+  fImportance.value = 0
+  fEstStart.value = ''
+  fEstEnd.value = ''
+  fDesc.value = ''
+  showForm.value = true
 }
 
-async function saveTodo() {
-  const t = newTitle.value.trim()
+function openEdit(item: TodoItem) {
+  formMode.value = 'edit'
+  editingId.value = item.id
+  fTitle.value = item.title
+  fImportance.value = item.importance ?? 0
+  fEstStart.value = item.estimatedStart || ''
+  fEstEnd.value = item.estimatedEnd || ''
+  fDesc.value = item.description || ''
+  showForm.value = true
+}
+
+function closeForm() {
+  showForm.value = false
+  editingId.value = null
+}
+
+function saveForm() {
+  const t = fTitle.value.trim()
   if (!t) {
     showToast('请输入待办标题')
     return
   }
-  todoStore.addTodo({
+  const payload = {
     title: t,
-    description: newDesc.value.trim(),
-    importance: newImportance.value,
-    estimatedStart: newEstStart.value || null,
-    estimatedEnd: newEstEnd.value || null,
-  })
-  showToast('已添加')
-  showAddForm.value = false
+    description: fDesc.value.trim(),
+    importance: fImportance.value,
+    estimatedStart: fEstStart.value || null,
+    estimatedEnd: fEstEnd.value || null,
+  }
+  if (formMode.value === 'new') {
+    todoStore.addTodo(payload)
+    showToast('已添加')
+  } else if (editingId.value) {
+    todoStore.updateTodo(editingId.value, payload)
+    showToast('已保存')
+  }
+  closeForm()
 }
 
-async function removeTodo(item: TodoItem) {
+// 点击星级：同号降级（与 PC 端一致）
+function setImportance(n: number) {
+  fImportance.value = fImportance.value === n ? n - 1 : n
+}
+
+// ── 查看详情弹窗 ──
+const showDetail = ref(false)
+const detailItem = ref<TodoItem | null>(null)
+
+function viewDetail(item: TodoItem) {
+  detailItem.value = item
+  showDetail.value = true
+}
+
+function closeDetail() {
+  showDetail.value = false
+  detailItem.value = null
+}
+
+function editFromDetail() {
+  if (!detailItem.value) return
+  const item = detailItem.value
+  closeDetail()
+  // 稍延迟避免两个 popup 同时开关的视觉抖动
+  setTimeout(() => openEdit(item), 150)
+}
+
+function deleteFromDetail() {
+  if (!detailItem.value) return
+  const item = detailItem.value
+  showConfirmDialog({
+    title: '删除待办',
+    message: `确定删除「${item.title}」？`,
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+  }).then(() => {
+    todoStore.removeTodo(item.id)
+    showToast('已删除')
+    closeDetail()
+  }).catch(() => {})
+}
+
+// 左滑删除（列表项）
+function swipeDelete(item: TodoItem) {
   showConfirmDialog({
     title: '删除待办',
     message: `确定删除「${item.title}」？`,
@@ -66,6 +135,10 @@ async function removeTodo(item: TodoItem) {
 function stars(n: number): string {
   return '★'.repeat(n) + '☆'.repeat(5 - n)
 }
+
+onMounted(() => {
+  todoStore.load()
+})
 </script>
 
 <template>
@@ -76,31 +149,31 @@ function stars(n: number): string {
       <span class="app-stats__item">已排期 {{ todos.filter(t => t.estimatedStart).length }}</span>
     </div>
 
-    <!-- 待办列表 -->
+    <!-- 待办列表（左滑编辑/删除） -->
     <div class="app-list" v-if="todos.length > 0">
-      <div
+      <van-swipe-cell
         v-for="item in todos"
         :key="item.id"
-        class="app-card"
       >
-        <div class="app-card__body">
-          <div class="app-card__top">
-            <span class="app-card__stars">{{ stars(item.importance) }}</span>
-            <button class="app-card__del" @click="removeTodo(item)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
+        <div class="app-card" @click="viewDetail(item)">
+          <div class="app-card__body">
+            <div class="app-card__top">
+              <span class="app-card__stars">{{ stars(item.importance ?? 0) }}</span>
+            </div>
+            <p class="app-card__title">{{ item.title }}</p>
+            <div class="app-card__dates" v-if="item.estimatedStart || item.estimatedEnd">
+              <span v-if="item.estimatedStart">{{ item.estimatedStart }}</span>
+              <span v-if="item.estimatedStart && item.estimatedEnd"> ~ </span>
+              <span v-if="item.estimatedEnd">{{ item.estimatedEnd }}</span>
+            </div>
+            <p class="app-card__desc" v-if="item.description">{{ item.description }}</p>
           </div>
-          <p class="app-card__title">{{ item.title }}</p>
-          <div class="app-card__dates" v-if="item.estimatedStart || item.estimatedEnd">
-            <span v-if="item.estimatedStart">{{ item.estimatedStart }}</span>
-            <span v-if="item.estimatedStart && item.estimatedEnd"> ~ </span>
-            <span v-if="item.estimatedEnd">{{ item.estimatedEnd }}</span>
-          </div>
-          <p class="app-card__desc" v-if="item.description">{{ item.description }}</p>
         </div>
-      </div>
+        <template #right>
+          <button class="swipe-btn swipe-btn--edit" @click="openEdit(item)">编辑</button>
+          <button class="swipe-btn swipe-btn--del" @click="swipeDelete(item)">删除</button>
+        </template>
+      </van-swipe-cell>
     </div>
 
     <div v-else class="app-empty">
@@ -109,15 +182,15 @@ function stars(n: number): string {
     </div>
 
     <!-- FAB 添加按钮 -->
-    <button class="app-fab" @click="openAddForm">
+    <button class="app-fab" @click="openNew">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M12 5v14M5 12h14" />
       </svg>
     </button>
 
-    <!-- 添加表单弹窗 -->
+    <!-- 新增/编辑表单弹窗 -->
     <van-popup
-      v-model:show="showAddForm"
+      v-model:show="showForm"
       position="bottom"
       round
       teleport="body"
@@ -125,8 +198,8 @@ function stars(n: number): string {
     >
       <div class="add-form">
         <div class="add-form__header">
-          <span class="add-form__title">添加待办</span>
-          <button class="add-form__close" @click="showAddForm = false">
+          <span class="add-form__title">{{ formMode === 'new' ? '添加待办' : '编辑待办' }}</span>
+          <button class="add-form__close" @click="closeForm">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
@@ -134,7 +207,7 @@ function stars(n: number): string {
         </div>
         <div class="add-form__body">
           <van-cell-group inset>
-            <van-field v-model="newTitle" label="标题" placeholder="输入待办标题" clearable />
+            <van-field v-model="fTitle" label="标题" placeholder="输入待办标题" clearable />
           </van-cell-group>
           <div class="form-section">
             <label class="form-label">重要等级</label>
@@ -144,30 +217,68 @@ function stars(n: number): string {
                 :key="i"
                 type="button"
                 class="star-picker__btn"
-                :class="{ active: i <= newImportance }"
-                @click="newImportance = i"
-              >{{ i <= newImportance ? '★' : '☆' }}</button>
+                :class="{ active: i <= fImportance }"
+                @click="setImportance(i)"
+              >{{ i <= fImportance ? '★' : '☆' }}</button>
+              <span class="star-picker__hint">{{ fImportance > 0 ? `${fImportance}级` : '未评级' }}</span>
             </div>
           </div>
           <van-cell-group inset>
-            <van-field v-model="newEstStart" label="预计开始" placeholder="选择日期" readonly clickable>
+            <van-field v-model="fEstStart" label="预计开始" placeholder="选择日期" readonly clickable>
               <template #right-icon>
-                <input v-model="newEstStart" type="date" class="native-input" />
+                <input v-model="fEstStart" type="date" class="native-input" />
               </template>
             </van-field>
-            <van-field v-model="newEstEnd" label="预计结束" placeholder="选择日期" readonly clickable>
+            <van-field v-model="fEstEnd" label="预计结束" placeholder="选择日期" readonly clickable>
               <template #right-icon>
-                <input v-model="newEstEnd" type="date" class="native-input" />
+                <input v-model="fEstEnd" type="date" class="native-input" />
               </template>
             </van-field>
           </van-cell-group>
           <div class="form-section">
             <label class="form-label">描述</label>
-            <textarea v-model="newDesc" class="form-textarea" placeholder="输入描述..." rows="3"></textarea>
+            <textarea v-model="fDesc" class="form-textarea" placeholder="输入描述..." rows="3"></textarea>
           </div>
         </div>
         <div class="add-form__footer">
-          <van-button type="primary" block round @click="saveTodo">添加</van-button>
+          <van-button type="primary" block round @click="saveForm">
+            {{ formMode === 'new' ? '添加' : '保存' }}
+          </van-button>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- 查看详情弹窗 -->
+    <van-popup
+      v-model:show="showDetail"
+      position="bottom"
+      round
+      teleport="body"
+      :style="{ height: '75%', '--van-popup-background': 'var(--color-surface)' }"
+    >
+      <div class="detail-view" v-if="detailItem">
+        <div class="detail-view__header">
+          <span class="detail-view__title">待办详情</span>
+          <button class="detail-view__close" @click="closeDetail">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="detail-view__body">
+          <div class="detail-view__stars">{{ stars(detailItem.importance ?? 0) }}</div>
+          <h2 class="detail-view__name">{{ detailItem.title }}</h2>
+          <div class="detail-view__dates" v-if="detailItem.estimatedStart || detailItem.estimatedEnd">
+            <span v-if="detailItem.estimatedStart">{{ detailItem.estimatedStart }}</span>
+            <span v-if="detailItem.estimatedStart && detailItem.estimatedEnd"> ~ </span>
+            <span v-if="detailItem.estimatedEnd">{{ detailItem.estimatedEnd }}</span>
+          </div>
+          <div class="detail-view__desc" v-if="detailItem.description">{{ detailItem.description }}</div>
+          <div class="detail-view__empty" v-else>暂无描述</div>
+        </div>
+        <div class="detail-view__footer">
+          <van-button block round plain type="danger" @click="deleteFromDetail">删除</van-button>
+          <van-button block round type="primary" @click="editFromDetail">编辑</van-button>
         </div>
       </div>
     </van-popup>
@@ -200,11 +311,13 @@ function stars(n: number): string {
   border-radius: 12px;
   box-shadow: 0 1px 3px var(--color-shadow);
   overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
+.app-card:active { transform: scale(0.98); }
 
-.app-card__body {
-  padding: 12px 14px;
-}
+.app-card__body { padding: 12px 14px; }
 
 .app-card__top {
   display: flex;
@@ -219,21 +332,16 @@ function stars(n: number): string {
   letter-spacing: 1px;
 }
 
-.app-card__del {
-  border: none;
-  background: transparent;
-  color: var(--color-text-4);
-  display: flex;
-  padding: 2px;
-  cursor: pointer;
-}
-.app-card__del svg { width: 14px; height: 14px; }
-
 .app-card__title {
   margin: 0;
   font-size: 15px;
   font-weight: 500;
   color: var(--color-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .app-card__dates {
@@ -247,7 +355,29 @@ function stars(n: number): string {
   font-size: 13px;
   color: var(--color-text-2);
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
+
+/* 左滑按钮 */
+.swipe-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 100%;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.swipe-btn--edit { background: var(--color-primary); }
+.swipe-btn--del  { background: var(--color-danger); }
 
 .app-empty {
   display: flex;
@@ -278,7 +408,7 @@ function stars(n: number): string {
 }
 .app-fab svg { width: 22px; height: 22px; }
 
-/* 添加表单 */
+/* 新增/编辑表单 */
 .add-form { display: flex; flex-direction: column; height: 100%; }
 .add-form__header { display: flex; align-items: center; justify-content: space-between; padding: 16px 16px 8px; border-bottom: 1px solid var(--color-border-light); flex-shrink: 0; }
 .add-form__title { font-size: 16px; font-weight: 600; color: var(--color-text-1); }
@@ -292,9 +422,26 @@ function stars(n: number): string {
 .form-textarea { width: 100%; padding: 10px 12px; font-size: 14px; color: var(--color-text-1); background: var(--color-surface); border: 1px solid var(--color-border-light); border-radius: 8px; outline: none; resize: vertical; font-family: inherit; line-height: 1.6; box-sizing: border-box; }
 .form-textarea:focus { border-color: var(--color-primary); }
 
-.star-picker { display: flex; gap: 4px; }
+.star-picker { display: flex; align-items: center; gap: 4px; }
 .star-picker__btn { border: none; background: transparent; font-size: 24px; color: var(--color-text-4); cursor: pointer; padding: 0 2px; line-height: 1; }
 .star-picker__btn.active { color: var(--color-warning); }
+.star-picker__hint { font-size: 11px; color: var(--color-text-4); margin-left: 6px; }
 
 .native-input { border: none; background: transparent; font-size: 14px; color: var(--color-text-1); outline: none; width: auto; }
+
+/* 查看详情弹窗 */
+.detail-view { display: flex; flex-direction: column; height: 100%; }
+.detail-view__header { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--color-border-light); flex-shrink: 0; }
+.detail-view__title { font-size: 16px; font-weight: 600; color: var(--color-text-1); }
+.detail-view__close { border: none; background: transparent; color: var(--color-text-3); display: flex; padding: 4px; cursor: pointer; }
+.detail-view__close svg { width: 20px; height: 20px; }
+
+.detail-view__body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+.detail-view__stars { font-size: 18px; color: var(--color-warning); letter-spacing: 2px; margin-bottom: 10px; }
+.detail-view__name { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--color-text-1); line-height: 1.4; }
+.detail-view__dates { font-size: 13px; color: var(--color-text-3); margin-bottom: 12px; }
+.detail-view__desc { font-size: 14px; color: var(--color-text-2); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.detail-view__empty { font-size: 13px; color: var(--color-text-4); font-style: italic; }
+
+.detail-view__footer { display: flex; gap: 10px; padding: 12px 16px calc(12px + var(--safe-bottom)); border-top: 1px solid var(--color-border-light); flex-shrink: 0; }
 </style>
