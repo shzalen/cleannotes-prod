@@ -370,7 +370,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
+  width: 56px;
   height: 100%;
   border: none;
   color: #fff;
