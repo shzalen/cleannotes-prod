@@ -130,7 +130,7 @@ defineExpose({ openNew, openEdit, close })
     position="bottom"
     round
     teleport="body"
-    :style="{ height: '75%', '--van-popup-background': 'var(--color-surface)' }"
+    :style="{ height: '100%', '--van-popup-background': 'var(--color-surface)' }"
   >
     <div class="edit-popup">
       <!-- 头部 -->
@@ -274,7 +274,7 @@ defineExpose({ openNew, openEdit, close })
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 0;
+  padding: 10px 0 calc(10px + var(--safe-bottom));
   display: flex;
   flex-direction: column;
   gap: 10px;
