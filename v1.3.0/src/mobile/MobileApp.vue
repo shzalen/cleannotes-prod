@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useTaskStore } from '@/stores/task'
 import { switchUser } from '@/services/storage'
 import MobileTabBar from './components/MobileTabBar.vue'
+import MobileHolidayCard from './components/MobileHolidayCard.vue'
+import { checkAndShowHolidayCard } from './composables/useHolidayGreeting'
 
 // 激活主题（模块级单例，与 PC 端共享持久化）
 useTheme()
@@ -27,7 +29,13 @@ function bootstrapData() {
     if (taskStore.loadError) {
       const currentPath = route.fullPath
       router.replace({ path: '/network-error', query: { from: currentPath } })
+      return
     }
+    // 数据加载完成后检查节日卡片（当天首次打开时弹出）
+    // 延迟 600ms 让首页渲染稳定，避免卡片与骨架屏同时出现
+    setTimeout(() => {
+      checkAndShowHolidayCard()
+    }, 600)
   })
 }
 
@@ -68,6 +76,9 @@ watch(
       </router-view>
     </div>
     <MobileTabBar v-if="showTabBar" />
+
+    <!-- 节日问候卡片（当天首次打开时弹出） -->
+    <MobileHolidayCard />
   </div>
 </template>
 
