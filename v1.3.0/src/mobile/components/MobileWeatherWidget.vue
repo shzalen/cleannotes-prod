@@ -46,11 +46,11 @@ const weatherMap: Record<number, { label: string; icon: string }> = {
   3:  { label: '阴',      icon: 'cloud' },        // Overcast
   45: { label: '雾',      icon: 'fog' },          // Fog
   48: { label: '雾凇',    icon: 'fog' },          // Depositing rime fog
-  51: { label: '毛毛雨',  icon: 'rain' },         // Light drizzle
-  53: { label: '毛毛雨',  icon: 'rain' },         // Moderate drizzle
-  55: { label: '毛毛雨',  icon: 'rain' },         // Dense drizzle
-  56: { label: '冻毛毛雨', icon: 'rain' },         // Light freezing drizzle
-  57: { label: '冻毛毛雨', icon: 'rain' },         // Dense freezing drizzle
+  51: { label: '小雨',    icon: 'rain' },         // Light drizzle -> 小雨（贴近 iOS 呈现）
+  53: { label: '小雨',    icon: 'rain' },         // Moderate drizzle
+  55: { label: '小雨',    icon: 'rain' },         // Dense drizzle
+  56: { label: '冻雨',    icon: 'rain' },         // Light freezing drizzle
+  57: { label: '冻雨',    icon: 'rain' },         // Dense freezing drizzle
   61: { label: '小雨',    icon: 'rain' },          // Slight rain
   63: { label: '中雨',    icon: 'rain' },          // Moderate rain
   65: { label: '大雨',    icon: 'rain' },          // Heavy rain
