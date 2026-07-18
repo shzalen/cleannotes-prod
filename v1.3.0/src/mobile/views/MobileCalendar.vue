@@ -369,7 +369,18 @@ function openAdd() {
         <span class="cal-content__count">{{ selectedTasks.length }} 个任务</span>
       </div>
 
-      <template v-if="selectedTasks.length > 0">
+      <!-- 骨架屏：首次加载 -->
+      <div v-if="!taskStore.loaded" class="skeleton-list">
+        <div v-for="i in 4" :key="'sk-'+i" class="skeleton-card">
+          <div class="skeleton-card__check sk-pulse" />
+          <div class="skeleton-card__body">
+            <div class="skeleton-card__title sk-pulse" />
+            <div class="skeleton-card__meta sk-pulse" />
+          </div>
+        </div>
+      </div>
+
+      <template v-else-if="selectedTasks.length > 0">
         <div class="task-list">
           <VanSwipeCell
             v-for="task in selectedTasks"
@@ -436,7 +447,7 @@ function openAdd() {
         </div>
       </template>
 
-      <div v-else class="cal-empty">
+      <div v-else-if="taskStore.loaded && selectedTasks.length === 0" class="cal-empty">
         <p class="cal-empty__text">当日无任务</p>
       </div>
     </div>
@@ -825,4 +836,22 @@ function openAdd() {
   width: 14px;
   height: 14px;
 }
+
+/* ── 骨架屏 ── */
+.skeleton-list { display: flex; flex-direction: column; gap: 8px; }
+.skeleton-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+.skeleton-card__check { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+.skeleton-card__body { flex: 1; min-width: 0; }
+.skeleton-card__title { height: 15px; width: 60%; border-radius: 4px; margin-bottom: 8px; }
+.skeleton-card__meta { height: 12px; width: 40%; border-radius: 4px; }
+.sk-pulse { background: var(--color-bg-4); animation: sk-pulse 1.4s ease-in-out infinite; }
+@keyframes sk-pulse { 0%{opacity:1} 50%{opacity:.4} 100%{opacity:1} }
 </style>
