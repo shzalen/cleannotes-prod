@@ -1,17 +1,19 @@
 <script setup lang="ts">
 /**
  * 移动端子应用：待办事项
- * CRUD：新增（FAB）、查看（点击卡片）、编辑（左滑/详情入口）、删除（左滑/详情入口）
+ * CRUD：新增（胶囊菜单）、查看（点击卡片）、编辑（左滑/详情入口）、删除（左滑/详情入口）
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject } from 'vue'
 import { useTodoStore } from '@/stores/todo'
 import { showConfirmDialog, showToast } from 'vant'
 import { SwipeCell as VanSwipeCell } from 'vant'
 import type { TodoItem } from '@/stores/todo'
+import { SUBAPP_MENU_KEY, type SubAppMenuApi } from '../composables/useSubAppMenu'
 
 defineOptions({ name: 'MobileTodoApp' })
 
 const todoStore = useTodoStore()
+const subAppMenu = inject<SubAppMenuApi>(SUBAPP_MENU_KEY)
 
 const todos = computed(() => todoStore.activeTodos)
 
@@ -138,6 +140,14 @@ function stars(n: number): string {
 
 onMounted(() => {
   todoStore.load()
+  subAppMenu?.setActions([{ name: '新增待办', key: 'add' }])
+  subAppMenu?.onSelect((key) => {
+    if (key === 'add') openNew()
+  })
+})
+
+onUnmounted(() => {
+  subAppMenu?.clearActions()
 })
 </script>
 
@@ -178,15 +188,8 @@ onMounted(() => {
 
     <div v-else class="app-empty">
       <p>暂无待办事项</p>
-      <p class="app-empty__hint">点击下方按钮添加</p>
+      <p class="app-empty__hint">点击右上角 ··· 添加</p>
     </div>
-
-    <!-- FAB 添加按钮 -->
-    <button class="app-fab" @click="openNew">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    </button>
 
     <!-- 新增/编辑表单弹窗 -->
     <van-popup
@@ -388,25 +391,6 @@ onMounted(() => {
   font-size: 14px;
 }
 .app-empty__hint { font-size: 12px; opacity: 0.7; margin-top: 4px; }
-
-.app-fab {
-  position: fixed;
-  right: 16px;
-  bottom: calc(var(--safe-bottom) + 24px);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-primary) 40%, rgba(0,0,0,0.2));
-  cursor: pointer;
-  z-index: 10;
-}
-.app-fab svg { width: 22px; height: 22px; }
 
 /* 新增/编辑表单 */
 .add-form { display: flex; flex-direction: column; height: 100%; }

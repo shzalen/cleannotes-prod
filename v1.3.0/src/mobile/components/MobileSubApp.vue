@@ -1,11 +1,12 @@
 <script setup lang="ts">
 /**
- * 移动端全屏子应用容器 — 用于待办/备忘录/周报
+ * 移动端全屏子应用容器 — 用于待办/周报
  * 类似微信小程序的全屏弹窗体验
  * 右上角胶囊：··· 更多（弹出菜单） + ⊙ 关闭
  */
-import { ref, markRaw, type Component } from 'vue'
+import { ref, computed, markRaw, provide, type Component } from 'vue'
 import { ActionSheet as VanActionSheet, showToast } from 'vant'
+import { SUBAPP_MENU_KEY, type SubAppMenuAction, type SubAppMenuApi } from '../composables/useSubAppMenu'
 
 defineOptions({ name: 'MobileSubApp' })
 
@@ -14,23 +15,39 @@ const title = ref('')
 const currentComponent = ref<Component | null>(null)
 const componentKey = ref(0)
 
+/** 子应用自定义菜单项 */
+const extraActions = ref<SubAppMenuAction[]>([])
+let menuActionCallback: ((key: string) => void) | null = null
+
+const menuApi: SubAppMenuApi = {
+  setActions: (actions) => { extraActions.value = actions },
+  clearActions: () => { extraActions.value = [] },
+  onSelect: (cb) => { menuActionCallback = cb },
+}
+provide(SUBAPP_MENU_KEY, menuApi)
+
 /** 更多操作 ActionSheet */
 const showMore = ref(false)
-const moreActions = [
-  { name: '重新进入小程序' },
-  { name: '分享' },
+const baseActions = [
+  { name: '重新进入小程序', key: 'restart' },
 ]
+const moreActions = computed(() => [
+  ...extraActions.value.map(a => ({ name: a.name, key: a.key })),
+  ...baseActions,
+])
 
 function open(name: string, comp: Component) {
   title.value = name
   currentComponent.value = markRaw(comp)
   componentKey.value++
+  extraActions.value = []
   visible.value = true
 }
 
 function close() {
   visible.value = false
   currentComponent.value = null
+  extraActions.value = []
 }
 
 /** ··· 按钮：弹出操作菜单（微信小程序风格） */
@@ -38,16 +55,12 @@ function handleMore() {
   showMore.value = true
 }
 
-function onMoreSelect(action: { name: string }) {
-  if (action.name === '重新进入小程序') {
+function onMoreSelectInner(action: { name: string; key: string }) {
+  if (action.key === 'restart') {
     componentKey.value++
     showToast('已重新进入')
-  } else if (action.name === '分享') {
-    if (navigator.share) {
-      navigator.share({ title: title.value, text: `${title.value} - 清记` }).catch(() => {})
-    } else {
-      showToast('当前浏览器不支持系统分享')
-    }
+  } else if (menuActionCallback) {
+    menuActionCallback(action.key)
   }
 }
 
@@ -106,7 +119,7 @@ defineExpose({ open, close })
       cancel-text="取消"
       close-on-click-action
       teleport="body"
-      @select="onMoreSelect"
+      @select="onMoreSelectInner"
     />
   </Teleport>
 </template>
