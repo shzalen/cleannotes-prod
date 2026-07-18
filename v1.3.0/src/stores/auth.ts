@@ -13,6 +13,26 @@ import {
 } from '@/services/auth'
 import { setCachedAccessToken, setCachedUserId } from '@/services/supabaseClient'
 
+/** 翻译 Supabase 英文错误为中文 */
+function translateAuthError(msg: string | null | undefined): string {
+  if (!msg) return '登录失败'
+  const map: Record<string, string> = {
+    'Invalid login credentials': '账号或密码错误',
+    'Invalid email or password': '账号或密码错误',
+    'Email not confirmed': '邮箱未验证，请查收验证邮件',
+    'User not found': '账号不存在',
+    'Invalid email': '邮箱格式不正确',
+    'Password should be at least 6 characters': '密码长度至少 6 位',
+    'Rate limit exceeded': '操作过于频繁，请稍后再试',
+    'Network error': '网络连接异常，请检查网络',
+    'Request timeout': '请求超时，请重试',
+  }
+  for (const [en, zh] of Object.entries(map)) {
+    if (msg.toLowerCase().includes(en.toLowerCase())) return zh
+  }
+  return msg
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
@@ -60,7 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const result = await signInWithEmail(email, password)
       if (result.status === 'error') {
-        error.value = result.error || '登录失败'
+        error.value = translateAuthError(result.error) || '登录失败'
         return false
       }
       // 登录成功后获取用户信息
@@ -70,7 +90,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
       return true
     } catch (e) {
-      error.value = e instanceof Error ? e.message : '登录失败，请重试'
+      error.value = e instanceof Error ? translateAuthError(e.message) : '登录失败，请重试'
       return false
     } finally {
       loading.value = false
