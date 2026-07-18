@@ -3,7 +3,6 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { showToast } from 'vant'
-import logoUrl from '/icon-512.png'
 
 defineOptions({ name: 'MobileLogin' })
 
@@ -45,8 +44,7 @@ async function onSubmit() {
 
     <!-- 品牌区 — 轻量 -->
     <div class="login-page__brand">
-      <img class="login-page__logo" :src="logoUrl" alt="清记" />
-      <p class="login-page__subtitle">清简记事，井然有序</p>
+      <h1 class="login-page__title">清简记事，井然有序</h1>
     </div>
 
     <!-- 表单区 -->
@@ -107,21 +105,12 @@ async function onSubmit() {
   padding: 60px 0 40px;
 }
 
-.login-page__logo {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 16px rgba(0, 82, 217, 0.25);
-  object-fit: cover;
-  -webkit-user-drag: none;
-  user-select: none;
-}
-
-.login-page__subtitle {
+.login-page__title {
   margin: 0;
-  font-size: 15px;
-  color: var(--color-text-3);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  letter-spacing: 2px;
 }
 
 /* ── 表单区 ── */
