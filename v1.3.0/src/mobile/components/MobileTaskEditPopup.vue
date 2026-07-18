@@ -130,7 +130,7 @@ defineExpose({ openNew, openEdit, close })
     position="bottom"
     round
     teleport="body"
-    :style="{ height: '100%', '--van-popup-background': 'var(--color-surface)' }"
+    :style="{ height: '75%', '--van-popup-background': 'var(--color-surface)' }"
   >
     <div class="edit-popup">
       <!-- 头部 -->
