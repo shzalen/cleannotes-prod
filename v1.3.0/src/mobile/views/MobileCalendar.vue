@@ -369,8 +369,8 @@ function openAdd() {
         <span class="cal-content__count">{{ selectedTasks.length }} 个任务</span>
       </div>
 
-      <!-- 骨架屏：首次加载或下拉刷新时显示 -->
-      <div v-if="!taskStore.loaded || refreshing" class="skeleton-list">
+      <!-- 骨架屏：首次加载 -->
+      <div v-if="!taskStore.loaded" class="skeleton-list">
         <div v-for="i in 4" :key="'sk-'+i" class="skeleton-card">
           <div class="skeleton-card__check sk-pulse" />
           <div class="skeleton-card__body">
@@ -447,7 +447,7 @@ function openAdd() {
         </div>
       </template>
 
-      <div v-else-if="taskStore.loaded && !refreshing && selectedTasks.length === 0" class="cal-empty">
+      <div v-else-if="taskStore.loaded && selectedTasks.length === 0" class="cal-empty">
         <p class="cal-empty__text">当日无任务</p>
       </div>
     </div>

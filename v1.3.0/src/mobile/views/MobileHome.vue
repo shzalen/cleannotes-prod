@@ -300,8 +300,8 @@ function handleEditFromDetail(task: Task) {
         </div>
       </div>
 
-      <!-- 骨架屏：首次加载或下拉刷新时显示 -->
-      <div v-if="!taskStore.loaded || refreshing" class="skeleton-list">
+      <!-- 骨架屏：首次加载时显示 -->
+      <div v-if="!taskStore.loaded" class="skeleton-list">
         <div v-for="i in 4" :key="'sk-'+i" class="skeleton-card">
           <div class="skeleton-card__check skeleton-pulse" />
           <div class="skeleton-card__body">
@@ -377,7 +377,7 @@ function handleEditFromDetail(task: Task) {
       </template>
 
       <!-- 空状态 -->
-      <div v-else-if="taskStore.loaded && !refreshing && todayTasks.length === 0" class="home-empty">
+      <div v-else-if="taskStore.loaded && todayTasks.length === 0" class="home-empty">
         <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="10" y="14" width="44" height="40" rx="6" />
           <path d="M10 26h44M22 8v12M42 8v12" />
