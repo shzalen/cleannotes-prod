@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTabRefresh } from '../composables/useTabRefresh'
 
@@ -8,6 +8,18 @@ const router = useRouter()
 const { triggerRefresh } = useTabRefresh()
 
 const active = computed(() => (route.meta.tab as string) || 'home')
+
+// ── 即时高亮：点击瞬间标记目标 tab，不等路由切换完成 ──
+// 解决：点击 TabBar 到路由切换完成之间（~150ms）用户看不到反馈
+const pendingTab = ref('')
+
+// 路由切换完成后清除 pending（保留实际 active 高亮）
+watch(() => route.name, () => {
+  pendingTab.value = ''
+})
+
+// 用于模板判断高亮：优先显示 pendingTab，让用户点下去瞬间就有反馈
+const activeTab = computed(() => pendingTab.value || active.value)
 
 const tabs = [
   { key: 'home', label: '首页', name: 'm-home' },
@@ -43,7 +55,13 @@ function handleTabClick(tabKey: string, tabName: string) {
   // 预加载目标组件
   preload(tabName)
 
+  // 触觉反馈：8ms 轻震（iOS Safari 14.5+ / Android Chrome 均支持）
+  // 不支持的设备会静默忽略，无副作用
+  if (navigator.vibrate) navigator.vibrate(8)
+
   if (tabKey !== 'home' && tabKey !== 'calendar') {
+    // 即时高亮目标 tab
+    pendingTab.value = tabKey
     go(tabName)
     return
   }
@@ -61,6 +79,8 @@ function handleTabClick(tabKey: string, tabName: string) {
     return
   }
 
+  // 即时高亮目标 tab
+  pendingTab.value = tabKey
   go(tabName)
 }
 </script>
@@ -71,13 +91,13 @@ function handleTabClick(tabKey: string, tabName: string) {
       v-for="tab in tabs"
       :key="tab.key"
       class="tabbar__item"
-      :class="{ 'is-active': active === tab.key }"
+      :class="{ 'is-active': activeTab === tab.key }"
       @click="handleTabClick(tab.key, tab.name)"
     >
       <span class="tabbar__icon">
         <!-- 首页 -->
         <template v-if="tab.key === 'home'">
-          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+          <svg v-if="activeTab === tab.key" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 3.1 3 10.2V21h6v-6h6v6h6V10.2L12 3.1Z" />
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
@@ -86,7 +106,7 @@ function handleTabClick(tabKey: string, tabName: string) {
         </template>
         <!-- 日历 -->
         <template v-else-if="tab.key === 'calendar'">
-          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+          <svg v-if="activeTab === tab.key" viewBox="0 0 24 24" fill="currentColor">
             <path d="M7 2v2H5.5A2.5 2.5 0 0 0 3 6.5V8h18V6.5A2.5 2.5 0 0 0 18.5 4H17V2h-2v2H9V2H7Zm14 8H3v8.5A2.5 2.5 0 0 0 5.5 21h13a2.5 2.5 0 0 0 2.5-2.5V10Z" />
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
@@ -96,7 +116,7 @@ function handleTabClick(tabKey: string, tabName: string) {
         </template>
         <!-- 我的 -->
         <template v-else>
-          <svg v-if="active === tab.key" viewBox="0 0 24 24" fill="currentColor">
+          <svg v-if="activeTab === tab.key" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="8" r="4" />
             <path d="M4 20c0-3.9 3.6-7 8-7s8 3.1 8 7v1H4v-1Z" />
           </svg>
