@@ -300,8 +300,19 @@ function handleEditFromDetail(task: Task) {
         </div>
       </div>
 
+      <!-- 骨架屏：首次加载时显示 -->
+      <div v-if="!taskStore.loaded" class="skeleton-list">
+        <div v-for="i in 4" :key="'sk-'+i" class="skeleton-card">
+          <div class="skeleton-card__check skeleton-pulse" />
+          <div class="skeleton-card__body">
+            <div class="skeleton-card__title skeleton-pulse" />
+            <div class="skeleton-card__meta skeleton-pulse" />
+          </div>
+        </div>
+      </div>
+
       <!-- 任务列表 -->
-      <template v-if="todayTasks.length > 0">
+      <template v-else-if="todayTasks.length > 0">
         <div class="task-list">
             <div
             v-for="task in todayTasks"
@@ -366,7 +377,7 @@ function handleEditFromDetail(task: Task) {
       </template>
 
       <!-- 空状态 -->
-      <div v-else class="home-empty">
+      <div v-else-if="taskStore.loaded && todayTasks.length === 0" class="home-empty">
         <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="10" y="14" width="44" height="40" rx="6" />
           <path d="M10 26h44M22 8v12M42 8v12" />
@@ -997,5 +1008,51 @@ function handleEditFromDetail(task: Task) {
 /* ── 底部留白 ── */
 .home-bottom-spacer {
   height: 8px;
+}
+
+/* ── 骨架屏 ── */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skeleton-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+.skeleton-card__check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skeleton-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.skeleton-card__title {
+  height: 15px;
+  width: 60%;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.skeleton-card__meta {
+  height: 12px;
+  width: 40%;
+  border-radius: 4px;
+}
+.skeleton-pulse {
+  background: var(--color-bg-4);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.4; }
+  100% { opacity: 1; }
 }
 </style>

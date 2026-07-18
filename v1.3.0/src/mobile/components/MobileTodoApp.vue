@@ -159,8 +159,17 @@ onUnmounted(() => {
       <span class="app-stats__item">已排期 {{ todos.filter(t => t.estimatedStart).length }}</span>
     </div>
 
+    <!-- 骨架屏：首次加载 -->
+    <div v-if="!todoStore.loaded" class="skeleton-list">
+      <div v-for="i in 4" :key="'sk-'+i" class="skeleton-card">
+        <div class="skeleton-card__stars sk-pulse" />
+        <div class="skeleton-card__title sk-pulse" />
+        <div class="skeleton-card__desc sk-pulse" />
+      </div>
+    </div>
+
     <!-- 待办列表（左滑编辑/删除） -->
-    <div class="app-list" v-if="todos.length > 0">
+    <div class="app-list" v-else-if="todos.length > 0">
       <van-swipe-cell
         v-for="item in todos"
         :key="item.id"
@@ -190,7 +199,7 @@ onUnmounted(() => {
       </van-swipe-cell>
     </div>
 
-    <div v-else class="app-empty">
+    <div v-else-if="todoStore.loaded && todos.length === 0" class="app-empty">
       <p>暂无待办事项</p>
       <p class="app-empty__hint">点击右上角 ··· 添加</p>
     </div>
@@ -436,4 +445,18 @@ onUnmounted(() => {
 .detail-view__empty { font-size: 13px; color: var(--color-text-4); font-style: italic; }
 
 .detail-view__footer { display: flex; gap: 10px; padding: 12px 16px calc(12px + var(--safe-bottom)); border-top: 1px solid var(--color-border-light); flex-shrink: 0; }
+
+/* 骨架屏 */
+.skeleton-list { display: flex; flex-direction: column; gap: 8px; }
+.skeleton-card {
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+.skeleton-card__stars { height: 14px; width: 80px; border-radius: 4px; margin-bottom: 8px; }
+.skeleton-card__title { height: 15px; width: 70%; border-radius: 4px; margin-bottom: 8px; }
+.skeleton-card__desc  { height: 12px; width: 40%; border-radius: 4px; }
+.sk-pulse { background: var(--color-bg-4); animation: sk-pulse 1.4s ease-in-out infinite; }
+@keyframes sk-pulse { 0%{opacity:1} 50%{opacity:.4} 100%{opacity:1} }
 </style>

@@ -38,7 +38,18 @@ onMounted(() => {
 
 <template>
   <div class="weekly-app">
-    <div class="weekly-list" v-if="reports.length > 0">
+    <!-- 骨架屏：首次加载 -->
+    <div v-if="!reportStore.loaded" class="skeleton-list">
+      <div v-for="i in 3" :key="'sk-'+i" class="skeleton-card">
+        <div class="skeleton-card__left">
+          <div class="skeleton-card__week sk-pulse" />
+          <div class="skeleton-card__dates sk-pulse" />
+        </div>
+        <div class="skeleton-card__rate sk-pulse" />
+      </div>
+    </div>
+
+    <div class="weekly-list" v-else-if="reports.length > 0">
       <div
         v-for="report in reports"
         :key="report.id"
@@ -61,7 +72,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-else class="app-empty">
+    <div v-else-if="reportStore.loaded && reports.length === 0" class="app-empty">
       <p>暂无周报</p>
     </div>
 
@@ -240,4 +251,22 @@ onMounted(() => {
 .detail-view__body :deep(code) { background: var(--color-bg-3); padding: 2px 5px; border-radius: 4px; font-size: 12px; }
 .detail-view__body :deep(pre) { background: var(--color-bg-3); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12px; }
 .detail-view__body :deep(blockquote) { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--color-border); color: var(--color-text-3); }
+
+/* 骨架屏 */
+.skeleton-list { display: flex; flex-direction: column; gap: 8px; }
+.skeleton-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+.skeleton-card__left { display: flex; flex-direction: column; gap: 6px; }
+.skeleton-card__week { height: 16px; width: 60px; border-radius: 4px; }
+.skeleton-card__dates { height: 12px; width: 110px; border-radius: 4px; }
+.skeleton-card__rate { height: 20px; width: 44px; border-radius: 4px; }
+.sk-pulse { background: var(--color-bg-4); animation: sk-pulse 1.4s ease-in-out infinite; }
+@keyframes sk-pulse { 0%{opacity:1} 50%{opacity:.4} 100%{opacity:1} }
 </style>
