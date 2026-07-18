@@ -155,7 +155,6 @@ const { handleTouchStart, handleTouchMove, handleTouchEnd, pressingTask, progres
 
 // ── 下拉刷新 ──
 const refreshing = ref(false)
-const retrying = ref(false)
 const { refreshCounter, triggerRefresh } = useTabRefresh()
 
 async function doRefresh() {
@@ -169,13 +168,6 @@ async function doRefresh() {
 
 async function onRefresh() {
   await doRefresh()
-}
-
-/** 网络异常重试 */
-async function handleRetry() {
-  retrying.value = true
-  await taskStore.load(true)
-  retrying.value = false
 }
 
 // ── 监听 TabBar 双击刷新 ──
@@ -294,22 +286,6 @@ function handleEditFromDetail(task: Task) {
       @refresh="onRefresh"
     >
       <div class="home-content">
-      <!-- 网络异常提示 -->
-      <div v-if="taskStore.loadError" class="home-network-error">
-        <div class="home-network-error__icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v4M12 16h.01" />
-          </svg>
-        </div>
-        <p class="home-network-error__text">网络连接异常</p>
-        <p class="home-network-error__hint">数据加载失败，请检查网络后重试</p>
-        <button class="home-network-error__btn" :disabled="retrying" @click="handleRetry">
-          <span v-if="retrying" class="home-network-error__spinner" />
-          <span v-else>点击重试</span>
-        </button>
-      </div>
-
       <!-- 今日完成率（有任务时才显示） -->
       <div v-if="todayTasks.length > 0" class="home-progress">
         <div class="home-progress__row">
@@ -986,87 +962,6 @@ function handleEditFromDetail(task: Task) {
   margin: 4px 0 0;
   font-size: 13px;
   opacity: 0.7;
-}
-
-/* ── 网络异常提示 ── */
-.home-network-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.home-network-error__icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--color-warning);
-  color: var(--color-warning-text);
-  margin-bottom: 16px;
-}
-
-.home-network-error__icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.home-network-error__text {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.home-network-error__hint {
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--color-text-3);
-}
-
-.home-network-error__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 20px;
-  padding: 10px 32px;
-  background: var(--color-primary);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 500;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.home-network-error__btn:active {
-  opacity: 0.85;
-}
-
-.home-network-error__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.home-network-error__spinner {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: net-spin 0.6s linear infinite;
-}
-
-@keyframes net-spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ── FAB ── */

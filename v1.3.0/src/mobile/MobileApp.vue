@@ -22,7 +22,13 @@ function bootstrapData() {
   if (!auth.isAuthenticated || !auth.userId) return
   switchUser(auth.userId)
   // 非阻塞：fire-and-forget，各页面用自己的 loading 状态
-  taskStore.load().catch((e) => console.error('[mobile] task load failed', e))
+  taskStore.load().catch((e) => console.error('[mobile] task load failed', e)).then(() => {
+    // 加载失败时跳转到网络错误页面，记录当前路径用于返回
+    if (taskStore.loadError) {
+      const currentPath = route.fullPath
+      router.replace({ path: '/network-error', query: { from: currentPath } })
+    }
+  })
 }
 
 onMounted(async () => {

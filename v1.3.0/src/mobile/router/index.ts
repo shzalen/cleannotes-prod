@@ -35,6 +35,12 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/network-error',
+      name: 'm-network-error',
+      component: () => import('../views/MobileNetworkError.vue'),
+      meta: { public: true },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })
