@@ -35,32 +35,39 @@ interface DailyForecast {
 const LS_KEY = 'cleannotes_weather_coords'
 const CACHE_MAX_AGE = 10 * 60 * 1000
 
-// ── 天气码映射 ──
+// ── 天气码映射（WMO Weather interpretation codes） ──
+// 参考: https://open-meteo.com/en/docs (WMO 标准码)
+// 注意：WMO 标准与 Apple Weather 使用的 The Weather Channel 码不同，
+// Apple Weather 实际看到的是经过转换的描述，这里按 WMO 官方语义映射。
 const weatherMap: Record<number, { label: string; icon: string }> = {
   0:  { label: '晴',      icon: 'sun' },
-  1:  { label: '少云',    icon: 'cloud-sun' },
-  2:  { label: '多云',    icon: 'cloud' },
-  3:  { label: '阴',      icon: 'cloud' },
-  45: { label: '雾',      icon: 'fog' },
-  48: { label: '雾凇',    icon: 'fog' },
-  51: { label: '小雨',    icon: 'rain' },
-  53: { label: '中雨',    icon: 'rain' },
-  55: { label: '大雨',    icon: 'rain' },
-  61: { label: '小雨',    icon: 'rain' },
-  63: { label: '中雨',    icon: 'rain' },
-  65: { label: '大雨',    icon: 'rain' },
+  1:  { label: '晴间多云', icon: 'cloud-sun' },   // Mainly clear
+  2:  { label: '多云',    icon: 'cloud' },        // Partly cloudy
+  3:  { label: '阴',      icon: 'cloud' },        // Overcast
+  45: { label: '雾',      icon: 'fog' },          // Fog
+  48: { label: '雾凇',    icon: 'fog' },          // Depositing rime fog
+  51: { label: '毛毛雨',  icon: 'rain' },         // Light drizzle
+  53: { label: '毛毛雨',  icon: 'rain' },         // Moderate drizzle
+  55: { label: '毛毛雨',  icon: 'rain' },         // Dense drizzle
+  56: { label: '冻毛毛雨', icon: 'rain' },         // Light freezing drizzle
+  57: { label: '冻毛毛雨', icon: 'rain' },         // Dense freezing drizzle
+  61: { label: '小雨',    icon: 'rain' },          // Slight rain
+  63: { label: '中雨',    icon: 'rain' },          // Moderate rain
+  65: { label: '大雨',    icon: 'rain' },          // Heavy rain
+  66: { label: '冻雨',    icon: 'rain' },          // Light freezing rain
+  67: { label: '冻雨',    icon: 'rain' },          // Heavy freezing rain
   71: { label: '小雪',    icon: 'snow' },
   73: { label: '中雪',    icon: 'snow' },
   75: { label: '大雪',    icon: 'snow' },
-  77: { label: '雪粒',    icon: 'snow' },
-  80: { label: '阵雨',    icon: 'rain' },
+  77: { label: '雪粒',    icon: 'snow' },          // Snow grains
+  80: { label: '阵雨',    icon: 'rain' },          // Slight rain showers
   81: { label: '中阵雨',  icon: 'rain' },
   82: { label: '大阵雨',  icon: 'rain' },
   85: { label: '阵雪',    icon: 'snow' },
   86: { label: '大阵雪',  icon: 'snow' },
   95: { label: '雷暴',    icon: 'thunder' },
-  96: { label: '雷暴+冰雹', icon: 'thunder' },
-  99: { label: '强雷暴+冰雹', icon: 'thunder' },
+  96: { label: '雷暴伴冰雹', icon: 'thunder' },
+  99: { label: '强雷暴伴冰雹', icon: 'thunder' },
 }
 
 const weather = ref<WeatherData | null>(null)
