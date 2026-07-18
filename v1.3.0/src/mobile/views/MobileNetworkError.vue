@@ -36,18 +36,25 @@ async function handleRetry() {
 <template>
   <div class="network-error-page">
     <div class="network-error__content">
+      <!-- WiFi 断开图标 -->
       <div class="network-error__icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 外层信号弧 -->
+          <path d="M8 24 Q32 4 56 24" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" opacity="0.25" />
+          <path d="M16 32 Q32 18 48 32" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" opacity="0.4" />
+          <path d="M24 40 Q32 32 40 40" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" opacity="0.6" />
+          <!-- 底部圆点 -->
+          <circle cx="32" cy="48" r="4" fill="currentColor" />
+          <!-- 叉号 -->
+          <line x1="20" y1="10" x2="44" y2="52" stroke="var(--color-danger)" stroke-width="3" stroke-linecap="round" />
         </svg>
       </div>
-      <h1 class="network-error__title">网络连接异常</h1>
-      <p class="network-error__hint">数据加载失败，请检查网络后重试</p>
+
+      <h1 class="network-error__title">网络开小差了</h1>
+      <p class="network-error__hint">请检查网络连接后重试</p>
       <button class="network-error__btn" :disabled="retrying" @click="handleRetry">
         <span v-if="retrying" class="network-error__spinner" />
-        <span v-else>点击重试</span>
+        <span v-else>重新加载</span>
       </button>
     </div>
   </div>
@@ -64,6 +71,18 @@ async function handleRetry() {
   background: var(--color-bg-1);
   z-index: 100;
   padding: 24px;
+  animation: error-fade-in 0.35s ease-out;
+}
+
+@keyframes error-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .network-error__content {
@@ -74,31 +93,31 @@ async function handleRetry() {
 }
 
 .network-error__icon {
-  width: 80px;
-  height: 80px;
+  width: 88px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-  color: var(--color-warning);
-  margin-bottom: 24px;
+  background: var(--color-bg-3);
+  color: var(--color-text-3);
+  margin-bottom: 28px;
 }
 
 .network-error__icon svg {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
 }
 
 .network-error__title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-1);
 }
 
 .network-error__hint {
-  margin: 0 0 32px;
+  margin: 0 0 36px;
   font-size: 14px;
   color: var(--color-text-3);
   line-height: 1.5;
@@ -108,28 +127,30 @@ async function handleRetry() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 40px;
+  gap: 8px;
+  padding: 13px 44px;
   background: var(--color-primary);
   color: #fff;
   font-size: 15px;
   font-weight: 500;
   border: none;
-  border-radius: 10px;
+  border-radius: 24px;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, transform 0.12s;
   -webkit-tap-highlight-color: transparent;
-  min-width: 140px;
+  min-width: 148px;
   min-height: 48px;
 }
 
 .network-error__btn:active {
   opacity: 0.85;
+  transform: scale(0.97);
 }
 
 .network-error__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .network-error__spinner {
