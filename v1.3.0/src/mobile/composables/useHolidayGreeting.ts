@@ -9,7 +9,7 @@
  * 弹出控制：localStorage 记录 `holiday_card_shown_{YYYY-MM-DD}`，当天只弹一次
  */
 import { ref } from 'vue'
-import { Lunar } from 'lunar-javascript'
+import { Lunar, Solar } from 'lunar-javascript'
 
 export interface HolidayInfo {
   /** 节日唯一 key，用于图片选择和日志 */
@@ -224,6 +224,179 @@ const LUNAR_HOLIDAYS: Array<{
   },
 ]
 
+// ── 二十四节气数据（通过 lunar-javascript getJieQi 动态检测，无需硬编码日期） ──
+// 每个节气含季节色、含义、问候语；日期每年由 getJieQi() 自动计算
+const JIE_QI_DATA: Record<string, { image: string; origin: string; description: string; greeting: string; accentColor: string }> = {
+  '小寒': {
+    image: 'holidays/xiaohan.svg',
+    origin: '小寒是二十四节气中的第 23 个，冬季第五个节气，标志着一年中最寒冷的日子到来。',
+    description: '小寒时节气温骤降，北方天寒地冻，南方也进入隆冬。习俗有吃腊八粥、探梅、冰戏等。',
+    greeting: '小寒已至，注意保暖防寒。愿你冬日安康，温暖如春！',
+    accentColor: '#5b9bd5',
+  },
+  '大寒': {
+    image: 'holidays/dahan.svg',
+    origin: '大寒是二十四节气中最后一个节气，也是一年中最寒冷的时期。',
+    description: '大寒时节寒潮频繁，但已临近春节，人们开始忙年：扫尘、贴春联、备年货，辞旧迎新。',
+    greeting: '大寒到，年关近。愿你腊月顺利，阖家团圆迎新春！',
+    accentColor: '#4a7ab8',
+  },
+  '立春': {
+    image: 'holidays/lichun.svg',
+    origin: '立春是二十四节气之首，标志着春季开始，万物复苏。',
+    description: '立春有「咬春」习俗，吃春饼、春卷。民间也祭春、鞭春牛，祈求一年风调雨顺。',
+    greeting: '立春至，万象更新。愿你在新的一年生机盎然，前程似锦！',
+    accentColor: '#4caf50',
+  },
+  '雨水': {
+    image: 'holidays/yushui.svg',
+    origin: '雨水是春季第二个节气，标志着降雨开始、雨量渐增。',
+    description: '雨水时节气温回升，冰雪融化，草木萌动。有回娘屋、拉保保等民俗。',
+    greeting: '雨水时节，润物无声。愿你的生活如春雨般滋养，充满希望！',
+    accentColor: '#66bb6a',
+  },
+  '惊蛰': {
+    image: 'holidays/jingzhe.svg',
+    origin: '惊蛰意为春雷惊醒蛰伏的昆虫，标志着仲春开始。',
+    description: '惊蛰时节春雷初响，万物生机盎然。习俗有祭白虎、吃梨、打小人等。',
+    greeting: '惊蛰春雷响，万物皆生长。愿你的事业如春雷般轰鸣，一鸣惊人！',
+    accentColor: '#7cb342',
+  },
+  '春分': {
+    image: 'holidays/chunfen.svg',
+    origin: '春分时昼夜平分，是春季中点，也是农事重要节点。',
+    description: '春分有竖蛋、放风筝、吃春菜等习俗。昼夜等长，阴阳平衡。',
+    greeting: '春分昼夜平，愿你生活也平衡美满，春意盎然！',
+    accentColor: '#8bc34a',
+  },
+  '清明': {
+    image: 'holidays/qingming.svg',
+    origin: '清明既是节气也是节日，气温回升，天气清澈明朗。',
+    description: '清明时节扫墓祭祖、踏青郊游、插柳放风筝，缅怀先人，感恩生活。',
+    greeting: '清明时节，慎终追远。愿逝者安息，生者珍惜眼前人。',
+    accentColor: '#4a7c59',
+  },
+  '谷雨': {
+    image: 'holidays/guyu.svg',
+    origin: '谷雨是春季最后一个节气，意为「雨生百谷」，降雨有利谷物生长。',
+    description: '谷雨时节采茶、食香椿，渔民祭海。也是牡丹盛开之时。',
+    greeting: '谷雨润万物，愿你的努力都如春苗般茁壮成长！',
+    accentColor: '#9ccc65',
+  },
+  '立夏': {
+    image: 'holidays/lixia.svg',
+    origin: '立夏标志着夏季开始，气温显著升高，万物繁茂。',
+    description: '立夏有称人、吃蛋、尝三鲜等习俗，祈求健康度夏。',
+    greeting: '立夏已至，愿你清凉一夏，活力满满！',
+    accentColor: '#ef5350',
+  },
+  '小满': {
+    image: 'holidays/xiaoman.svg',
+    origin: '小满意为夏熟作物籽粒开始灌浆饱满，但未成熟。',
+    description: '小满时节有祭车神、祈蚕节等民俗，也是吃苦菜的季节。',
+    greeting: '小满小满，人生刚好。愿你知足常乐，幸福圆满！',
+    accentColor: '#ff7043',
+  },
+  '芒种': {
+    image: 'holidays/mangzhong.svg',
+    origin: '芒种意为有芒的麦子快收、有芒的稻子可种，是农事最忙的节气。',
+    description: '芒种时节送花神、煮梅、安苗，农人抢收抢种，辛劳而充实。',
+    greeting: '芒种忙忙，播种希望。愿你的耕耘都有好收成！',
+    accentColor: '#ff5722',
+  },
+  '夏至': {
+    image: 'holidays/xiazhi.svg',
+    origin: '夏至是一年中白昼最长、黑夜最短的一天，标志着盛夏到来。',
+    description: '夏至有吃面、祭神祀祖等习俗。此后阳气渐消，阴气始生。',
+    greeting: '夏至白昼最长，愿你的快乐也绵长不断！',
+    accentColor: '#e53935',
+  },
+  '小暑': {
+    image: 'holidays/xiaoshu.svg',
+    origin: '小暑意为「小热」，天气开始炎热，但未到极点。',
+    description: '小暑时节晒书晒衣、食新米、吃饺子，民间有「头伏饺子二伏面」之说。',
+    greeting: '小暑天气热，注意防暑降温。愿你清凉度夏！',
+    accentColor: '#f44336',
+  },
+  '大暑': {
+    image: 'holidays/dashu.svg',
+    origin: '大暑是一年中最热的节气，正值三伏天中的中伏。',
+    description: '大暑时节饮伏茶、晒伏姜、烧伏香。也有吃仙草、凤梨的习俗。',
+    greeting: '大暑至，酷暑当头。注意防暑，愿你好运如骄阳般红火！',
+    accentColor: '#d32f2f',
+  },
+  '立秋': {
+    image: 'holidays/liqiu.svg',
+    origin: '立秋标志着秋季开始，暑去凉来，万物收敛。',
+    description: '立秋有「贴秋膘」、咬秋（吃西瓜）、晒秋等习俗，庆贺丰收在望。',
+    greeting: '立秋至，暑气渐消。愿你秋日丰收，硕果累累！',
+    accentColor: '#ff9800',
+  },
+  '处暑': {
+    image: 'holidays/chushu.svg',
+    origin: '处暑意为「出暑」，炎热离开，秋凉渐起。',
+    description: '处暑时节放河灯、开渔节、吃鸭子，迎接金秋。',
+    greeting: '处暑暑止，凉风渐起。愿你的生活清爽宜人！',
+    accentColor: '#fb8c00',
+  },
+  '白露': {
+    image: 'holidays/bailu.svg',
+    origin: '白露时节夜间温度低，水汽凝结成白色露珠，标志着仲秋开始。',
+    description: '白露有收清露、酿米酒、吃龙眼等习俗，天气转凉。',
+    greeting: '白露秋分夜，一夜凉一夜。注意添衣，愿你秋安！',
+    accentColor: '#ffa726',
+  },
+  '秋分': {
+    image: 'holidays/qiufen.svg',
+    origin: '秋分昼夜平分，是秋季中点，也是中国农民丰收节。',
+    description: '秋分有祭月、竖蛋、吃秋菜等习俗。自 2018 年起定为「中国农民丰收节」。',
+    greeting: '秋分至，丰收时。愿你的努力都化作金黄的果实！',
+    accentColor: '#ffb300',
+  },
+  '寒露': {
+    image: 'holidays/hanlu.svg',
+    origin: '寒露气温比白露更低，露水寒冷，即将凝结成霜。',
+    description: '寒露时节赏菊、登高、插茱萸，饮菊花酒。秋意渐浓。',
+    greeting: '寒露至，秋意浓。注意保暖，愿你深秋安康！',
+    accentColor: '#fb8c00',
+  },
+  '霜降': {
+    image: 'holidays/shuangjiang.svg',
+    origin: '霜降是秋季最后一个节气，初霜出现，万物萧索。',
+    description: '霜降时节吃柿子、赏红叶，有「霜降摘柿子」的习俗。',
+    greeting: '霜降秋尽，冬日将至。愿你温暖过秋，从容迎冬！',
+    accentColor: '#f57c00',
+  },
+  '立冬': {
+    image: 'holidays/lidong.svg',
+    origin: '立冬标志着冬季开始，万物收藏，规避寒冷。',
+    description: '立冬有吃饺子、补冬等习俗，北方「立冬不端饺子碗，冻掉耳朵没人管」。',
+    greeting: '立冬至，万物藏。注意御寒保暖，愿你冬日安康！',
+    accentColor: '#1976d2',
+  },
+  '小雪': {
+    image: 'holidays/xiaoxue.svg',
+    origin: '小雪时节气温下降，开始降雪但雪量不大。',
+    description: '小雪有腌腊肉、吃糍粑、晒鱼干等习俗，准备过冬。',
+    greeting: '小雪初降，注意保暖。愿你的冬日温馨如雪！',
+    accentColor: '#42a5f5',
+  },
+  '大雪': {
+    image: 'holidays/daxue.svg',
+    origin: '大雪时节雪量增大，地面可能积雪，标志着仲冬开始。',
+    description: '大雪有腌肉、进补、观赏封河等习俗，「小雪腌菜，大雪腌肉」。',
+    greeting: '大雪纷飞，瑞雪兆丰年。愿你冬日温暖，来年顺遂！',
+    accentColor: '#1e88e5',
+  },
+  '冬至': {
+    image: 'holidays/dongzhi.svg',
+    origin: '冬至是北半球白昼最短的一天，古人视为「亚岁」，极为重要。',
+    description: '冬至北方吃饺子，南方吃汤圆。有「冬至大如年」之说，也是祭祖之日。',
+    greeting: '冬至阳生春又来。愿你阖家团圆，温暖过冬！',
+    accentColor: '#1565c0',
+  },
+}
+
 // ── 农历转公历工具 ──
 function lunarToSolarDate(year: number, lunarMonth: number, lunarDay: number): string | null {
   try {
@@ -278,6 +451,28 @@ export function getHolidayForDate(date: Date): HolidayInfo | null {
         accentColor: h.accentColor,
       }
     }
+  }
+
+  // 检查二十四节气（通过 lunar-javascript 动态计算，每年日期准确）
+  try {
+    const solar = Solar.fromYmd(year, month, day)
+    const lunar = solar.getLunar()
+    const jieQi = lunar.getJieQi()
+    if (jieQi && JIE_QI_DATA[jieQi]) {
+      const data = JIE_QI_DATA[jieQi]
+      return {
+        key: `jieqi-${jieQi}`,
+        name: jieQi,
+        solarDate: dateStr,
+        image: data.image,
+        origin: data.origin,
+        description: data.description,
+        greeting: data.greeting,
+        accentColor: data.accentColor,
+      }
+    }
+  } catch {
+    // lunar-javascript 计算失败时忽略
   }
 
   return null
