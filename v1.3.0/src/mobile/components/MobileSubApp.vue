@@ -168,25 +168,27 @@ defineExpose({ open, close })
   align-items: center;
   height: 34px;
   border-radius: 17px;
-  /* 默认浅色导航栏：黑底白字 */
-  background: rgba(0, 0, 0, 0.88);
+  /* 浅色导航栏：半透明深灰 + 磨砂玻璃感（微信 iOS 风格） */
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   color: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
-/* 深色 / 夜间主题：腾讯蓝和 dark 导航栏均基于浅色 surface，默认保持黑底白字；
+/* 深色 / 夜间主题：腾讯蓝和 dark 导航栏均基于浅色 surface，保持半透明深灰；
    若后续 subapp-header 改为深色背景，可给 header 加 .is-dark 类切到白底黑字 */
 :global([data-theme="dark"]) .subapp-capsule,
 :global([data-theme="tencent"]) .subapp-capsule {
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
 }
 
 .subapp-header.is-dark .subapp-capsule {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.65);
   color: #1a1a1a;
 }
 
@@ -209,11 +211,11 @@ defineExpose({ open, close })
 .subapp-capsule__divider {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
 }
 .subapp-header.is-dark .subapp-capsule__divider {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .subapp-body {
