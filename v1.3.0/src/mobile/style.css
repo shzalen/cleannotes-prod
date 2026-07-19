@@ -228,11 +228,12 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* 延伸到屏幕物理底部，覆盖 Home Indicator 安全区 */
-  top: 0 !important;
-  bottom: calc(-1 * var(--safe-bottom)) !important;
-  height: calc(100vh + var(--safe-bottom)) !important;
-  padding-bottom: var(--safe-bottom) !important;
+  /* 强制覆盖到整个物理屏幕（包括 iOS Home Indicator 安全区） */
+  position: fixed !important;
+  inset: -60px -60px -120px -60px !important;
+  width: auto !important;
+  height: auto !important;
+  background: var(--van-overlay-background) !important;
 }
 
 /* ==========================================================================
