@@ -242,13 +242,6 @@ body {
   background: var(--van-overlay-background) !important;
 }
 
-/* Dialog 打开时 body 被锁滚动，兜底：把 body 背景改为深色，
-   万一 overlay 在 Safari 工具栏/ Home Indicator 区域被系统裁剪，
-   底部露出的也是深色而非纯白 */
-body.van-overflow-hidden {
-  background: rgba(0, 0, 0, 0.5) !important;
-}
-
 /* ==========================================================================
    Toast 宽度加宽 — 避免文字换行
    ========================================================================== */
