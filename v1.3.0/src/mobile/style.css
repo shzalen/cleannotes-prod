@@ -239,23 +239,6 @@ body {
   background: var(--van-overlay-background) !important;
 }
 
-/* iOS Safari 中 fixed 元素无法覆盖底部 Home Indicator 安全区。
-   用 html 元素的背景色兜底，覆盖整个 viewport（含安全区）。
-
-   关键：html 默认背景设为纯黑（#000），与遮罩色 rgba(0,0,0,.5) 同色系。
-   - 平时：html 黑色被 body 的 --color-surface 覆盖，用户看不到
-   - Dialog 打开：body 变透明，露出 html 黑色，与 overlay 半透明黑叠加后
-     正好是遮罩色，无色差 → 无闪烁
-   - 不使用 transition（渐变反而让用户看到颜色变化过程 = 闪烁） */
-html {
-  background: #000;
-}
-
-html:has(body.van-overflow-hidden) body,
-html:has(body.van-overflow-hidden) .app-shell {
-  background: transparent !important;
-}
-
 /* ==========================================================================
    Toast 宽度加宽 — 避免文字换行
    ========================================================================== */

@@ -96,41 +96,6 @@ async function savePassword() {
 // ── 清空页面缓存（保留登录态） ──
 const clearingCache = ref(false)
 
-// ── 应急清缓存：长按版本号 1.2s 触发，不依赖 Dialog ──
-let emergencyTimer: number | undefined
-function startEmergencyClear() {
-  if (emergencyTimer) window.clearTimeout(emergencyTimer)
-  emergencyTimer = window.setTimeout(() => {
-    emergencyClearCache()
-  }, 1200)
-}
-function cancelEmergencyClear() {
-  if (emergencyTimer) {
-    window.clearTimeout(emergencyTimer)
-    emergencyTimer = undefined
-  }
-}
-async function emergencyClearCache() {
-  showLoadingToast({ message: '应急清缓存中…', forbidClick: true, duration: 0 })
-  try {
-    if ('caches' in window) {
-      const names = await caches.keys()
-      await Promise.all(names.map(n => caches.delete(n)))
-    }
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations()
-      await Promise.all(regs.map(r => r.unregister()))
-    }
-    clearAllLastSyncAt()
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('cleannotes_') && k !== 'cleannotes_theme')
-      .forEach(k => localStorage.removeItem(k))
-  } catch { /* 忽略，继续刷新 */ }
-  const url = new URL(window.location.href)
-  url.searchParams.set('_t', Date.now().toString())
-  window.location.href = url.toString()
-}
-
 async function handleClearCache() {
   await showConfirmDialog({
     title: '清空页面缓存',
@@ -176,11 +141,9 @@ async function handleClearCache() {
       duration: 0,
     })
 
-    // 短暂延迟让提示可见后硬刷新（加时间戳绕过所有缓存）
+    // 短暂延迟让提示可见后硬刷新
     setTimeout(() => {
-      const url = new URL(window.location.href)
-      url.searchParams.set('_t', Date.now().toString())
-      window.location.href = url.toString()
+      window.location.reload()
     }, 400)
   } catch {
     clearingCache.value = false
@@ -362,16 +325,8 @@ const buildTime = __BUILD_TIME__
         >退出登录</van-button>
       </div>
 
-      <!-- 版本信息（长按 1.2s 触发应急清缓存，绕过被遮罩盖住的 Dialog） -->
-      <div
-        class="profile-version"
-        @touchstart.passive="startEmergencyClear"
-        @touchend="cancelEmergencyClear"
-        @touchmove="cancelEmergencyClear"
-        @mousedown="startEmergencyClear"
-        @mouseup="cancelEmergencyClear"
-        @mouseleave="cancelEmergencyClear"
-      >
+      <!-- 版本信息 -->
+      <div class="profile-version">
         v{{ appVersion }} · {{ buildTime }}
       </div>
     </div>

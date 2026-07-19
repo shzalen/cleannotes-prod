@@ -58,32 +58,8 @@ if (!isMobileDevice()) {
   // 注册 PWA Service Worker（添加到桌面）
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw-mobile.js').then((reg) => {
-        // 检测到新 SW 安装完成（updatefound → state 变为 installed）
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing
-          if (!newWorker) return
-          newWorker.addEventListener('statechange', () => {
-            // 新 SW 已安装并 skipWaiting 激活，刷新页面让新 SW 接管资源请求
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[PWA] 新版本已就绪，刷新以加载最新资源')
-              window.location.reload()
-            }
-          })
-        })
-        // 每 60 分钟主动检查一次更新（默认浏览器可能节流到 24h）
-        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000)
-      }).catch((err) => {
+      navigator.serviceWorker.register('./sw-mobile.js').catch((err) => {
         console.warn('[PWA] Service Worker registration failed:', err)
-      })
-
-      // 新 SW 激活并接管控制（controllerchange）时，若尚未刷新则刷新一次
-      let reloaded = false
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!reloaded) {
-          reloaded = true
-          window.location.reload()
-        }
       })
     })
   }
