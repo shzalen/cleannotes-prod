@@ -233,16 +233,21 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* iOS Safari 对 fixed 元素的 height 外延到 viewport 外会被裁剪，
-     用整体 scale(1.1) 放大，让遮罩自然覆盖底部安全区 */
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  transform: scale(1.12) translateZ(0) !important;
-  transform-origin: center top !important;
   background: var(--van-overlay-background) !important;
+}
+
+/* iOS Safari 中 fixed 元素无法覆盖底部安全区（Home Indicator 区域）。
+   唯一能覆盖底部安全区的是 html 元素的背景色（html 背景覆盖整个 viewport）。
+   Dialog 打开时 body 会被加上 .van-overflow-hidden 类，
+   通过 html:has() 让 html 背景变成遮罩色，
+   同时把 body 和 .app-shell 背景设透明，避免它们盖住 html 的遮罩色。
+   只有一层 html 遮罩，不会叠加变深 */
+html:has(body.van-overflow-hidden) {
+  background: var(--van-overlay-background) !important;
+}
+html:has(body.van-overflow-hidden) body,
+html:has(body.van-overflow-hidden) .app-shell {
+  background: transparent !important;
 }
 
 /* ==========================================================================
