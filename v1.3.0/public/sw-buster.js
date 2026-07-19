@@ -15,8 +15,12 @@
  */
 (async function swBuster() {
   try {
-    // 标记本次已执行，避免与 reload 后的页面重复触发（双保险）
-    if (sessionStorage.getItem('__sw_busted__')) return
+    const url = new URL(window.location.href)
+
+    // 若本次已是清理后的重载，则不再重复清理，避免无限循环。
+    // 如果此时看到的仍是旧版本，说明用户环境（如 PWA webclip）清理不掉，
+    // 用户需要手动删除并重新添加桌面图标，或到系统设置清除网站数据。
+    if (url.searchParams.get('__busted__') === '1') return
 
     let needReload = false
 
@@ -24,7 +28,7 @@
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations()
       if (regs.length > 0) {
-        console.log('[sw-buster] 发现 ' + regs.length + ' 个旧 SW，正在注销')
+        console.log('[sw-buster] 发现 ' + regs.length + ' 个 SW，正在注销')
         await Promise.all(regs.map((r) => r.unregister()))
         needReload = true
       }
@@ -41,16 +45,12 @@
     }
 
     if (needReload) {
-      sessionStorage.setItem('__sw_busted__', '1')
-      // 带时间戳硬刷新，确保所有资源重新从网络获取
-      const url = new URL(window.location.href)
+      // 带时间戳硬刷新，并标记 __busted__=1，防止再次触发清理循环
       url.searchParams.set('_t', Date.now().toString())
+      url.searchParams.set('__busted__', '1')
       window.location.replace(url.toString())
       return
     }
-
-    // 3. 即使没有旧 SW，也注册新 SW（r49）以便后续 PWA 正常工作
-    //    留给 mobile.ts 里的注册逻辑处理，这里不重复
   } catch (e) {
     console.warn('[sw-buster] 执行异常:', e)
   }
