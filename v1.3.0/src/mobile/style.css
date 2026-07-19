@@ -94,6 +94,11 @@ body {
   --van-button-default-color: var(--color-text-1);
   --van-button-default-border-color: var(--color-border);
 
+  --van-button-danger-color: #ffffff;
+  --van-button-primary-color: #ffffff;
+  --van-button-success-color: #ffffff;
+  --van-button-warning-color: #ffffff;
+
   --van-dialog-background: var(--color-surface);
   --van-dialog-header-font-weight: 600;
 
