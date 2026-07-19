@@ -228,9 +228,11 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* 延伸到屏幕物理底部，覆盖 Home Indicator 区域 */
-  bottom: -34px !important;
-  height: calc(100% + 34px) !important;
+  /* 延伸到屏幕物理底部，覆盖 Home Indicator 安全区 */
+  top: 0 !important;
+  bottom: calc(-1 * var(--safe-bottom)) !important;
+  height: calc(100vh + var(--safe-bottom)) !important;
+  padding-bottom: var(--safe-bottom) !important;
 }
 
 /* ==========================================================================
