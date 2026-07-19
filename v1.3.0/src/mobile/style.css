@@ -228,12 +228,20 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* 强制覆盖到整个物理屏幕（包括 iOS Home Indicator 安全区） */
+  /* 强制覆盖到整个物理屏幕（包括 iOS Home Indicator 安全区）
+     用超大负外延确保真实设备也能覆盖底部 */
   position: fixed !important;
-  inset: -60px -60px -120px -60px !important;
+  inset: -80px -80px -400px -80px !important;
   width: auto !important;
   height: auto !important;
   background: var(--van-overlay-background) !important;
+}
+
+/* Dialog 打开时 body 被锁滚动，兜底：把 body 背景改为深色，
+   万一 overlay 在 Safari 工具栏/ Home Indicator 区域被系统裁剪，
+   底部露出的也是深色而非纯白 */
+body.van-overflow-hidden {
+  background: rgba(0, 0, 0, 0.5) !important;
 }
 
 /* ==========================================================================
