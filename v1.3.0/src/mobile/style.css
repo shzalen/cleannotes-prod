@@ -231,15 +231,27 @@ body {
   max-width: 100vw;          /* 不超出视口宽度 */
 }
 
-/* Vant Dialog 遮罩层：保持 Vant 默认的 position:fixed; inset:0
-   参考 MobileHolidayCard 的 .holiday-overlay 方案 */
+/* 防止 html 背景切换时闪白 */
+html {
+  transition: background 0.2s ease;
+}
+
+/* Vant Dialog 遮罩层：保持 Vant 默认的 z-index 和 fade 动画 */
 .van-overlay {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  z-index: 9999 !important;
   background: var(--van-overlay-background) !important;
+}
+
+/* iOS Safari 中 fixed 元素无法覆盖底部 Home Indicator 安全区。
+   用 html 元素的背景色兜底，覆盖整个 viewport（含安全区）。
+   Dialog 打开时 body 会被加上 .van-overflow-hidden 类，
+   通过 html:has() 让 html 背景变成遮罩色，与 overlay 颜色一致。
+   闪白问题已通过 html 的 transition 背景色过渡缓解。 */
+html:has(body.van-overflow-hidden) {
+  background: var(--van-overlay-background) !important;
+}
+html:has(body.van-overflow-hidden) body,
+html:has(body.van-overflow-hidden) .app-shell {
+  background: transparent !important;
 }
 
 /* ==========================================================================
