@@ -5,6 +5,7 @@
  */
 import { ref, computed, onMounted, onUnmounted, inject } from 'vue'
 import { useTodoStore } from '@/stores/todo'
+import { useTheme } from '@/composables/useTheme'
 import { showConfirmDialog, showToast } from 'vant'
 import { SwipeCell as VanSwipeCell } from 'vant'
 import type { TodoItem } from '@/types'
@@ -15,9 +16,17 @@ defineOptions({ name: 'MobileTodoApp' })
 
 const todoStore = useTodoStore()
 const subAppMenu = inject<SubAppMenuApi>(SUBAPP_MENU_KEY)
+const { isDark, isZuru, isTencent } = useTheme()
 
 // 任务编辑弹窗引用（待办转任务时使用）
 const taskPopupRef = ref<InstanceType<typeof MobileTaskEditPopup> | null>(null)
+
+// 转任务按钮颜色：light/dark 用绿色，ZURU 用品牌红，Tencent 用腾讯绿
+const convertBtnColor = computed(() => {
+  if (isZuru.value) return '#CB312D'
+  if (isTencent.value) return '#00a870'
+  return isDark.value ? '#4d8fff' : '#22c55e'
+})
 
 const todos = computed(() => todoStore.activeTodos)
 
@@ -216,7 +225,7 @@ onUnmounted(() => {
         </div>
         <template #right>
           <div class="swipe-actions">
-            <button class="swipe-btn swipe-btn--convert" @click="swipeConvert(item)">转任务</button>
+            <button class="swipe-btn swipe-btn--convert" :style="{ background: convertBtnColor }" @click="swipeConvert(item)">转任务</button>
             <button class="swipe-btn swipe-btn--edit" @click="openEdit(item)">编辑</button>
             <button class="swipe-btn swipe-btn--del" @click="swipeDelete(item)">删除</button>
           </div>
@@ -426,7 +435,7 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
 }
-.swipe-btn--convert { background: var(--color-success, #16a34a); }
+.swipe-btn--convert { background: #22c55e; }
 .swipe-btn--edit { background: var(--color-primary); }
 .swipe-btn--del  { background: var(--color-danger); }
 
