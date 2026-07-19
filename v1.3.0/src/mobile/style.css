@@ -233,18 +233,16 @@ body {
 
 .van-overlay {
   touch-action: none;        /* 遮罩层屏蔽所有手势 */
-  /* overlay 本身保持 Vant 默认的 100% 覆盖 */
+  /* iOS Safari 对 fixed 元素的 height 外延到 viewport 外会被裁剪，
+     用整体 scale(1.1) 放大，让遮罩自然覆盖底部安全区 */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  transform: scale(1.12) translateZ(0) !important;
+  transform-origin: center top !important;
   background: var(--van-overlay-background) !important;
-}
-
-/* 兜底：Dialog 打开时，body 提供与 overlay 一致的遮罩色，
-   覆盖 overlay 无法延伸到的 iOS 底部安全区。
-   不会叠加变深：overlay 背景设为透明，遮罩色仅由 body 提供 */
-body.van-overflow-hidden {
-  background: var(--van-overlay-background) !important;
-}
-body.van-overflow-hidden .van-overlay {
-  background: transparent !important;
 }
 
 /* ==========================================================================
