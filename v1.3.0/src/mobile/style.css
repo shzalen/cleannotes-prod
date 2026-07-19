@@ -113,6 +113,19 @@ body {
   --van-nav-bar-title-text-color: var(--color-text-1);
   --van-nav-bar-icon-color: var(--color-primary);
   --van-nav-bar-text-color: var(--color-primary);
+
+  /* plain 按钮：用次级背景填充，避免暗黑模式下文字看不清
+     Vant 4 默认在 .van-theme-dark 下把 plain-background 设为 transparent，
+     这里改为次级背景色，保证文字有足够对比度 */
+  --van-button-plain-background: var(--color-bg-3);
+}
+
+/* 暗黑模式：plain 按钮文字色强制高对比度 */
+[data-theme="dark"] .van-button--plain {
+  --van-button-plain-background: var(--color-bg-4);
+}
+[data-theme="dark"] .van-button--plain.van-button--default {
+  color: var(--color-text-1);
 }
 
 /* ==========================================================================
