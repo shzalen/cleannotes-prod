@@ -434,6 +434,16 @@ function handleEditFromDetail(task: Task) {
   z-index: 1;
 }
 
+/* 暗黑模式：深色渐变，避免亮色刺眼 */
+[data-theme="dark"] .home-header:not(:has(.weather-fx.night)):not(:has(.weather-fx.rain)):not(:has(.weather-fx.thunder)):not(:has(.weather-fx.snow)) {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 40%, #0a0a0c 60%) 0%,
+    color-mix(in srgb, var(--color-primary) 55%, #0f1115 45%) 50%,
+    color-mix(in srgb, var(--color-primary) 30%, #0a0a0c 70%) 100%
+  );
+}
+
 .home-header__safe-area {
   height: var(--safe-top);
   position: relative;

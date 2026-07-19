@@ -321,7 +321,6 @@ const buildTime = __BUILD_TIME__
           block
           round
           type="danger"
-          plain
           :loading="loggingOut"
           @click="handleLogout"
         >退出登录</van-button>
