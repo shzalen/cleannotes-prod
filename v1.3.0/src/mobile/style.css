@@ -241,6 +241,11 @@ html {
   background: var(--van-overlay-background) !important;
 }
 
+/* 强制 Dialog 内容在遮罩之上，防止旧缓存或第三方样式把 overlay z-index 提高 */
+.van-dialog {
+  z-index: calc(var(--van-overlay-z-index, 2000) + 1) !important;
+}
+
 /* iOS Safari 中 fixed 元素无法覆盖底部 Home Indicator 安全区。
    用 html 元素的背景色兜底，覆盖整个 viewport（含安全区）。
    Dialog 打开时 body 会被加上 .van-overflow-hidden 类，
