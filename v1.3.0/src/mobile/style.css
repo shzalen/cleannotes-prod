@@ -239,16 +239,6 @@ body {
   background: var(--van-overlay-background) !important;
 }
 
-/* 底部弹窗贴底：让 popup 背景延伸到屏幕物理底部（含安全区）。
-   原理：popup 的 background 会覆盖 padding 区域，
-   给 popup 加 padding-bottom: env(safe-area-inset-bottom)，
-   背景就延伸到安全区，像 tabbar 一样紧贴底部。
-   内容区在 padding 上方，仍在安全区之上不被 Home Indicator 遮挡。
-   这是 Vant 官方 .van-safe-area-bottom 的同款做法。 */
-.popup-fill-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-}
-
 /* ==========================================================================
    Toast 宽度加宽 — 避免文字换行
    ========================================================================== */
