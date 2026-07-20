@@ -132,6 +132,7 @@ defineExpose({ open, close })
     position="bottom"
     round
     teleport="body"
+    class="popup-fill-bottom"
     :style="{ '--van-popup-background': 'var(--color-surface)' }"
   >
     <div class="progress-popup" v-if="task">

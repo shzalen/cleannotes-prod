@@ -239,6 +239,26 @@ body {
   background: var(--van-overlay-background) !important;
 }
 
+/* 底部弹窗背景延伸到安全区，像 tabbar 一样紧贴底部。
+   iOS Safari 中 position:fixed; bottom:0 的元素底边只对齐视觉视口，
+   不会延伸到 env(safe-area-inset-bottom) 区域，导致弹窗与屏幕底部有间隙。
+   用 ::after 伪元素把背景色向下延伸填补安全区。
+   - 不影响内容布局：内容区仍用 padding-bottom: var(--safe-bottom) 避让
+   - background: inherit 继承 popup 的 --van-popup-background，各主题无色差
+   - round 弹窗底部本是直角（border-radius ... 0 0），伪元素无需处理圆角 */
+.popup-fill-bottom {
+  overflow: visible; /* 允许伪元素超出 popup 边界 */
+}
+.popup-fill-bottom::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  height: env(safe-area-inset-bottom, 0px);
+  background: inherit;
+}
+
 /* ==========================================================================
    Toast 宽度加宽 — 避免文字换行
    ========================================================================== */
