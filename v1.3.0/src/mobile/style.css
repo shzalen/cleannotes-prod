@@ -238,6 +238,8 @@ body {
    否则会把 popup 的 z-index 压得很低（如 2），导致被 overlay 盖住。 */
 .van-overlay {
   background: var(--van-overlay-background) !important;
+  /* 延伸到底部 Home Indicator 安全区下方，消除遮罩层底部留白 */
+  bottom: calc(0px - env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* ==========================================================================
