@@ -41,7 +41,15 @@ function bootstrapData() {
 
 onMounted(async () => {
   if (!auth.initialized) {
-    await auth.init()
+    // 超时保护：auth.init() 调用 Supabase getCurrentUser()，
+    // 网络不通时可能一直 pending，加 8s 超时避免 splash 卡死
+    await Promise.race([
+      auth.init(),
+      new Promise<void>((resolve) => setTimeout(() => {
+        console.warn('[mobile] auth.init() timeout after 8s')
+        resolve()
+      }, 8000)),
+    ])
   }
   // auth.init 完成后，如果未登录则跳转登录页
   if (!auth.isAuthenticated) {
@@ -151,11 +159,14 @@ watch(
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* bottom 负值延伸覆盖 iPhone Home Indicator 安全区 */
+  bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: var(--color-surface);
+  /* padding-bottom 让内部内容不会被安全区遮挡 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-content {
@@ -163,8 +174,7 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* 为 fixed TabBar 留出空间（含安全区） */
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+  /* TabBar 高度 + 安全区由 TabBar 自身处理，无需额外 padding */
 }
 
 /* 路由切换淡入淡出（叠加模式，无 out-in 等待） */

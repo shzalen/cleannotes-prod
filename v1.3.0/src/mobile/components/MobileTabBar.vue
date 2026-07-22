@@ -133,17 +133,11 @@ function handleTabClick(tabKey: string, tabName: string) {
 
 <style scoped>
 .tabbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   z-index: 100;
   display: flex;
   align-items: stretch;
   height: var(--tabbar-height);
-  /* content-box：padding 在 52px 之外扩展，覆盖底部 Home 指示条安全区 */
-  box-sizing: content-box;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-light);
   box-shadow: 0 -1px 8px var(--color-shadow);
