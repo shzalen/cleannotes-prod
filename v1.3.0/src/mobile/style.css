@@ -245,6 +245,14 @@ body {
    否则会把 popup 的 z-index 压得很低（如 2），导致被 overlay 盖住。 */
 .van-overlay {
   background: var(--van-overlay-background) !important;
+  /* Vant 默认 height:100% 在 iPhone 上不覆盖 Home Indicator 安全区，
+     改用 top:0 + bottom 负值拉伸覆盖到屏幕物理底部。
+     先 height:auto 解除 100% 限制，再用 bottom 负值延伸。
+     同时 width:auto + right:0 确保宽度不丢失。 */
+  height: auto !important;
+  width: auto !important;
+  bottom: calc(0px - env(safe-area-inset-bottom, 0px)) !important;
+  right: 0 !important;
 }
 
 /* ==========================================================================
