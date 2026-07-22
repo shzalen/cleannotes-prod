@@ -76,7 +76,6 @@ watch(
 
 <template>
   <!-- 品牌加载页 — auth.init() 完成前显示 -->
-  <!-- 不依赖路由，auth 初始化完即切换到正常 Shell -->
   <div v-if="!auth.initialized" class="splash-screen">
     <div class="splash-screen__brand">
       <img class="splash-screen__logo" src="/icon-512.png" alt="清记" />
@@ -85,8 +84,8 @@ watch(
     </div>
   </div>
 
-  <!-- 正常 App Shell — auth 初始化完成后渲染 -->
-  <div v-else class="app-shell" :class="{ 'has-tabbar': showTabBar }">
+  <!-- 正常 App — auth 初始化完成后渲染 -->
+  <template v-else>
     <div class="app-content">
       <router-view v-slot="{ Component }">
         <transition name="fade">
@@ -95,10 +94,8 @@ watch(
       </router-view>
     </div>
     <MobileTabBar v-if="showTabBar" />
-
-    <!-- 节日问候卡片（当天首次打开时弹出） -->
     <MobileHolidayCard />
-  </div>
+  </template>
 </template>
 
 <style>
@@ -153,27 +150,14 @@ watch(
   to { transform: rotate(360deg); }
 }
 
-/* ── App Shell：全屏覆盖，flex 列布局 ── */
-.app-shell {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  /* 完全参照 PlanStreak：不设 overflow:hidden，不设安全区负值延伸。
-     PlanStreak 验证 position:fixed + overflow:hidden 在 iOS Safari PWA
-     中会裁剪所有 fixed 子元素（含 teleport-to-body 的 van-overlay） */
-  background: var(--color-surface);
-}
-
+/* ── App Content：flex 列布局，为 fixed TabBar 留出底部空间 ── */
 .app-content {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* TabBar 高度 + 安全区由 TabBar 自身处理，无需额外 padding */
+  /* 为 fixed TabBar 留出空间 */
+  padding-bottom: var(--tabbar-height);
 }
 
 /* 路由切换淡入淡出（叠加模式，无 out-in 等待） */

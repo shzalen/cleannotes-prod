@@ -133,7 +133,11 @@ function handleTabClick(tabKey: string, tabName: string) {
 
 <style scoped>
 .tabbar {
-  flex-shrink: 0;
+  /* PlanStreak 方式：position:fixed 独立定位，不依赖父级 flex 布局 */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   display: flex;
   align-items: stretch;

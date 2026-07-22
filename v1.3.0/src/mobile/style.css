@@ -38,13 +38,14 @@ body {
 }
 
 #app {
-  /* PlanStreak 已验证：position:relative 避免在 iOS Safari PWA 中
-     创建额外的包含块（containing block），确保 teleport-to-body 的
-     position:fixed 子元素（van-overlay）正确参照 viewport 覆盖全屏含安全区。
-     全屏覆盖由 .app-shell position:fixed 实现，#app 仅作为 Vue mount 容器 */
-  position: relative;
-  min-height: 100dvh;
-  height: auto;
+  /* 承接原 .app-shell 角色：position:fixed 全屏覆盖，flex 列布局 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
 }
 
