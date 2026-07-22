@@ -163,6 +163,19 @@ header p{font-size:13px;color:#64748b;margin-top:4px}
 </div>
 </div>
 
+<div class="card disabled" id="card-filelist">
+<div class="card-title"><span class="step-num">5</span>脚本文件名清单</div>
+<div class="alert alert-info">以下为本次生成的所有脚本文件名，可全选复制到其他地方使用。</div>
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+<button class="btn btn-primary btn-sm" onclick="App.copyFileList()">复制全部</button>
+<button class="btn btn-secondary btn-sm" onclick="App.downloadFileList()">下载清单 (.txt)</button>
+<button class="btn btn-secondary btn-sm" onclick="App.copyRebuildList()">仅复制重建脚本</button>
+<button class="btn btn-secondary btn-sm" onclick="App.copyRestoreList()">仅复制还原脚本</button>
+</div>
+<textarea id="file-list-output" readonly style="width:100%;height:280px;font-family:'Cascadia Code','Fira Code',Consolas,monospace;font-size:12.5px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;color:#1e293b;resize:vertical;line-height:1.8" placeholder="生成脚本后，此处将显示所有文件名清单" onclick="this.select()"></textarea>
+<div style="font-size:12px;color:#64748b;margin-top:6px" id="filelist-count"></div>
+</div>
+
 </div>
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -893,6 +906,7 @@ const App = {
         document.getElementById('card-results').classList.remove('disabled');
         if(this.generated && Object.keys(this.generated).length>0){
           this.renderTree();
+          this.renderFileList();
         }else{
           status.className='alert alert-warning';
           status.textContent = '未生成任何脚本，请检查是否选择了有效的表。';
@@ -1001,6 +1015,127 @@ const App = {
     a.download = `rebuild_scripts_${Date.now()}.zip`;
     a.click();
     URL.revokeObjectURL(a.href);
+  },
+
+  /* ===================== 文件名清单 ===================== */
+  renderFileList(){
+    const out = document.getElementById('file-list-output');
+    const countEl = document.getElementById('filelist-count');
+    document.getElementById('card-filelist').classList.remove('disabled');
+    const lines = [];
+    let rebuildCount = 0, restoreCount = 0;
+    lines.push('===== 重建脚本 =====');
+    for(const scripts of Object.values(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.rebuild){ lines.push(s.filename); rebuildCount++; }
+    }
+    lines.push('');
+    lines.push('===== 还原脚本 =====');
+    for(const scripts of Object.values(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.restore){ lines.push(s.filename); restoreCount++; }
+    }
+    out.value = lines.join('\n');
+    countEl.textContent = `共 ${rebuildCount+restoreCount} 个文件名（重建 ${rebuildCount} + 还原 ${restoreCount}）`;
+  },
+
+  getAllFileNames(){
+    const names = [];
+    for(const scripts of Object.values(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.rebuild) names.push(s.filename);
+      for(const s of scripts.restore) names.push(s.filename);
+    }
+    return names;
+  },
+
+  getRebuildFileNames(){
+    const names = [];
+    for(const scripts of Object.values(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.rebuild) names.push(s.filename);
+    }
+    return names;
+  },
+
+  getRestoreFileNames(){
+    const names = [];
+    for(const scripts of Object.values(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.restore) names.push(s.filename);
+    }
+    return names;
+  },
+
+  async copyToClipboard(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try{ ok = document.execCommand('copy'); }catch(ee){ ok = false; }
+      document.body.removeChild(ta);
+      return ok;
+    }
+  },
+
+  async copyFileList(){
+    if(!this.generated){ alert('请先生成脚本'); return; }
+    const names = this.getAllFileNames();
+    if(names.length===0){ alert('没有可复制的文件名'); return; }
+    const ok = await this.copyToClipboard(names.join('\n'));
+    if(ok) this.toast(`已复制 ${names.length} 个文件名到剪贴板`);
+    else alert('复制失败，请手动选择文本框内容复制');
+  },
+
+  async copyRebuildList(){
+    if(!this.generated){ alert('请先生成脚本'); return; }
+    const names = this.getRebuildFileNames();
+    if(names.length===0){ alert('没有重建脚本'); return; }
+    const ok = await this.copyToClipboard(names.join('\n'));
+    if(ok) this.toast(`已复制 ${names.length} 个重建脚本文件名`);
+    else alert('复制失败，请手动选择');
+  },
+
+  async copyRestoreList(){
+    if(!this.generated){ alert('请先生成脚本'); return; }
+    const names = this.getRestoreFileNames();
+    if(names.length===0){ alert('没有还原脚本'); return; }
+    const ok = await this.copyToClipboard(names.join('\n'));
+    if(ok) this.toast(`已复制 ${names.length} 个还原脚本文件名`);
+    else alert('复制失败，请手动选择');
+  },
+
+  downloadFileList(){
+    if(!this.generated){ alert('请先生成脚本'); return; }
+    const text = document.getElementById('file-list-output').value;
+    if(!text){ alert('没有文件名可下载'); return; }
+    const blob = new Blob([text],{type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `script_filelist_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+
+  toast(msg){
+    let t = document.getElementById('app-toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = 'app-toast';
+      t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;transition:opacity .3s';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = '1';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(()=>{ t.style.opacity = '0'; }, 2000);
   }
 };
 
