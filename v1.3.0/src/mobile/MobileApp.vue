@@ -145,12 +145,16 @@ watch(
   to { transform: rotate(360deg); }
 }
 
-/* ── App Shell：填充整个 #app 容器 ── */
+/* ── App Shell：全屏覆盖，flex 列布局 ── */
 .app-shell {
-  height: 100%;
-  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--color-surface);
 }
 
