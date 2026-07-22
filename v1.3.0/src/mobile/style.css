@@ -14,25 +14,30 @@
   padding: 0;
 }
 
-html,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /* 不设 overflow:hidden — html/body 设 overflow:hidden 在 iOS Safari 中
+     会裁剪 teleport-to-body 的 position:fixed 子元素（如 van-overlay），
+     导致 overlay 无法覆盖底部 Home Indicator 安全区。
+     滚动锁定由 #app position:fixed + Vant useLockScroll 处理 */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  background: var(--color-surface);
+}
+
 body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
   min-height: -webkit-fill-available;
   height: 100%;
-  overflow: hidden;          /* 彻底切断文档级滚动 */
-  overscroll-behavior: none; /* 禁止 iOS Safari 橡皮筋回弹 */
-  /* 禁止双击缩放（iOS Safari 10+ 有时忽略 viewport user-scalable=no） */
+  overscroll-behavior: none;
   touch-action: manipulation;
-  /* 与 TabBar 背景一致，填补底部安全区 */
   background: var(--color-surface);
-}
-
-body {
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: var(--color-surface);
   color: var(--color-text-1);
   -webkit-font-smoothing: antialiased;
   -webkit-user-select: none;
@@ -44,7 +49,9 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* bottom 负值延伸覆盖 iPhone Home Indicator 安全区，
+     与 .app-shell 保持一致 */
+  bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   /* 注意：不设 overflow:hidden。在部分浏览器中，position:fixed 的 #app
      设 overflow:hidden 后会裁剪内部 position:fixed 子元素（如 TabBar）的底部 */
   background: var(--color-surface);
@@ -238,9 +245,6 @@ body {
    否则会把 popup 的 z-index 压得很低（如 2），导致被 overlay 盖住。 */
 .van-overlay {
   background: var(--van-overlay-background) !important;
-  /* Vant 默认 height:100% 不会超出视口，需改用 bottom 定位延伸至安全区下方 */
-  height: auto !important;
-  bottom: calc(0px - env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* ==========================================================================
