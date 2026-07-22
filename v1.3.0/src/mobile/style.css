@@ -235,14 +235,18 @@ body {
 }
 
 /* Vant Dialog 遮罩层：
-   覆盖 Vant 默认的 width:100%; height:100%，
-   改用 100dvh（dynamic viewport height）—— iOS Safari PWA 下 dvh 包含安全区，
-   而 100% 不包含，导致底部 Home Indicator 区域露出白边。
-   同时用 bottom:0 + height:auto 确保从顶部拉伸到底部安全区最边缘。 */
+   Vant 默认用 width:100%; height:100%，iOS Safari PWA 下 height:100% 不含安全区。
+   改用 inset:0（top/right/bottom/left 全为 0）+ width/height:auto，
+   让 fixed 元素拉伸到视口四边——包含 Home Indicator 安全区。
+   这是 PlanStreak 所有 overlay 的做法（它不用 Vant overlay，全部自定义 inset:0）。 */
 .van-overlay {
   background: var(--van-overlay-background) !important;
-  width: 100vw !important;
-  height: 100dvh !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: auto !important;
+  height: auto !important;
 }
 
 /* ==========================================================================
