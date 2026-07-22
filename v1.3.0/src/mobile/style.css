@@ -45,8 +45,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden; /* 切断滚动穿透，内容区域各自独立滚动 */
-  background: var(--color-surface); /* 与 TabBar 背景一致，填补底部空白 */
+  /* 注意：不设 overflow:hidden。在部分浏览器中，position:fixed 的 #app
+     设 overflow:hidden 后会裁剪内部 position:fixed 子元素（如 TabBar）的底部 */
+  background: var(--color-surface);
 }
 
 /* ---- safe-area 变量 ---- */

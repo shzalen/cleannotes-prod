@@ -145,10 +145,7 @@ watch(
   to { transform: rotate(360deg); }
 }
 
-/* ── App Shell：填充 #app（#app 已 position:fixed 覆盖视口），flex 列布局 ── */
-/* 关键：不重复 position:fixed。嵌套 fixed + overflow:hidden 在 WebKit/Blink 中
-   会裁剪内层 fixed 元素底部，导致 TabBar 无法贴底。
-   底部安全区由 TabBar 自身 content-box padding 处理。 */
+/* ── App Shell：填充整个 #app 容器 ── */
 .app-shell {
   height: 100%;
   width: 100%;
@@ -160,9 +157,10 @@ watch(
 .app-content {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 为 fixed TabBar 留出空间（含安全区） */
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 /* 路由切换淡入淡出（叠加模式，无 out-in 等待） */
