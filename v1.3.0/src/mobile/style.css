@@ -268,3 +268,12 @@ body {
 .van-toast__text {
   white-space: nowrap !important;
 }
+
+/* Vant popup 打开时给 body 加 van-overflow-hidden 类（overflow:hidden !important），
+   在 iOS Safari 中会裁剪 teleport-to-body 的 position:fixed 子元素（van-overlay），
+   导致 overlay 无法覆盖底部安全区。
+   覆盖为 overflow:visible — 页面滚动由 #app position:fixed + Vant useLockScroll 处理，
+   body 的 overflow 不影响实际滚动行为 */
+.van-overflow-hidden {
+  overflow: visible !important;
+}
