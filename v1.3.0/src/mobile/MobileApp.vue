@@ -163,7 +163,9 @@ watch(
   bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* 不设 overflow:hidden — PlanStreak 验证：position:fixed + overflow:hidden
+     在 iOS Safari PWA 中会裁剪 teleport-to-body 的 fixed 子元素（van-overlay）。
+     滚动锁定由各页面的 .m-content overflow-y:auto + Vant useLockScroll 处理 */
   background: var(--color-surface);
   /* padding-bottom 让内部内容不会被安全区遮挡 */
   padding-bottom: env(safe-area-inset-bottom, 0px);
