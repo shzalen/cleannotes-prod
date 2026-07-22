@@ -4,7 +4,8 @@
 - 技术栈：Vue 3 + TypeScript + Pinia + TailwindCSS v4 + Tiptap + Supabase
 - 主项目路径：`D:\CleanNotepad\v1.3.0\`
 - 部署：dist 内容挂 IIS，robocopy **dist 内容**直接到 `D:\CleanNotepad-Prod\v1.3.0\` 根目录（不是复制 dist 文件夹）
-  - 正确命令：`robocopy "D:\CleanNotepad\v1.3.0\dist" "D:\CleanNotepad-Prod\v1.3.0" /E /XD .git`
+  - 正确命令：**`robocopy "D:\CleanNotepad\v1.3.0\dist" "D:\CleanNotepad-Prod\v1.3.0" /E /IM /XD .git`**
+  - **必须加 `/IM`**（2026-07-22 教训）：默认 robocopy 只覆盖源比目标新的文件；prod 端若被外部 git 操作改为更新时间（如未解决冲突被提交），标准 robocopy 不会覆盖 → prod 持续处于错误状态
   - **禁止 /MIR**（prod 有独立 .git）；**禁止**目标是 `...\dist`（会多套一层目录）
 - 构建：每次 `vite build` 完成后，**自动将 dist 内容同步到 `D:\CleanNotepad-Prod\v1.3.0\`**（robocopy），无需用户提醒
 - 构建：`npx vite build`，`base: './'`，`__APP_VERSION__` + `__BUILD_TIME__` 注入
