@@ -67,7 +67,18 @@ watch(
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'has-tabbar': showTabBar }">
+  <!-- 品牌加载页 — auth.init() 完成前显示 -->
+  <!-- 不依赖路由，auth 初始化完即切换到正常 Shell -->
+  <div v-if="!auth.initialized" class="splash-screen">
+    <div class="splash-screen__brand">
+      <img class="splash-screen__logo" src="/icon-512.png" alt="清记" />
+      <p class="splash-screen__subtitle">清简记事，井然有序</p>
+      <span class="splash-screen__spinner" />
+    </div>
+  </div>
+
+  <!-- 正常 App Shell — auth 初始化完成后渲染 -->
+  <div v-else class="app-shell" :class="{ 'has-tabbar': showTabBar }">
     <div class="app-content">
       <router-view v-slot="{ Component }">
         <transition name="fade">
@@ -83,16 +94,66 @@ watch(
 </template>
 
 <style>
-/* ── App Shell：全屏覆盖，flex 列布局 ── */
-.app-shell {
+/* ── 品牌加载页（Splash Screen）— auth.init() 完成前展示 ── */
+.splash-screen {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-1);
+  z-index: 200;
+}
+
+.splash-screen__brand {
+  display: flex;
   flex-direction: column;
-  overflow: hidden;
+  align-items: center;
+  gap: 20px;
+}
+
+.splash-screen__logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 82, 217, 0.25);
+  object-fit: cover;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.splash-screen__subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-text-3);
+}
+
+.splash-screen__spinner {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--color-border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: splash-spin 0.8s linear infinite;
+}
+
+@keyframes splash-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── App Shell：填充 #app（#app 已 position:fixed 覆盖视口），flex 列布局 ── */
+/* 关键：不重复 position:fixed。嵌套 fixed + overflow:hidden 在 WebKit/Blink 中
+   会裁剪内层 fixed 元素底部，导致 TabBar 无法贴底。
+   底部安全区由 TabBar 自身 content-box padding 处理。 */
+.app-shell {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
 }
 
