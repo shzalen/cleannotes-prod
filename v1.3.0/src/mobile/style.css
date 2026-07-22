@@ -48,6 +48,7 @@ body {
      全屏覆盖由 .app-shell position:fixed 实现，#app 仅作为 Vue mount 容器 */
   position: relative;
   min-height: 100dvh;
+  height: auto;
   background: var(--color-surface);
 }
 
