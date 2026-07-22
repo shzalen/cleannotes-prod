@@ -159,16 +159,13 @@ watch(
   top: 0;
   left: 0;
   right: 0;
-  /* bottom 负值延伸覆盖 iPhone Home Indicator 安全区 */
-  bottom: calc(0px - env(safe-area-inset-bottom, 0px));
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  /* 不设 overflow:hidden — PlanStreak 验证：position:fixed + overflow:hidden
-     在 iOS Safari PWA 中会裁剪 teleport-to-body 的 fixed 子元素（van-overlay）。
-     滚动锁定由各页面的 .m-content overflow-y:auto + Vant useLockScroll 处理 */
+  /* 完全参照 PlanStreak：不设 overflow:hidden，不设安全区负值延伸。
+     PlanStreak 验证 position:fixed + overflow:hidden 在 iOS Safari PWA
+     中会裁剪所有 fixed 子元素（含 teleport-to-body 的 van-overlay） */
   background: var(--color-surface);
-  /* padding-bottom 让内部内容不会被安全区遮挡 */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .app-content {

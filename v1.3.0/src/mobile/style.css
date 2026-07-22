@@ -17,11 +17,9 @@
 html {
   margin: 0;
   padding: 0;
-  /* PlanStreak 已验证：不设 height，仅 min-height: 100dvh，
-     避免限制 viewport 导致 teleport-to-body 的 fixed 元素无法覆盖安全区 */
   min-height: 100dvh;
-  overscroll-behavior: none;
-  touch-action: manipulation;
+  /* 完全参照 PlanStreak：不设 height/overflow/touch-action/overscroll-behavior，
+     让浏览器原生处理 viewport 和安全区 */
   background: var(--color-surface);
 }
 
@@ -30,8 +28,6 @@ body {
   padding: 0;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
-  overscroll-behavior: none;
-  touch-action: manipulation;
   background: var(--color-surface);
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
