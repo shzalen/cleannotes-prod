@@ -82,10 +82,14 @@ const navItems = [
   { name: 'memos', path: '/memos', icon: 'memos', label: '备忘录' },
   { name: 'reports', path: '/reports', icon: 'reports', label: '周报' },
   { name: 'ai', path: '/ai', icon: 'editor', label: 'AI 助手' },
+  { name: 'tools', path: '/tools', icon: 'tools', label: '常用工具' },
   { name: 'settings', path: '/settings', icon: 'settings', label: '设置' },
 ]
 
-const activeNav = computed(() => route.name as string)
+const activeNav = computed(() => {
+  if (route.path.startsWith('/tools')) return 'tools'
+  return route.name as string
+})
 
 const online = computed(() => props.isOnline ?? true)
 const syncing = computed(() => props.syncStatus === 'syncing')
@@ -205,6 +209,10 @@ function confirmLogout() {
         <svg v-else-if="item.icon === 'editor'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 20h9"/>
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+        <!-- Tools / 常用工具 — 扳手图标 -->
+        <svg v-else-if="item.icon === 'tools'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
         </svg>
         <!-- Settings -->
         <svg v-else-if="item.icon === 'settings'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

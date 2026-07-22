@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PDM 表重建脚本生成工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.6;font-size:14px}
+.container{max-width:1100px;margin:0 auto;padding:24px}
+header{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 24px;margin-bottom:24px}
+header h1{font-size:20px;font-weight:600;color:#0f172a}
+header p{font-size:13px;color:#64748b;margin-top:4px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title .step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#2563eb;color:#fff;border-radius:50%;font-size:12px;font-weight:600}
+.card.disabled{opacity:.5;pointer-events:none}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.upload-box{border:2px dashed #cbd5e1;border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.upload-box:hover{border-color:#2563eb;background:#eff6ff}
+.upload-box.has-file{border-color:#16a34a;border-style:solid;background:#f0fdf4}
+.upload-box .icon{font-size:28px;color:#94a3b8;margin-bottom:8px}
+.upload-box.has-file .icon{color:#16a34a}
+.upload-box .label{font-weight:600;font-size:14px;color:#334155}
+.upload-box .hint{font-size:12px;color:#94a3b8;margin-top:4px}
+.upload-box .filename{font-size:13px;color:#16a34a;font-weight:500;margin-top:6px;word-break:break-all}
+.upload-box input{display:none}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:7px;cursor:pointer;font-size:14px;font-weight:500;transition:background .15s}
+.btn-primary{background:#2563eb;color:#fff}
+.btn-primary:hover{background:#1d4ed8}
+.btn-primary:disabled{background:#94a3b8;cursor:not-allowed}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-sm{padding:5px 12px;font-size:13px}
+.table-list{max-height:400px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px}
+.table-list table{width:100%;border-collapse:collapse}
+.table-list th{background:#f8fafc;padding:10px 12px;text-align:left;font-size:12px;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0;position:sticky;top:0}
+.table-list td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:13px}
+.table-list tr:hover{background:#f8fafc}
+.table-list input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-gray{background:#f1f5f9;color:#64748b}
+.config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.form-group{margin-bottom:0}
+.form-group label{display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px}
+.form-group input,.form-group select{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:14px;color:#1e293b}
+.form-group input:focus{outline:none;border-color:#2563eb}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.results-layout{display:grid;grid-template-columns:320px 1fr;gap:16px}
+.tree-panel{border:1px solid #e2e8f0;border-radius:8px;max-height:500px;overflow-y:auto;background:#fafbfc}
+.tree-node{cursor:pointer}
+.tree-label{padding:6px 12px;font-size:13px;display:flex;align-items:center;gap:6px;user-select:none}
+.tree-label:hover{background:#eff6ff}
+.tree-label .arrow{font-size:10px;color:#94a3b8;transition:transform .15s}
+.tree-label .arrow.open{transform:rotate(90deg)}
+.tree-children{margin-left:16px;display:none}
+.tree-node.open>.tree-children{display:block}
+.tree-leaf{padding:5px 12px 5px 24px;font-size:12px;cursor:pointer;color:#475569;display:flex;align-items:center;gap:6px}
+.tree-leaf:hover{background:#eff6ff;color:#1e293b}
+.tree-leaf.active{background:#dbeafe;color:#1e40af;font-weight:500}
+.tree-icon{font-size:11px}
+.preview-panel{border:1px solid #e2e8f0;border-radius:8px;background:#1e293b;max-height:500px;overflow:auto}
+.preview-panel pre{padding:16px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:12.5px;line-height:1.7;color:#e2e8f0;white-space:pre-wrap;word-break:break-word}
+.preview-panel .comment{color:#64748b}
+.preview-panel .keyword{color:#7dd3fc}
+.preview-panel .string{color:#fde68a}
+.download-bar{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.empty-state{text-align:center;padding:48px 24px;color:#94a3b8}
+.empty-state .icon{font-size:40px;margin-bottom:8px}
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:12px}
+.alert-info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.alert-warning{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.alert-success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.diff-info{font-size:11px;color:#64748b;margin-top:2px}
+.stats{display:flex;gap:24px;padding:12px 0;border-top:1px solid #f1f5f9;margin-top:12px}
+.stat{font-size:13px}
+.stat strong{color:#2563eb;font-size:16px}
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);display:none;align-items:center;justify-content:center;z-index:9999}
+.loading-overlay.show{display:flex}
+.loading-overlay .spinner{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+<h1>PDM 表重建脚本生成工具</h1>
+<p>上传新旧 PDM 文件，选择需要重建的表，自动生成 12 个 SQL Server 脚本（6 重建 + 6 还原）</p>
+</header>
+<div class="container">
+
+<div class="card" id="card-upload">
+<div class="card-title"><span class="step-num">1</span>上传 PDM 文件</div>
+<div class="upload-grid">
+<div class="upload-box" id="box-old" onclick="document.getElementById('file-old').click()">
+<div class="icon">&#128193;</div>
+<div class="label">旧 PDM（当前结构）</div>
+<div class="hint">点击选择 .pdm 文件</div>
+<div class="filename" id="filename-old" style="display:none"></div>
+<input type="file" id="file-old" accept=".pdm,.xml">
+</div>
+<div class="upload-box" id="box-new" onclick="document.getElementById('file-new').click()">
+<div class="icon">&#128193;</div>
+<div class="label">新 PDM（目标结构）</div>
+<div class="hint">点击选择 .pdm 文件</div>
+<div class="filename" id="filename-new" style="display:none"></div>
+<input type="file" id="file-new" accept=".pdm,.xml">
+</div>
+</div>
+</div>
+
+<div class="card disabled" id="card-tables">
+<div class="card-title"><span class="step-num">2</span>选择需要重建的表</div>
+<div class="alert alert-info" id="parse-status" style="display:none"></div>
+<div class="toolbar">
+<div style="display:flex;gap:8px">
+<button class="btn btn-secondary btn-sm" onclick="App.selectAll(true)">全选</button>
+<button class="btn btn-secondary btn-sm" onclick="App.selectAll(false)">取消全选</button>
+</div>
+<div style="font-size:13px;color:#64748b" id="table-count"></div>
+</div>
+<div class="table-list">
+<table>
+<thead><tr><th style="width:40px"></th><th>表名 (Code)</th><th>显示名</th><th>列数</th><th>旧PDM</th><th>差异</th></tr></thead>
+<tbody id="table-body"></tbody>
+</table>
+</div>
+</div>
+
+<div class="card disabled" id="card-config">
+<div class="card-title"><span class="step-num">3</span>配置与生成</div>
+<div class="config-grid">
+<div class="form-group">
+<label>日期 (YYYYMMDD)</label>
+<input type="text" id="cfg-date" value="">
+</div>
+<div class="form-group">
+<label>Schema</label>
+<input type="text" id="cfg-schema" value="dbo">
+</div>
+<div class="form-group">
+<label>临时表前缀</label>
+<input type="text" id="cfg-prefix" value="tmp_">
+</div>
+</div>
+<div style="margin-top:16px">
+<button class="btn btn-primary" id="btn-generate" onclick="App.generate()">生成 12 脚本</button>
+</div>
+</div>
+
+<div class="card disabled" id="card-results">
+<div class="card-title"><span class="step-num">4</span>预览与下载</div>
+<div class="alert alert-success" id="gen-status" style="display:none"></div>
+<div class="download-bar">
+<button class="btn btn-primary btn-sm" onclick="App.downloadAllZip()">下载全部 (ZIP)</button>
+<button class="btn btn-secondary btn-sm" onclick="App.downloadCurrent()">下载当前脚本</button>
+</div>
+<div class="results-layout" style="margin-top:12px">
+<div class="tree-panel" id="tree-panel"></div>
+<div class="preview-panel"><pre id="preview-code">-- 点击左侧脚本节点查看内容</pre></div>
+</div>
+</div>
+
+</div>
+<div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ===================== PDM Parser ===================== */
+const PDMParser = {
+  parse(xmlText){
+    const doc = new DOMParser().parseFromString(xmlText,'text/xml');
+    const errNode = doc.querySelector('parsererror');
+    if(errNode) throw new Error('XML 解析失败，请确认文件为合法 PDM');
+    const model = this.findModel(doc);
+    if(!model) throw new Error('未找到 Model 节点');
+    const colIndex = {};
+    const tableIndex = {};
+    const tables = {};
+    const tableEls = model.getElementsByTagName('o:Table');
+    for(let i=0;i<tableEls.length;i++){
+      const t = this.parseTable(tableEls[i],colIndex);
+      if(t){
+        tables[t.code]=t;
+        tableIndex[t.objectId]=t.code;
+        if(t.id) tableIndex[t.id]=t.code;
+      }
+    }
+    const references = this.parseReferences(model,tableIndex,colIndex);
+    return {tables,references,tableIndex};
+  },
+  findModel(doc){
+    const m = doc.getElementsByTagName('o:Model');
+    return m.length>0 ? m[0] : null;
+  },
+  _gt(parent,tag){
+    const els = parent.getElementsByTagName(tag);
+    return els.length>0 ? els[0].textContent.trim() : null;
+  },
+  _ref(el){
+    return el.getAttribute('Ref') || el.getAttribute('o:Ref') || null;
+  },
+  parseTable(el,colIndex){
+    const code = this._gt(el,'a:Code');
+    if(!code) return null;
+    const objectId = this._gt(el,'a:ObjectID') || code;
+    const id = el.getAttribute('Id') || null;
+    const name = this._gt(el,'a:Name') || code;
+    const comment = this._gt(el,'a:Comment');
+    const columns = [];
+    const colEls = el.getElementsByTagName('o:Column');
+    const seen = new Set();
+    for(let i=0;i<colEls.length;i++){
+      if(colEls[i].parentNode.parentNode !== el && colEls[i].parentNode !== el) continue;
+      if(seen.has(colEls[i])) continue;
+      seen.add(colEls[i]);
+      const col = this.parseColumn(colEls[i]);
+      if(col){
+        columns.push(col);
+        colIndex[col.objectId] = col.code;
+        if(col.id) colIndex[col.id] = col.code;
+      }
+    }
+    const allKeys = this.parseKeys(el,colIndex);
+    const primaryKey = allKeys.find(k=>k.isPK) || null;
+    const uniqueKeys = allKeys.filter(k=>!k.isPK);
+    const indexes = this.parseIndexes(el,colIndex);
+    const checks = this.parseChecks(el);
+    return {objectId,id,code,name,comment,columns,primaryKey,uniqueKeys,indexes,checks};
+  },
+  parseColumn(el){
+    const code = this._gt(el,'a:Code');
+    if(!code) return null;
+    const objectId = this._gt(el,'a:ObjectID') || code;
+    const id = el.getAttribute('Id') || null;
+    const name = this._gt(el,'a:Name') || code;
+    const comment = this._gt(el,'a:Comment');
+    let dataType = this._gt(el,'a:DataType') || 'varchar(50)';
+    dataType = dataType.trim();
+    const length = this._gt(el,'a:Length');
+    const precision = this._gt(el,'a:Precision');
+    const mandatory = this._gt(el,'a:Mandatory') || this._gt(el,'a:Column.Mandatory');
+    const identity = this._gt(el,'a:Identity');
+    const defaultValue = this._gt(el,'a:DefaultValue');
+    let computedExpr = this._gt(el,'a:ComputedExpression');
+    if(computedExpr){
+      const m = computedExpr.match(/\{(.+?)\}/);
+      if(m) computedExpr = m[1];
+    }
+    const sqlType = this.buildSQLType(dataType,length,precision);
+    const colChecks = this.parseChecks(el);
+    return {
+      objectId,id,code,name,comment,
+      dataType:sqlType,
+      mandatory: mandatory==='1',
+      identity: identity==='1',
+      defaultValue: defaultValue ? defaultValue.trim() : null,
+      computed: computedExpr ? computedExpr.trim() : null,
+      checks: colChecks
+    };
+  },
+  buildSQLType(dataType,length,precision){
+    let dt = dataType.trim();
+    if(/\(.*\)/.test(dt)) return dt.toLowerCase();
+    const lower = dt.toLowerCase();
+    const needLen = ['varchar','char','nvarchar','nchar','varbinary','binary'];
+    const needPrec = ['decimal','numeric'];
+    const needSize = ['datetime2','time','datetimeoffset'];
+    if(needLen.includes(lower) && length) return lower+'('+length+')';
+    if(needPrec.includes(lower) && length) return lower+'('+length+','+(precision||'0')+')';
+    if(needSize.includes(lower) && precision) return lower+'('+precision+')';
+    if(needLen.includes(lower) && !length) return lower+'(50)';
+    if(needPrec.includes(lower) && !length) return lower+'(10,0)';
+    return lower;
+  },
+  parseKeys(el,colIndex){
+    const keys = [];
+    // Determine PK reference
+    const pkRefEl = el.getElementsByTagName('c:PrimaryKey');
+    let pkRef = null;
+    if(pkRefEl.length>0){
+      const keyEls = pkRefEl[0].getElementsByTagName('o:Key');
+      if(keyEls.length>0) pkRef = this._ref(keyEls[0]);
+    }
+    // Determine ClusterObject reference (PowerDesigner stores clustered key here)
+    const clusterRefEl = el.getElementsByTagName('c:ClusterObject');
+    let clusterRef = null;
+    if(clusterRefEl.length>0){
+      const keyEls = clusterRefEl[0].getElementsByTagName('o:Key');
+      if(keyEls.length>0) clusterRef = this._ref(keyEls[0]);
+    }
+    // Parse all keys from c:Keys
+    const keyContainer = el.getElementsByTagName('c:Keys');
+    if(keyContainer.length>0){
+      const keyEls = keyContainer[0].getElementsByTagName('o:Key');
+      const seen = new Set();
+      for(let i=0;i<keyEls.length;i++){
+        if(seen.has(keyEls[i])) continue;
+        seen.add(keyEls[i]);
+        const oid = this._gt(keyEls[i],'a:ObjectID');
+        const kid = keyEls[i].getAttribute('Id');
+        const keyCode = this._gt(keyEls[i],'a:ConstraintName') || this._gt(keyEls[i],'a:Code') || ('PK_'+this._gt(el,'a:Code'));
+        const keyName = this._gt(keyEls[i],'a:Name') || keyCode;
+        // Clustered if: 1) referenced by c:ClusterObject, or 2) has a:Clustered=1
+        const isClustered = (clusterRef && (oid===clusterRef || kid===clusterRef)) || this._gt(keyEls[i],'a:Clustered')==='1';
+        const cols = this.parseKeyColumns(keyEls[i],colIndex);
+        if(cols.length===0) continue;
+        const isPK = pkRef && (oid===pkRef || kid===pkRef);
+        keys.push({
+          name:keyName, code:keyCode, columns:cols,
+          clustered: !!isClustered,
+          isPK: !!isPK
+        });
+      }
+    }
+    // Handle inline PK (key defined directly in c:PrimaryKey without Ref)
+    if(pkRefEl.length>0 && !keys.find(k=>k.isPK)){
+      const inlineKeyEls = pkRefEl[0].getElementsByTagName('o:Key');
+      if(inlineKeyEls.length>0 && !pkRef){
+        const keyCode = this._gt(inlineKeyEls[0],'a:ConstraintName') || this._gt(inlineKeyEls[0],'a:Code') || ('PK_'+this._gt(el,'a:Code'));
+        const keyName = this._gt(inlineKeyEls[0],'a:Name') || keyCode;
+        const clustered = this._gt(inlineKeyEls[0],'a:Clustered');
+        const cols = this.parseKeyColumns(inlineKeyEls[0],colIndex);
+        if(cols.length>0){
+          keys.push({name:keyName,code:keyCode,columns:cols,clustered:clustered==='1',isPK:true});
+        }
+      }
+    }
+    return keys;
+  },
+  parseKeyColumns(keyEl,colIndex){
+    const cols = [];
+    const refEls = keyEl.getElementsByTagName('c:Key.Columns');
+    if(refEls.length===0) return cols;
+    const colRefs = refEls[0].getElementsByTagName('o:Column');
+    for(let i=0;i<colRefs.length;i++){
+      const ref = this._ref(colRefs[i]);
+      if(ref && colIndex[ref]) cols.push(colIndex[ref]);
+    }
+    return cols;
+  },
+  parseIndexes(el,colIndex){
+    const indexes = [];
+    const idxContainer = el.getElementsByTagName('c:Indexes');
+    if(idxContainer.length===0) return indexes;
+    const idxEls = idxContainer[0].getElementsByTagName('o:Index');
+    for(let i=0;i<idxEls.length;i++){
+      const code = this._gt(idxEls[i],'a:Code') || this._gt(idxEls[i],'a:Name');
+      if(!code) continue;
+      const name = this._gt(idxEls[i],'a:Name') || code;
+      const unique = this._gt(idxEls[i],'a:Unique');
+      const clustered = this._gt(idxEls[i],'a:Clustered');
+      const cols = [];
+      const sortings = [];
+      const idxColEls = idxEls[i].getElementsByTagName('o:IndexColumn');
+      for(let j=0;j<idxColEls.length;j++){
+        const colRef = idxColEls[j].getElementsByTagName('o:Column');
+        if(colRef.length>0){
+          const ref = this._ref(colRef[0]);
+          if(ref && colIndex[ref]){
+            cols.push(colIndex[ref]);
+            const sorting = this._gt(idxColEls[j],'a:Sorting');
+            sortings.push(sorting === '2' ? 'DESC' : 'ASC');
+          }
+        }
+      }
+      if(cols.length>0){
+        indexes.push({
+          name,code,
+          unique: unique==='1',
+          clustered: clustered==='1',
+          columns: cols,
+          sortings: sortings
+        });
+      }
+    }
+    return indexes;
+  },
+  parseChecks(el){
+    const checks = [];
+    const allContainers = el.getElementsByTagName('c:Checks');
+    const directContainers = [];
+    for(let i=0;i<allContainers.length;i++){
+      if(allContainers[i].parentNode === el) directContainers.push(allContainers[i]);
+    }
+    if(directContainers.length===0) return checks;
+    const seen = new Set();
+    for(const dc of directContainers){
+      const checkEls = dc.getElementsByTagName('o:Check');
+      for(let i=0;i<checkEls.length;i++){
+        if(seen.has(checkEls[i])) continue;
+        seen.add(checkEls[i]);
+        let expr = this._gt(checkEls[i],'a:ServerExpression');
+        if(!expr) expr = this._gt(checkEls[i],'a:Expression');
+        if(!expr) continue;
+        expr = expr.replace(/^\{|\}$/g,'').trim();
+        if(!expr) continue;
+        const code = this._gt(checkEls[i],'a:Code') || this._gt(checkEls[i],'a:Name') || ('CK_'+i);
+        const name = this._gt(checkEls[i],'a:Name') || code;
+        checks.push({name,code,expression:expr});
+      }
+    }
+    return checks;
+  },
+  parseReferences(model,tableIndex,colIndex){
+    const refs = [];
+    const refEls = model.getElementsByTagName('o:Reference');
+    for(let i=0;i<refEls.length;i++){
+      const code = this._gt(refEls[i],'a:ForeignKeyConstraintName') || this._gt(refEls[i],'a:Code');
+      if(!code) continue;
+      const name = this._gt(refEls[i],'a:Name') || code;
+      let parentTable = null, childTable = null;
+      const ptEl = refEls[i].getElementsByTagName('c:ParentTable');
+      if(ptEl.length>0){
+        const tRef = ptEl[0].getElementsByTagName('o:Table');
+        if(tRef.length>0) parentTable = tableIndex[this._ref(tRef[0])];
+      }
+      const ctEl = refEls[i].getElementsByTagName('c:ChildTable');
+      if(ctEl.length>0){
+        const tRef = ctEl[0].getElementsByTagName('o:Table');
+        if(tRef.length>0) childTable = tableIndex[this._ref(tRef[0])];
+      }
+      if(!parentTable || !childTable) continue;
+      const joins = [];
+      const joinEls = refEls[i].getElementsByTagName('o:ReferenceJoin');
+      const seen = new Set();
+      for(let j=0;j<joinEls.length;j++){
+        if(seen.has(joinEls[j])) continue;
+        seen.add(joinEls[j]);
+        let pCol = null, cCol = null;
+        const o1 = joinEls[j].getElementsByTagName('c:Object1');
+        if(o1.length>0){
+          const c = o1[0].getElementsByTagName('o:Column');
+          if(c.length>0) pCol = colIndex[this._ref(c[0])];
+        }
+        const o2 = joinEls[j].getElementsByTagName('c:Object2');
+        if(o2.length>0){
+          const c = o2[0].getElementsByTagName('o:Column');
+          if(c.length>0) cCol = colIndex[this._ref(c[0])];
+        }
+        if(pCol && cCol) joins.push({parentColumn:pCol,childColumn:cCol});
+      }
+      refs.push({name,code,parentTable,childTable,joins});
+    }
+    return refs;
+  }
+};
+
+/* ===================== SQL Generator ===================== */
+const SQLGen = {
+  br(name){ return '['+String(name).replace(/]/g,']]')+']'; },
+
+  formatDefault(val,dataType){
+    if(!val) return val;
+    val = val.trim();
+    // Already quoted
+    if(/^'.*'$/.test(val)) return val;
+    // SQL functions (getdate, getutcdate, newid, etc.)
+    if(/^(getdate|getutcdate|newid|newsequentialid|sysdatetime|sysutcdatetime|current_timestamp)\s*\(/i.test(val)) return val;
+    // Numeric values
+    if(/^-?\d+(\.\d+)?$/.test(val)) return val;
+    // String types need single quotes
+    const stringTypes = ['varchar','char','nvarchar','nchar','text','ntext'];
+    const baseType = dataType.replace(/\(.*\)/,'').trim().toLowerCase();
+    if(stringTypes.includes(baseType)) return "'"+val.replace(/'/g,"''")+"'";
+    return val;
+  },
+
+  generateAll(oldPDM,newPDM,selectedTables,cfg){
+    const allScripts = {};
+    let batchNum = parseInt(cfg.startBatch)||1;
+    for(const tbl of selectedTables){
+      const batch = String(batchNum).padStart(2,'0');
+      allScripts[tbl] = this.generateTableScripts(oldPDM,newPDM,tbl,batch,cfg);
+      batchNum++;
+    }
+    return allScripts;
+  },
+
+  generateTableScripts(oldPDM,newPDM,tableName,batch,cfg){
+    const oldTbl = oldPDM.tables[tableName];
+    const newTbl = newPDM.tables[tableName];
+    if(!newTbl) return null;
+    const date = cfg.date;
+    const schema = cfg.schema;
+    const prefix = cfg.prefix;
+    const oldRefs = this.getRelatedRefs(oldPDM.references,tableName);
+    const newRefs = this.getRelatedRefs(newPDM.references,tableName);
+    const allRefNames = [...new Set([...oldRefs.map(r=>r.code),...newRefs.map(r=>r.code)])];
+    const oldCols = oldTbl ? oldTbl.columns.map(c=>c.code) : [];
+    const newCols = newTbl.columns.map(c=>c.code);
+    const commonCols = newCols.filter(c=>oldCols.includes(c));
+    const actions = ['备份数据','删除外键','重建表','恢复数据','恢复外键','删除备份'];
+    const buildName = (type,step) => {
+      const prefix = type==='还原表' ? 'R_' : '';
+      return `${prefix}${date}_${batch}_${type}${tableName}_${step}_${actions[step-1]}_Alen.sql`;
+    };
+
+    const rebuild = [];
+    rebuild.push({filename:buildName('重建表',1),sql:this.genBackup(tableName,schema,prefix,'重建')});
+    rebuild.push({filename:buildName('重建表',2),sql:this.genDropFK(tableName,schema,oldRefs,newRefs,'重建')});
+    rebuild.push({filename:buildName('重建表',3),sql:this.genRebuildTable(newTbl,schema,'重建')});
+    rebuild.push({filename:buildName('重建表',4),sql:this.genRestoreData(tableName,schema,prefix,commonCols,newTbl,'重建')});
+    rebuild.push({filename:buildName('重建表',5),sql:this.genCreateFK(tableName,schema,newRefs,'重建')});
+    rebuild.push({filename:buildName('重建表',6),sql:this.genDropBackup(tableName,schema,prefix,'重建')});
+
+    const restore = [];
+    const oldTblForRestore = oldTbl || newTbl;
+    const restoreCols = oldTbl ? oldCols : newCols;
+    const restoreCommon = restoreCols.filter(c=>newCols.includes(c));
+    restore.push({filename:buildName('还原表',1),sql:this.genBackup(tableName,schema,prefix,'还原')});
+    restore.push({filename:buildName('还原表',2),sql:this.genDropFK(tableName,schema,oldRefs,newRefs,'还原')});
+    restore.push({filename:buildName('还原表',3),sql:this.genRebuildTable(oldTblForRestore,schema,'还原')});
+    restore.push({filename:buildName('还原表',4),sql:this.genRestoreData(tableName,schema,prefix,restoreCommon,oldTblForRestore,'还原')});
+    restore.push({filename:buildName('还原表',5),sql:this.genCreateFK(tableName,schema,oldRefs,'还原')});
+    restore.push({filename:buildName('还原表',6),sql:this.genDropBackup(tableName,schema,prefix,'还原')});
+
+    return {rebuild,restore};
+  },
+
+  getRelatedRefs(refs,tableName){
+    return refs.filter(r=>r.parentTable===tableName || r.childTable===tableName);
+  },
+
+  genHeader(type,step,tableName,schema,desc){
+    const ts = new Date().toLocaleString('zh-CN');
+    return `/* ================================================================
+   ${type}脚本 - 步骤 ${step}/6: ${desc}
+   表名: ${schema}.${tableName}
+   生成时间: ${ts}
+   ================================================================ */`;
+  },
+
+  genBackup(tableName,schema,prefix,type){
+    const tmp = prefix+tableName;
+    return `${this.genHeader(type,1,tableName,schema,'备份数据')}
+
+if object_id('${schema}.${tmp}', 'U') is not null
+    drop table ${this.br(schema)}.${this.br(tmp)};
+go
+
+select * into ${this.br(schema)}.${this.br(tmp)} from ${this.br(schema)}.${this.br(tableName)};
+go
+
+print N'[1/6] 备份数据完成: ${schema}.${tableName} -> ${schema}.${tmp}';
+go`;
+  },
+
+  genDropFK(tableName,schema,oldRefs,newRefs,type){
+    const allRefs = [...oldRefs];
+    for(const r of newRefs){
+      if(!allRefs.find(x=>x.code===r.code)) allRefs.push(r);
+    }
+    const seen = new Set();
+    const lines = [];
+    for(const r of allRefs){
+      if(seen.has(r.code)) continue;
+      seen.add(r.code);
+      lines.push(`if exists (select 1
+   from sys.sysreferences r join sys.sysobjects o on (o.id = r.constid and o.type = 'F')
+   where r.fkeyid = object_id('${r.childTable}') and o.name = '${r.code}')
+alter table ${r.childTable}
+   drop constraint ${r.code}
+go`);
+    }
+    const header = this.genHeader(type,2,tableName,schema,'删除外键');
+    return lines.length>0
+      ? `${header}\n\n` +
+        `-- 删除涉及 ${tableName} 的所有外键约束\n` +
+        lines.join('\n\n') + '\n\n' +
+        `print N'[2/6] 删除外键完成: ${tableName}';\ngo`
+      : `${header}\n\n` +
+        `-- 没有涉及 ${tableName} 的外键约束\n\n` +
+        `print N'[2/6] 删除外键完成: ${tableName} (无外键)';\ngo`;
+  },
+
+  genRebuildTable(tbl,schema,type){
+    const t = tbl.code;
+    let sql = `${this.genHeader(type,3,t,schema,'重建表')}\n\n`;
+
+    /* --- 1. 删除索引 --- */
+    if(tbl.indexes && tbl.indexes.length>0){
+      for(const idx of tbl.indexes){
+        sql += `if exists (select 1\n`;
+        sql += `            from  sysindexes\n`;
+        sql += `           where  id    = object_id('${t}')\n`;
+        sql += `            and   name  = '${idx.code}'\n`;
+        sql += `            and   indid > 0\n`;
+        sql += `            and   indid < 255)\n`;
+        sql += `   drop index ${t}.${idx.code}\n`;
+        sql += `go\n\n`;
+      }
+    }
+
+    /* --- 2. 删除表 --- */
+    sql += `if exists (select 1\n`;
+    sql += `            from  sysobjects\n`;
+    sql += `           where  id = object_id('${t}')\n`;
+    sql += `            and   type = 'U')\n`;
+    sql += `   drop table ${t}\n`;
+    sql += `go\n\n`;
+
+    /* --- 3. 表注释块 + CREATE TABLE --- */
+    sql += `/*==============================================================*/\n`;
+    sql += `/* Table: ${t.padEnd(58)}*/\n`;
+    sql += `/*==============================================================*/\n`;
+    sql += `create table ${t} (\n`;
+
+    /* 计算列对齐宽度 */
+    const colNames = tbl.columns.map(c=>c.code);
+    const maxColLen = Math.max(...colNames.map(n=>n.length), 20);
+    const typeNames = tbl.columns.filter(c=>!c.computed).map(c=>c.dataType);
+    const maxTypeLen = Math.max(...typeNames.map(t=>t.length), 20);
+
+    const lines = [];
+    for(const col of tbl.columns){
+      if(col.computed){
+        lines.push(`   ${col.code.padEnd(maxColLen)} as (${col.computed})`);
+        continue;
+      }
+      let line = `   ${col.code.padEnd(maxColLen)} ${col.dataType.padEnd(maxTypeLen)}`;
+      if(col.identity) line += ' identity(1,1)';
+      line += col.mandatory ? ' not null' : ' null';
+      if(col.defaultValue){
+        line += ` default ${this.formatDefault(col.defaultValue,col.dataType)}`;
+      }
+      if(col.checks && col.checks.length>0){
+        for(const ck of col.checks){
+          line += ` constraint ${ck.code} check (${ck.expression})`;
+        }
+      }
+      lines.push(line+',');
+    }
+    if(tbl.primaryKey){
+      const pk = tbl.primaryKey;
+      const cols = pk.columns.join(', ');
+      const cl = pk.clustered ? 'clustered' : 'nonclustered';
+      lines.push(`   constraint ${pk.code} primary key ${cl} (${cols}),`);
+    }
+    if(tbl.uniqueKeys && tbl.uniqueKeys.length>0){
+      for(const uk of tbl.uniqueKeys){
+        const cols = uk.columns.join(', ');
+        lines.push(`   constraint ${uk.code} unique (${cols}),`);
+      }
+    }
+    if(tbl.checks && tbl.checks.length>0){
+      for(const ck of tbl.checks){
+        lines.push(`   constraint ${ck.code} check (${ck.expression}),`);
+      }
+    }
+    let body = lines.join('\n');
+    if(body.endsWith(',')) body = body.slice(0,-1);
+    sql += body + '\n)\n';
+    sql += `go\n`;
+
+    /* --- 4. Extended Properties: 表级注释 --- */
+    if(tbl.comment){
+      sql += '\n' + this.genTableExtendedProperty(t, tbl.comment);
+    }
+
+    /* --- 5. Extended Properties: 列级注释 --- */
+    for(const col of tbl.columns){
+      if(col.comment){
+        sql += '\n' + this.genColumnExtendedProperty(t, col.code, col.comment);
+      }
+    }
+
+    /* --- 6. 创建索引 --- */
+    if(tbl.indexes && tbl.indexes.length>0){
+      for(const idx of tbl.indexes){
+        sql += `\n/*==============================================================*/\n`;
+        sql += `/* Index: ${idx.code.padEnd(54)}*/\n`;
+        sql += `/*==============================================================*/\n\n\n\n\n`;
+        const unique = idx.unique ? 'unique ' : '';
+        const clustered = idx.clustered ? 'clustered ' : 'nonclustered ';
+        const colParts = idx.columns.map((c,i)=>{
+          const dir = (idx.sortings && idx.sortings[i]) ? idx.sortings[i] : 'ASC';
+          return i===0 ? `${c} ${dir}` : `  ${c} ${dir}`;
+        });
+        sql += `create ${unique}${clustered}index ${idx.code} on ${t} (${colParts.join(',\n')})\n`;
+        sql += `go\n`;
+      }
+    }
+
+    sql += `\nprint N'[3/6] 重建表完成: ${schema}.${t}';\ngo`;
+    return sql;
+  },
+
+  escSQL(str){
+    return String(str).replace(/'/g,"''");
+  },
+
+  genTableExtendedProperty(t, comment){
+    const c = this.escSQL(comment);
+    let s = '';
+    s += `if exists (select 1 from  sys.extended_properties\n`;
+    s += `           where major_id = object_id('${t}') and minor_id = 0)\n`;
+    s += `begin\n`;
+    s += `   declare @CurrentUser sysname\n`;
+    s += `select @CurrentUser = user_name()\n`;
+    s += `execute sp_dropextendedproperty 'MS_Description',\n`;
+    s += `   'schema', @CurrentUser, 'table', '${t}'\n`;
+    s += `\nend\n\n`;
+    s += `select @CurrentUser = user_name()\n`;
+    s += `execute sp_addextendedproperty 'MS_Description',\n`;
+    s += `   '${c}',\n`;
+    s += `   'schema', @CurrentUser, 'table', '${t}'\n`;
+    s += `go\n`;
+    return s;
+  },
+
+  genColumnExtendedProperty(t, colCode, comment){
+    const c = this.escSQL(comment);
+    let s = '';
+    s += `if exists(select 1 from sys.extended_properties p where\n`;
+    s += `      p.major_id = object_id('${t}')\n`;
+    s += `  and p.minor_id = (select c.column_id from sys.columns c where c.object_id = p.major_id and c.name = '${colCode}')\n`;
+    s += `)\n`;
+    s += `begin\n`;
+    s += `   declare @CurrentUser sysname\n`;
+    s += `select @CurrentUser = user_name()\n`;
+    s += `execute sp_dropextendedproperty 'MS_Description',\n`;
+    s += `   'schema', @CurrentUser, 'table', '${t}', 'column', '${colCode}'\n`;
+    s += `\nend\n\n`;
+    s += `select @CurrentUser = user_name()\n`;
+    s += `execute sp_addextendedproperty 'MS_Description',\n`;
+    s += `   '${c}',\n`;
+    s += `   'schema', @CurrentUser, 'table', '${t}', 'column', '${colCode}'\n`;
+    s += `go\n`;
+    return s;
+  },
+
+  genRestoreData(tableName,schema,prefix,commonCols,targetTbl,type){
+    const tmp = prefix+tableName;
+    const hasIdentity = targetTbl.columns.some(c=>c.identity && commonCols.includes(c.code));
+    let sql = `${this.genHeader(type,4,tableName,schema,'恢复数据')}\n\n`;
+    if(hasIdentity) sql += `set identity_insert ${this.br(schema)}.${this.br(tableName)} on;\ngo\n\n`;
+    const cols = commonCols.map(c=>this.br(c)).join(',\n    ');
+    sql += `insert into ${this.br(schema)}.${this.br(tableName)} (\n    ${cols}\n)\nselect\n    ${cols}\nfrom ${this.br(schema)}.${this.br(tmp)};\ngo\n\n`;
+    if(hasIdentity) sql += `set identity_insert ${this.br(schema)}.${this.br(tableName)} off;\ngo\n\n`;
+    sql += `print N'[4/6] 恢复数据完成: ${schema}.${tableName}';\ngo`;
+    return sql;
+  },
+
+  genCreateFK(tableName,schema,refs,type){
+    const header = this.genHeader(type,5,tableName,schema,'恢复外键');
+    if(refs.length===0){
+      return `${header}\n\n-- 没有涉及 ${tableName} 的外键约束\n\nprint N'[5/6] 恢复外键完成: ${tableName} (无外键)';\ngo`;
+    }
+    let sql = `${header}\n\n`;
+    const seen = new Set();
+    for(const r of refs){
+      if(seen.has(r.code)) continue;
+      seen.add(r.code);
+      const childCols = r.joins.map(j=>j.childColumn).join(', ');
+      const parentCols = r.joins.map(j=>j.parentColumn).join(', ');
+      sql += `alter table ${r.childTable}
+   add constraint ${r.code} foreign key (${childCols})
+      references ${r.parentTable} (${parentCols})
+go\n\n`;
+    }
+    sql += `print N'[5/6] 恢复外键完成: ${tableName}';\ngo`;
+    return sql;
+  },
+
+  genDropBackup(tableName,schema,prefix,type){
+    const tmp = prefix+tableName;
+    return `${this.genHeader(type,6,tableName,schema,'删除备份')}
+
+if object_id('${schema}.${tmp}', 'U') is not null
+    drop table ${this.br(schema)}.${this.br(tmp)};
+go
+
+print N'[6/6] 删除备份完成: ${schema}.${tmp}';
+go`;
+  }
+};
+
+/* ===================== UI Controller ===================== */
+const App = {
+  oldPDM:null, newPDM:null, generated:null, currentScript:null,
+
+  init(){
+    const d = new Date();
+    const dateStr = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    document.getElementById('cfg-date').value = dateStr;
+    document.getElementById('file-old').addEventListener('change', e=>this.handleFile('old',e.target.files[0]));
+    document.getElementById('file-new').addEventListener('change', e=>this.handleFile('new',e.target.files[0]));
+  },
+
+  showLoading(show){ document.getElementById('loading').classList.toggle('show',show); },
+
+  handleFile(type,file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = e=>{
+      try{
+        const pdm = PDMParser.parse(e.target.result);
+        if(type==='old') this.oldPDM = pdm; else this.newPDM = pdm;
+        const box = document.getElementById('box-'+type);
+        const fn = document.getElementById('filename-'+type);
+        box.classList.add('has-file');
+        fn.style.display = 'block';
+        fn.textContent = file.name;
+        if(this.oldPDM && this.newPDM) this.afterUpload();
+      }catch(err){
+        alert('解析失败: '+err.message);
+      }
+    };
+    reader.readAsText(file,'UTF-8');
+  },
+
+  afterUpload(){
+    document.getElementById('card-tables').classList.remove('disabled');
+    document.getElementById('card-config').classList.remove('disabled');
+    this.renderTableList();
+  },
+
+  renderTableList(){
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+    const newTables = Object.values(this.newPDM.tables).sort((a,b)=>a.code.localeCompare(b.code));
+    let count = 0, withOld = 0;
+    for(const t of newTables){
+      const hasOld = !!this.oldPDM.tables[t.code];
+      if(hasOld) withOld++;
+      const oldTbl = this.oldPDM.tables[t.code];
+      let diff = '-';
+      if(hasOld){
+        const oldCols = new Set(oldTbl.columns.map(c=>c.code));
+        const newCols = new Set(t.columns.map(c=>c.code));
+        const added = [...newCols].filter(c=>!oldCols.has(c)).length;
+        const removed = [...oldCols].filter(c=>!newCols.has(c)).length;
+        const parts = [];
+        if(added) parts.push('+'+added);
+        if(removed) parts.push('-'+removed);
+        diff = parts.length>0 ? parts.join(' ') : '无变化';
+      }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><input type="checkbox" data-table="${t.code}" ${hasOld?'':'disabled'}></td>
+        <td><strong>${t.code}</strong></td><td>${t.name}</td><td>${t.columns.length}</td>
+        <td>${hasOld?'<span class="badge badge-green">存在</span>':'<span class="badge badge-red">不存在</span>'}</td>
+        <td>${hasOld?diff:'<span class="badge badge-gray">无法还原</span>'}</td>`;
+      tbody.appendChild(tr);
+      count++;
+    }
+    document.getElementById('table-count').textContent = `共 ${count} 张表，其中 ${withOld} 张在旧PDM中存在`;
+    document.getElementById('parse-status').style.display = 'block';
+    document.getElementById('parse-status').innerHTML = `解析完成：旧PDM ${Object.keys(this.oldPDM.tables).length} 张表、${this.oldPDM.references.length} 个外键；新PDM ${count} 张表、${this.newPDM.references.length} 个外键。仅在旧PDM中存在的表无法生成还原脚本，已禁用选择。`;
+    tbody.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      if(!cb.disabled) cb.addEventListener('change',()=>this.updateGenBtn());
+    });
+    this.updateGenBtn();
+  },
+
+  selectAll(val){
+    document.querySelectorAll('#table-body input[type=checkbox]').forEach(cb=>{
+      if(!cb.disabled) cb.checked = val;
+    });
+    this.updateGenBtn();
+  },
+
+  getSelected(){
+    return [...document.querySelectorAll('#table-body input[type=checkbox]:checked')]
+      .map(cb=>cb.dataset.table);
+  },
+
+  updateGenBtn(){
+    const n = this.getSelected().length;
+    document.getElementById('btn-generate').disabled = n===0;
+    document.getElementById('btn-generate').textContent = n>0 ? `生成 ${n*12} 个脚本` : '生成 12 脚本';
+  },
+
+  generate(){
+    const selected = this.getSelected();
+    if(selected.length===0) return;
+    this.showLoading(true);
+    setTimeout(()=>{
+      try{
+        const cfg = {
+          date: document.getElementById('cfg-date').value,
+          schema: document.getElementById('cfg-schema').value,
+          prefix: document.getElementById('cfg-prefix').value,
+          startBatch: 1
+        };
+        this.generated = SQLGen.generateAll(this.oldPDM,this.newPDM,selected,cfg);
+        const total = selected.length*12;
+        const status = document.getElementById('gen-status');
+        status.style.display='block';
+        status.className='alert alert-success';
+        status.textContent = `已生成 ${total} 个脚本（${selected.length} 张表 × 12）。左侧选择脚本查看内容，可下载单个或全部 ZIP。`;
+        document.getElementById('card-results').classList.remove('disabled');
+        if(this.generated && Object.keys(this.generated).length>0){
+          this.renderTree();
+        }else{
+          status.className='alert alert-warning';
+          status.textContent = '未生成任何脚本，请检查是否选择了有效的表。';
+        }
+        document.getElementById('card-results').scrollIntoView({behavior:'smooth'});
+      }catch(err){
+        console.error(err);
+        const status = document.getElementById('gen-status');
+        status.style.display='block';
+        status.className='alert alert-error';
+        status.textContent = '生成失败: '+err.message;
+      }finally{
+        this.showLoading(false);
+      }
+    },100);
+  },
+
+  renderTree(){
+    const panel = document.getElementById('tree-panel');
+    panel.innerHTML = '';
+    for(const [tbl,scripts] of Object.entries(this.generated)){
+      if(!scripts) continue;
+      const tblNode = document.createElement('div');
+      tblNode.className = 'tree-node open';
+      tblNode.innerHTML = `<div class="tree-label"><span class="arrow open">&#9654;</span><span class="tree-icon">&#128193;</span><strong>${tbl}</strong></div>`;
+      const tblChildren = document.createElement('div');
+      tblChildren.className = 'tree-children';
+      for(const [type,label,icon] of [['rebuild','重建脚本','&#9650;'],['restore','还原脚本','&#9660;']]){
+        const typeNode = document.createElement('div');
+        typeNode.className = 'tree-node open';
+        typeNode.innerHTML = `<div class="tree-label"><span class="arrow open">&#9654;</span><span class="tree-icon">${icon}</span>${label}</div>`;
+        const typeChildren = document.createElement('div');
+        typeChildren.className = 'tree-children';
+        scripts[type].forEach((s,i)=>{
+          const leaf = document.createElement('div');
+          leaf.className = 'tree-leaf';
+          leaf.dataset.tbl = tbl;
+          leaf.dataset.type = type;
+          leaf.dataset.idx = i;
+          leaf.innerHTML = `<span class="tree-icon">&#128196;</span>${i+1}. ${s.filename}`;
+          leaf.onclick = ()=>this.showScript(tbl,type,i,leaf);
+          typeChildren.appendChild(leaf);
+        });
+        typeNode.appendChild(typeChildren);
+        tblChildren.appendChild(typeNode);
+      }
+      tblNode.appendChild(tblChildren);
+      panel.appendChild(tblNode);
+      tblNode.querySelector('.tree-label').onclick = ()=>{
+        tblNode.classList.toggle('open');
+        tblNode.querySelector('.arrow').classList.toggle('open');
+      };
+      tblChildren.querySelectorAll('.tree-node > .tree-label').forEach(lbl=>{
+        lbl.onclick = (e)=>{
+          e.stopPropagation();
+          const node = lbl.parentElement;
+          node.classList.toggle('open');
+          node.querySelector('.arrow').classList.toggle('open');
+        };
+      });
+    }
+  },
+
+  showScript(tbl,type,idx,leafEl){
+    const s = this.generated[tbl][type][idx];
+    this.currentScript = s;
+    document.querySelectorAll('.tree-leaf').forEach(l=>l.classList.remove('active'));
+    leafEl.classList.add('active');
+    const html = this.highlightSQL(s.sql);
+    document.getElementById('preview-code').innerHTML = html;
+  },
+
+  highlightSQL(sql){
+    return sql
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/(\/\*[\s\S]*?\*\/)/g,'<span class="comment">$1</span>')
+      .replace(/(--[^\n]*)/g,'<span class="comment">$1</span>')
+      .replace(/('(?:[^']|'')*')/g,'<span class="string">$1</span>')
+      .replace(/\b(CREATE|TABLE|ALTER|DROP|CONSTRAINT|PRIMARY|KEY|FOREIGN|REFERENCES|NOT|NULL|DEFAULT|CHECK|IDENTITY|INSERT|INTO|SELECT|FROM|GO|SET|ON|OFF|IF|EXISTS|OBJECT_ID|PRINT|BEGIN|END|EXEC|DECLARE|NVARCHAR|JOIN|WHERE|AND|OR|ADD|CLUSTERED|NONCLUSTERED|UNIQUE|INDEX|AS)\b/g,
+        '<span class="keyword">$1</span>');
+  },
+
+  downloadCurrent(){
+    if(!this.currentScript) { alert('请先选择一个脚本'); return; }
+    const blob = new Blob([this.currentScript.sql],{type:'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = this.currentScript.filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+
+  async downloadAllZip(){
+    if(!this.generated) return;
+    const zip = new JSZip();
+    const rebuildFolder = zip.folder('重建');
+    const restoreFolder = zip.folder('还原');
+    for(const [tbl,scripts] of Object.entries(this.generated)){
+      if(!scripts) continue;
+      for(const s of scripts.rebuild) rebuildFolder.file(s.filename,s.sql);
+      for(const s of scripts.restore) restoreFolder.file(s.filename,s.sql);
+    }
+    const blob = await zip.generateAsync({type:'blob'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `rebuild_scripts_${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+};
+
+document.addEventListener('DOMContentLoaded',()=>App.init());
+</script>
+</body>
+</html>

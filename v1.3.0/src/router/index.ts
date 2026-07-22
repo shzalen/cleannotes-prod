@@ -53,6 +53,18 @@ const router = createRouter({
       component: () => import('@/views/ReportsView.vue'),
     },
     {
+      path: '/tools',
+      component: () => import('@/views/ToolsView.vue'),
+      redirect: '/tools/pdm-rebuild',
+      children: [
+        {
+          path: 'pdm-rebuild',
+          name: 'pdm-rebuild',
+          component: () => import('@/views/tools/PdmRebuildView.vue'),
+        },
+      ],
+    },
+    {
       path: '/__diag',
       name: 'diag',
       component: () => import('@/views/DiagView.vue'),

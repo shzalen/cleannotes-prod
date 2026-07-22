@@ -84,3 +84,12 @@
 ## 已知 Bug 修复速查（2026-07-13 第三轮）
 - **BUG-06 Mermaid 图表空白**：第四轮安全审计(commit 9bb86f8)将 DOMPurify `ADD_ATTR` 从 `['*']` 改为显式约 50 个属性白名单，mermaid 11 SVG 的 CSS class 引用、aria-*、data-* 等关键属性被剥离导致不可见。修复：恢复 `ADD_ATTR: ['*']`，保留 `FORBID_TAGS: ['script'], FORBID_ATTR: ['on*']`。mermaid 已有 `securityLevel: 'sandbox'`，DOMPurify 是纵深防御不应过度限制（commit 711df96）。
 - 教训：安全优化收紧白名单时必须验证第三方渲染库输出的兼容性；这些库生成的 SVG/HTML 属性集合不可预测，显式白名单极易遗漏关键属性。
+
+## 常用工具模块（2026-07-22）
+- 左侧菜单新增"常用工具"项（扳手图标），位于 AI 助手和设置之间
+- **路由**：`/tools` → ToolsView（redirect → `/tools/pdm-rebuild`），嵌套子路由
+- **内页布局**：ToolsView.vue（左侧 220px 子菜单 + 右侧 router-view 内容区）
+- **目录约定**：Vue 工具组件放 `src/views/tools/`；静态 HTML 工具放 `public/tools/`
+- **PDM 表重建工具**：`src/views/tools/PdmRebuildView.vue` 通过 iframe 加载 `public/tools/pdm-script-generator.html`
+- AppSidebar `activeNav` 改为 computed，`route.path.startsWith('/tools')` 时高亮 tools
+- PDM 工具使用 CDN 引用 JSZip，离线环境可能需改为本地引用
