@@ -1,7 +1,7 @@
 // CleanNotes Mobile PWA Service Worker
 // v3: 改进缓存策略，预缓存 app shell，减少白屏
 
-const CACHE_NAME = 'cleannotes-mobile-v1.3.0-r65';
+const CACHE_NAME = 'cleannotes-mobile-v1.3.0-r49';
 const APP_SHELL = [
   './mobile.html',
   './manifest.json',
@@ -19,10 +19,13 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // 全新部署：所有 JS/CSS 文件名 hash 已变，清空所有旧缓存避免加载到失效资源
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.map((key) => caches.delete(key)))
+      Promise.all(
+        keys
+          .filter((key) => key !== CACHE_NAME && key !== STATIC_CACHE)
+          .map((key) => caches.delete(key))
+      )
     )
   );
   self.clients.claim();

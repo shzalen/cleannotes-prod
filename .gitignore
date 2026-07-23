@@ -1,2 +1,5 @@
 # Build cache
 .vite/
+
+# WorkBuddy internal (never deploy)
+.workbuddy/
