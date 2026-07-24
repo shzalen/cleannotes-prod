@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CleanNotes 清记 · 完整操作手册</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg-2:#161b22;--bg-3:#21262d;--border:#30363d;--border-light:#21262d;--text-1:#e6edf3;--text-2:#b1bac4;--text-3:#7d8590;--text-4:#484f58;--primary:#0052D9;--primary-light:rgba(0,82,217,.15);--success:#3fb950;--success-light:rgba(63,185,80,.12);--warning:#d29922;--warning-light:rgba(210,153,34,.12);--danger:#f85149;--danger-light:rgba(248,81,73,.12);--info:#58a6ff;--info-light:rgba(88,166,255,.12);--accent:#bc8cff;--accent-light:rgba(188,140,255,.12);--sidebar-w:260px}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text-1);line-height:1.7;font-size:15px}
+.sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--bg-2);border-right:1px solid var(--border);overflow-y:auto;z-index:100;padding:20px 0}
+.sidebar-brand{padding:0 24px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.sidebar-brand h1{font-size:18px;font-weight:700}
+.sidebar-brand p{font-size:12px;color:var(--text-3);margin-top:4px}
+.sidebar-nav{padding:0 12px}
+.sidebar-nav a{display:flex;align-items:center;gap:10px;padding:8px 16px;border-radius:8px;font-size:13px;color:var(--text-2);text-decoration:none;transition:all .15s;margin-bottom:2px}
+.sidebar-nav a:hover{background:var(--bg-3);color:var(--text-1)}
+.sidebar-nav a.active{background:var(--primary-light);color:var(--info);font-weight:600}
+.sidebar-nav .nav-icon{width:18px;height:18px;flex-shrink:0;opacity:.7}
+.sidebar-nav a.active .nav-icon{opacity:1}
+.sidebar-nav .nav-section{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-4);padding:16px 16px 6px}
+.sidebar-footer{padding:16px 24px;border-top:1px solid var(--border);margin-top:16px}
+.sidebar-footer p{font-size:11px;color:var(--text-4)}
+.sidebar-footer .download-btn{display:block;width:100%;text-align:center;padding:8px;border-radius:8px;background:var(--primary);color:#fff;font-size:13px;font-weight:600;text-decoration:none;margin-top:8px;transition:opacity .15s}
+.sidebar-footer .download-btn:hover{opacity:.85}
+.main{margin-left:var(--sidebar-w);padding:40px 48px 80px;max-width:980px}
+.chapter{margin-bottom:64px;scroll-margin-top:20px}
+.chapter-header{display:flex;align-items:center;gap:12px;margin-bottom:8px;padding-bottom:16px;border-bottom:2px solid var(--border)}
+.chapter-num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:var(--primary);color:#fff;font-size:15px;font-weight:700;flex-shrink:0}
+.chapter-header h2{font-size:24px;font-weight:700}
+.chapter-desc{color:var(--text-3);font-size:14px;margin-bottom:24px}
+h3{font-size:18px;font-weight:600;margin:32px 0 12px}
+h4{font-size:15px;font-weight:600;margin:20px 0 8px;color:var(--text-2)}
+p{margin-bottom:12px;color:var(--text-2)}
+ul,ol{margin:8px 0 16px 20px}
+li{margin-bottom:6px;color:var(--text-2)}
+strong{color:var(--text-1);font-weight:600}
+code{font-family:'SF Mono','Fira Code',Consolas,monospace;font-size:13px;background:var(--bg-3);padding:2px 6px;border-radius:4px;color:var(--accent)}
+.callout{border-radius:8px;padding:12px 16px;margin:16px 0;border-left:3px solid}
+.callout-title{font-weight:600;font-size:14px;margin-bottom:4px}
+.callout p{margin:0;font-size:13px}
+.callout-info{background:var(--info-light);border-color:var(--info)}.callout-info .callout-title{color:var(--info)}
+.callout-warning{background:var(--warning-light);border-color:var(--warning)}.callout-warning .callout-title{color:var(--warning)}
+.callout-danger{background:var(--danger-light);border-color:var(--danger)}.callout-danger .callout-title{color:var(--danger)}
+.callout-success{background:var(--success-light);border-color:var(--success)}.callout-success .callout-title{color:var(--success)}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0 20px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+th{background:var(--bg-3);text-align:left;padding:8px 12px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap}
+td{padding:8px 12px;color:var(--text-1);border-bottom:1px solid var(--border-light)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg-2)}
+.steps{counter-reset:step;margin:16px 0}
+.step{position:relative;padding-left:48px;margin-bottom:20px;min-height:32px}
+.step::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.step h4{margin-top:4px}
+.step p{font-size:14px}
+.svg-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:24px;margin:16px 0;overflow-x:auto}
+.svg-wrap svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.svg-caption{text-align:center;font-size:12px;color:var(--text-3);margin-top:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-success{background:var(--success-light);color:var(--success)}
+.badge-warning{background:var(--warning-light);color:var(--warning)}
+.badge-danger{background:var(--danger-light);color:var(--danger)}
+.badge-info{background:var(--info-light);color:var(--info)}
+.badge-accent{background:var(--accent-light);color:var(--accent)}
+.faq-item{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:16px 20px;margin-bottom:12px}
+.faq-q{font-weight:600;color:var(--text-1);margin-bottom:6px;font-size:14px}
+.faq-a{color:var(--text-2);font-size:14px}
+.screenshot-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px;margin:20px 0;text-align:center}
+.screenshot-wrap img{display:block;width:100%;max-width:100%;border-radius:8px;border:1px solid var(--border);background:var(--bg)}
+.screenshot-caption{text-align:center;font-size:12px;color:var(--text-3);margin-top:12px}
+.screenshot-wrap.mobile{max-width:420px;margin-left:auto;margin-right:auto}
+.admin-placeholder{background:var(--bg-2);border:1px dashed var(--border);border-radius:12px;padding:48px 24px;margin:20px 0;text-align:center;color:var(--text-3)}
+.admin-placeholder-icon{font-size:32px;margin-bottom:12px}
+@media print{@page{margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.sidebar{display:none}html,body{background:var(--bg) !important;color:var(--text-1);min-height:100vh}.main{margin-left:0;padding:20px 28px 40px;max-width:100%;background:var(--bg) !important;min-height:100vh}.chapter{page-break-before:always}.chapter:first-of-type{page-break-before:avoid}.screenshot-wrap,.svg-wrap{page-break-inside:avoid;border:1px solid var(--border);background:var(--bg-2) !important}h2,h3,h4{color:var(--text-1)}p,li,td,th{color:var(--text-2)}strong{color:var(--text-1)}.callout{border-left:3px solid}.callout-info{background:var(--info-light)!important;border-color:var(--info)}.callout-warning{background:var(--warning-light)!important;border-color:var(--warning)}.callout-danger{background:var(--danger-light)!important;border-color:var(--danger)}.callout-success{background:var(--success-light)!important;border-color:var(--success)}table{border-color:var(--border)}th{background:var(--bg-3) !important;color:var(--text-2);border-bottom:1px solid var(--border)}td{border-bottom:1px solid var(--border-light)}tr:hover td{background:var(--bg-2) !important}.step::before{background:var(--primary) !important}.chapter-num{background:var(--primary) !important;color:#fff !important}.badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}.screenshot-wrap img{border:1px solid var(--border)}.screenshot-caption{color:var(--text-3)}.faq-item{background:var(--bg-2) !important;border:1px solid var(--border)}.faq-q{color:var(--text-1)}.faq-a{color:var(--text-2)}code{background:var(--bg-3) !important;color:var(--accent)}.admin-placeholder{background:var(--bg-2) !important;border:1px dashed var(--border);color:var(--text-3)}}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<div class="sidebar-brand"><h1>📖 CleanNotes</h1><p>完整操作手册 v1.3.0</p></div>
+<div class="sidebar-nav" id="nav">
+<div class="nav-section">快速开始</div>
+<a href="#ch1"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>系统概述</a>
+<a href="#ch2"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>登录与注册</a>
+<div class="nav-section">核心功能</div>
+<a href="#ch3"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/></svg>首页概览</a>
+<a href="#ch4"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>任务管理</a>
+<a href="#ch5"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>备忘录</a>
+<a href="#ch6"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>周报</a>
+<div class="nav-section">辅助功能</div>
+<a href="#ch7"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2a3 3 0 0 1 3 3c0 1.5-1 2.5-1 4h2a3 3 0 0 1 3 3v1"/></svg>AI 助手</a>
+<a href="#ch8"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.61.2 1 .78 1 1.51V11a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>
+<a href="#ch9"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>常用工具</a>
+<div class="nav-section">扩展</div>
+<a href="#ch10"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>移动端</a>
+<a href="#ch11"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>快捷键</a>
+<a href="#ch12"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>常见问题</a>
+</div>
+<div class="sidebar-footer">
+<p>CleanNotes v1.3.0</p><p>更新于 2026-07-24</p>
+<a href="javascript:window.print()" class="download-btn">📄 下载 PDF</a>
+</div>
+</nav>
+<div class="main">
+
+<!-- ===== Chapter 1 ===== -->
+<section class="chapter" id="ch1">
+<div class="chapter-header"><span class="chapter-num">1</span><h2>系统概述</h2></div>
+<p class="chapter-desc">了解 CleanNotes 清记的核心功能与系统架构</p>
+<p>CleanNotes（清记）是一款个人高效记事本应用，集任务管理、笔记记录、周报生成、AI 助手于一体。系统采用 <strong>邮箱 + 密码</strong> 认证方式，数据通过云端服务器实时同步，支持多设备访问。</p>
+<h3>核心功能模块</h3>
+<table><tr><th>模块</th><th>功能</th><th>适用场景</th></tr>
+<tr><td>首页概览</td><td>今日任务、统计卡片、热力图、趋势图</td><td>快速了解工作状态</td></tr>
+<tr><td>任务管理</td><td>任务 CRUD、6 种视图、日历、回收站</td><td>日常任务规划与跟踪</td></tr>
+<tr><td>待办事项</td><td>记录尚未排期的灵感与想法</td><td>快速捕获未来任务</td></tr>
+<tr><td>备忘录</td><td>富文本编辑、Mermaid 图表、文件附件</td><td>知识管理与笔记记录</td></tr>
+<tr><td>周报</td><td>自动汇总、AI 总结、海报导出</td><td>周度工作复盘</td></tr>
+<tr><td>AI 助手</td><td>任务分析、优先级建议、智能拆解</td><td>智能辅助决策</td></tr>
+<tr><td>设置</td><td>账号管理、主题切换、AI 配置、用户审核</td><td>个性化配置</td></tr>
+<tr><td>常用工具</td><td>PDM 表重建工具</td><td>数据库脚本生成</td></tr>
+<tr><td>移动端</td><td>H5 适配、天气特效、手势交互</td><td>移动办公</td></tr></table>
+<h3>主题系统</h3>
+<table><tr><th>主题</th><th>主色调</th><th>说明</th></tr>
+<tr><td>腾讯蓝</td><td><span style="color:#0052D9">● #0052D9</span></td><td>默认主题，蓝色系，清爽专业</td></tr>
+<tr><td>ZURU</td><td><span style="color:#E53935">● #E53935</span></td><td>品牌红主题，活力醒目</td></tr>
+<tr><td>深色</td><td>深色背景</td><td>暗黑模式，护眼夜间使用</td></tr>
+<tr><td>跟随系统</td><td>自动切换</td><td>浅色时使用腾讯蓝，深色时使用深色模式</td></tr></table>
+<div class="callout callout-info">
+<div class="callout-title">安全机制</div>
+<p>1. 密码采用行业标准的 bcrypt 哈希存储，任何人（包括管理员）均无法查看明文密码。<br>2. 数据库启用 RLS（行级安全）策略，每个用户只能访问自己的数据。<br>3. API Key 采用客户端 AES-GCM 加密存储。<br>4. 新用户注册需管理员审核通过后方可登录使用。</p>
+</div>
+</section>
+
+<!-- ===== Chapter 2 ===== -->
+<section class="chapter" id="ch2">
+<div class="chapter-header"><span class="chapter-num">2</span><h2>登录与注册</h2></div>
+<p class="chapter-desc">系统访问、账户登录、注册审核、密码重置全流程</p>
+<h3>2.1 访问系统</h3>
+<p>在浏览器地址栏输入系统访问地址即可打开登录页面。系统支持 PC 端和移动端自动适配——在手机浏览器中打开会自动跳转到 H5 移动端版本。</p>
+<div class="callout callout-info"><div class="callout-title">浏览器要求</div><p>推荐使用 Chrome 90+、Edge 90+、Safari 14+ 或 Firefox 88+。需启用 JavaScript 和 Cookie。</p></div>
+<div class="screenshot-wrap">
+<img src="screenshots/01-login.png" alt="登录页面">
+<div class="screenshot-caption">图 2-1  CleanNotes 登录页面</div>
+</div>
+<h3>2.2 登录操作</h3>
+<div class="steps">
+<div class="step"><h4>输入邮箱地址</h4><p>在邮箱输入框中输入已注册的邮箱地址。系统会实时验证邮箱格式。</p></div>
+<div class="step"><h4>输入密码</h4><p>在密码输入框中输入密码。可点击右侧眼睛图标切换密码的显示/隐藏状态。</p></div>
+<div class="step"><h4>点击「登录」按钮</h4><p>邮箱和密码均填写后，按钮从灰色禁用态变为蓝色激活态。点击后进入加载状态。</p></div>
+<div class="step"><h4>登录成功</h4><p>验证通过后自动跳转到系统首页。若登录失败，页面底部显示红色错误提示。</p></div>
+</div>
+<div class="callout callout-warning"><div class="callout-title">登录失败常见原因</div><p>• <strong>邮箱或密码错误</strong>：检查大小写、输入法状态<br>• <strong>账号待审核</strong>：新注册账号需管理员审核通过后才能登录<br>• <strong>账号被拒绝</strong>：管理员拒绝了注册申请，请联系管理员<br>• <strong>网络异常</strong>：检查网络连接是否正常</p></div>
+<h3>2.3 注册新账户</h3>
+<div class="steps">
+<div class="step"><h4>切换到注册模式</h4><p>在登录页面底部点击「没有账户？去注册」链接。</p></div>
+<div class="step"><h4>填写注册信息</h4><p>依次输入：邮箱地址、密码（至少 8 位）、确认密码、昵称（可选）。</p></div>
+<div class="step"><h4>提交注册</h4><p>点击「注册」按钮提交。注册成功后显示提示：「注册成功！请等待管理员审核后登录。」</p></div>
+<div class="step"><h4>等待审核</h4><p>注册后账号状态为「待审核」。管理员审核通过后即可登录。</p></div>
+</div>
+<div class="screenshot-wrap">
+<img src="screenshots/12-register.png" alt="注册页面">
+<div class="screenshot-caption">图 2-2  注册新账户页面</div>
+</div>
+<div class="svg-wrap">
+<svg viewBox="0 0 500 80" width="500">
+<rect x="10" y="20" width="100" height="40" rx="8" fill="#161b22" stroke="#d29922" stroke-width="2"/>
+<text x="60" y="45" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">注册提交</text>
+<line x1="110" y1="40" x2="140" y2="40" stroke="#7d8590" stroke-width="2"/><polygon points="140,40 134,36 134,44" fill="#7d8590"/>
+<rect x="140" y="20" width="100" height="40" rx="8" fill="#161b22" stroke="#d29922" stroke-width="2"/>
+<text x="190" y="38" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">待审核</text>
+<text x="190" y="52" text-anchor="middle" fill="#7d8590" font-size="9">pending</text>
+<line x1="240" y1="40" x2="270" y2="40" stroke="#7d8590" stroke-width="2"/><polygon points="270,40 264,36 264,44" fill="#7d8590"/>
+<rect x="270" y="20" width="100" height="40" rx="8" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+<text x="320" y="38" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">审核通过</text>
+<text x="320" y="52" text-anchor="middle" fill="#7d8590" font-size="9">approved</text>
+<line x1="370" y1="40" x2="400" y2="40" stroke="#7d8590" stroke-width="2"/><polygon points="400,40 394,36 394,44" fill="#7d8590"/>
+<rect x="400" y="20" width="80" height="40" rx="8" fill="#161b22" stroke="#3fb950" stroke-width="2"/>
+<text x="440" y="45" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">可登录</text>
+</svg>
+<div class="svg-caption">图 2-3  注册审核流程</div>
+</div>
+<h3>2.4 忘记密码</h3>
+<div class="steps">
+<div class="step"><h4>点击「忘记密码？」</h4><p>在登录页面底部找到「忘记密码？」链接，点击进入密码重置流程。</p></div>
+<div class="step"><h4>输入注册邮箱</h4><p>输入注册时使用的邮箱地址，系统会向该邮箱发送密码重置链接。</p></div>
+<div class="step"><h4>查收邮件</h4><p>打开邮箱，找到标题为「重置您的 CleanNotes 密码」的邮件，点击「设置新密码」按钮。</p></div>
+<div class="step"><h4>设置新密码</h4><p>链接跳转回应用后，设置页面顶部显示黄色重置横幅。输入新密码并确认，点击「设置新密码」完成重置。</p></div>
+</div>
+<div class="screenshot-wrap">
+<img src="screenshots/13-forgot-password.png" alt="忘记密码流程">
+<div class="screenshot-caption">图 2-4  输入邮箱后点击「忘记密码？」，系统提示安全速率限制</div>
+</div>
+<div class="callout callout-info"><div class="callout-title">提示</div><p>邮件发送服务有速率限制（约 4 封/小时）。如果未收到邮件，请检查垃圾邮件文件夹或稍后重试。</p></div>
+</section>
+
+<!-- ===== Chapter 3 ===== -->
+<section class="chapter" id="ch3">
+<div class="chapter-header"><span class="chapter-num">3</span><h2>首页概览</h2></div>
+<p class="chapter-desc">登录后的主界面，快速掌握工作全貌</p>
+<p>首页是登录后的默认页面，集中展示今日任务状态、统计数据、工作趋势等核心信息。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/02-homepage.png" alt="系统首页">
+<div class="screenshot-caption">图 3-1  CleanNotes 系统首页</div>
+</div>
+<h3>3.1 功能区域说明</h3>
+<table><tr><th>区域</th><th>功能</th><th>交互</th></tr>
+<tr><td>Hero 卡片</td><td>分时段问候语、日期、距离上班时间倒计时</td><td>点击精力区域跳转精力系统</td></tr>
+<tr><td>统计卡片</td><td>今日任务、已完成、进行中、待处理数量</td><td>数字实时更新</td></tr>
+<tr><td>今日进度条</td><td>当日任务完成百分比</td><td>绿色填充表示进度</td></tr>
+<tr><td>今日任务列表</td><td>展示当天需要处理的任务</td><td>点击任务跳转任务管理</td></tr>
+<tr><td>任务热力图</td><td>GitHub 风格日历热力图，5 级颜色深度</td><td>支持年/月/周视图切换</td></tr>
+<tr><td>任务趋势图</td><td>折线图展示近期任务完成趋势</td><td>悬停查看具体数值</td></tr></table>
+<h3>3.2 左侧导航栏</h3>
+<p>左侧导航栏固定显示，包含以下元素：</p>
+<ul>
+<li><strong>品牌 Logo</strong>：CleanNotes 标识</li>
+<li><strong>用户卡片</strong>：头像（首字母）、昵称、邮箱</li>
+<li><strong>导航菜单</strong>：首页、工作任务、待办事项、备忘录、周报、AI 助手、常用工具、设置</li>
+<li><strong>在线状态</strong>：显示云端同步状态</li>
+<li><strong>版本号</strong>：底部显示当前版本与构建时间</li>
+</ul>
+<h3>3.3 精力成长系统</h3>
+<p>首页 Hero 区域展示精力等级和经验进度条。完成任务获得经验值（XP），积累升级提升精力等级。</p>
+<table><tr><th>精力状态</th><th>条件</th><th>效果</th></tr>
+<tr><td><span class="badge badge-success">活力</span></td><td>正常签到且近期完成任务</td><td>正常获取经验</td></tr>
+<tr><td><span class="badge badge-warning">复苏</span></td><td>断签后重新签到</td><td>经验获取正常</td></tr>
+<tr><td><span class="badge badge-danger">倦意</span></td><td>连续多日未签到</td><td>经验获取减半</td></tr></table>
+</section>
+
+<!-- ===== Chapter 4 ===== -->
+<section class="chapter" id="ch4">
+<div class="chapter-header"><span class="chapter-num">4</span><h2>任务管理</h2></div>
+<p class="chapter-desc">任务的创建、编辑、状态管理、多视图查看与回收站</p>
+<p>任务管理是系统的核心模块，支持日历视图、6 种时间维度视图、状态筛选、优先级管理、回收站等完整功能。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/03-tasks.png" alt="工作任务页面">
+<div class="screenshot-caption">图 4-1  工作任务管理页面</div>
+</div>
+<h3>4.1 创建任务</h3>
+<div class="steps">
+<div class="step"><h4>点击「+ 添加」</h4><p>在任务列表右上方点击「+ 添加」按钮，弹出任务编辑弹窗。</p></div>
+<div class="step"><h4>填写任务信息</h4><p>在弹窗中填写：任务标题（必填）、任务描述（可选）、优先级（高/中/低）、计划执行日期、截止日期。</p></div>
+<div class="step"><h4>保存任务</h4><p>点击「保存」按钮，任务创建成功并出现在列表中。新任务默认状态为「待办」。</p></div>
+</div>
+<h3>4.2 编辑任务</h3>
+<p>点击任务卡片上的编辑图标，可打开编辑弹窗修改任务信息。编辑弹窗支持修改标题、优先级、状态、计划时间、描述等字段。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/08-task-edit.png" alt="编辑任务弹窗">
+<div class="screenshot-caption">图 4-2  编辑任务弹窗</div>
+</div>
+<h3>4.3 任务状态管理</h3>
+<p>任务有三种状态，可通过点击任务卡片左侧的状态圆圈循环切换：</p>
+<table><tr><th>状态</th><th>图标</th><th>说明</th></tr>
+<tr><td>待办</td><td>空心圆</td><td>新创建的任务，尚未开始执行</td></tr>
+<tr><td>进行中</td><td>实心圆</td><td>正在执行中的任务</td></tr>
+<tr><td>已完成</td><td>勾选圆</td><td>已完成的任务，标题显示删除线</td></tr></table>
+<div class="callout callout-info"><div class="callout-title">状态循环</div><p>待办 → 进行中 → 已完成 → 待办。未来日期的任务锁定为「待办」状态，不可切换。</p></div>
+<h3>4.4 六种视图模式</h3>
+<table><tr><th>视图</th><th>范围</th><th>附加功能</th></tr>
+<tr><td>日</td><td>选中日期的任务</td><td>复制选中任务、复制列表、快速添加</td></tr>
+<tr><td>周</td><td>本周（周一~周日）</td><td>按天分布柱状图</td></tr>
+<tr><td>月</td><td>当月任务</td><td>按周分布图</td></tr>
+<tr><td>季</td><td>当季度任务</td><td>按月分布图</td></tr>
+<tr><td>年</td><td>当年任务</td><td>按月分布图</td></tr>
+<tr><td>全部</td><td>全局任务概览</td><td>4 维统计卡片、逾期任务、高优待处理、状态分布条</td></tr></table>
+<h3>4.5 优先级</h3>
+<table><tr><th>优先级</th><th>标签色</th><th>说明</th></tr>
+<tr><td>高</td><td><span class="badge badge-danger">高</span></td><td>紧急且重要，需优先处理</td></tr>
+<tr><td>中</td><td><span class="badge badge-info">中</span></td><td>常规优先级</td></tr>
+<tr><td>低</td><td><span class="badge badge-success">低</span></td><td>非紧急，可延后处理</td></tr></table>
+<h3>4.6 任务卡片操作</h3>
+<p>鼠标悬停在任务卡片上时，右侧显示操作按钮组：</p>
+<table><tr><th>按钮</th><th>功能</th></tr>
+<tr><td>复制</td><td>复制任务到当前日期</td></tr>
+<tr><td>编辑</td><td>打开编辑弹窗修改任务信息</td></tr>
+<tr><td>时间</td><td>快速修改计划执行时间</td></tr>
+<tr><td>AI</td><td>跳转 AI 助手分析该任务</td></tr>
+<tr><td>查看</td><td>查看任务详情</td></tr>
+<tr><td>删除</td><td>移入回收站（需确认）</td></tr></table>
+<h3>4.7 待办事项</h3>
+<p>待办事项是尚未排期、未转化为正式任务的灵感与想法。等时机成熟时可将其转为任务执行。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/11-todo-create.png" alt="新建待办">
+<div class="screenshot-caption">图 4-3  新建待办弹窗</div>
+</div>
+<div class="screenshot-wrap">
+<img src="screenshots/11-todos.png" alt="待办事项列表">
+<div class="screenshot-caption">图 4-4  待办事项列表</div>
+</div>
+<h3>4.8 回收站</h3>
+<p>删除的任务移入回收站，点击页面右上角的「回收站」按钮查看。</p>
+<table><tr><th>操作</th><th>说明</th></tr>
+<tr><td>恢复</td><td>将任务恢复到原状态</td></tr>
+<tr><td>永久删除</td><td>彻底删除，不可恢复（需确认）</td></tr>
+<tr><td>清空回收站</td><td>一次性删除所有回收站任务（需确认）</td></tr></table>
+<div class="callout callout-warning"><div class="callout-title">自动清除</div><p>回收站中的任务超过 7 天将被自动永久删除。每个任务右侧显示剩余天数倒计时。</p></div>
+<h3>4.9 AI 快捷入口</h3>
+<p>任务管理页面提供 3 个 AI 快捷按钮：</p>
+<ul>
+<li><strong>智能分析</strong>：分析今天的任务，给出优先级建议</li>
+<li><strong>逾期处理</strong>：分析逾期任务，给出处理建议</li>
+<li><strong>任务拆解</strong>：将大任务拆解为更小的可执行步骤</li>
+</ul>
+</section>
+
+<!-- ===== Chapter 5 ===== -->
+<section class="chapter" id="ch5">
+<div class="chapter-header"><span class="chapter-num">5</span><h2>备忘录</h2></div>
+<p class="chapter-desc">富文本笔记编辑、Mermaid 图表、文件附件、标签管理</p>
+<p>备忘录模块提供完整的富文本编辑体验，支持 Markdown 语法、Slash 命令、Mermaid 图表、思维导图、文件附件等高级功能。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/04-memos.png" alt="备忘录页面">
+<div class="screenshot-caption">图 5-1  备忘录列表页面</div>
+</div>
+<h3>5.1 创建备忘录</h3>
+<div class="steps">
+<div class="step"><h4>新建备忘录</h4><p>点击左上角「+ 新建」按钮，或使用快捷键 <code>Ctrl+N</code>。也可从「从模板新建」下拉菜单选择预设模板。</p></div>
+<div class="step"><h4>选择图标与标题</h4><p>点击标题左侧的图标选择器从多种 Emoji 中选择，然后在标题输入框输入备忘录标题。</p></div>
+<div class="step"><h4>编辑内容</h4><p>在富文本编辑器中编写内容。支持 Markdown 语法输入、Slash 命令、工具栏格式化等多种编辑方式。</p></div>
+<div class="step"><h4>添加标签</h4><p>在底部标签区域输入标签名称，回车添加。标签用于分类和筛选。</p></div>
+<div class="step"><h4>自动保存</h4><p>内容修改后自动保存到云端，右上角显示「自动保存 ✓」标识。</p></div>
+</div>
+<div class="screenshot-wrap">
+<img src="screenshots/05-memo-editor.png" alt="备忘录编辑器">
+<div class="screenshot-caption">图 5-2  备忘录富文本编辑器</div>
+</div>
+<h3>5.2 快速捕获</h3>
+<p>侧边栏顶部的虚线输入框支持快速捕获灵感——输入文字后直接按回车，即可创建一条新备忘录，无需打开完整编辑器。</p>
+<h3>5.3 Slash 命令面板</h3>
+<p>在编辑器中输入 <code>/</code> 即可唤出命令面板，快速插入各种内容块：</p>
+<table><tr><th>分类</th><th>命令</th><th>说明</th></tr>
+<tr><td rowspan="3">基础块</td><td>H1 / H2 / H3</td><td>三级标题</td></tr>
+<tr><td>无序列表 / 有序列表</td><td>项目符号 / 编号列表</td></tr>
+<tr><td>待办清单</td><td>☑ 可勾选的任务清单</td></tr>
+<tr><td rowspan="4">高级块</td><td>引用块</td><td>引用文本块</td></tr>
+<tr><td>提示块</td><td>彩色背景的提示信息块</td></tr>
+<tr><td>折叠块</td><td>可展开/收起的内容区域</td></tr>
+<tr><td>代码块</td><td>语法高亮代码</td></tr>
+<tr><td rowspan="4">嵌入</td><td>表格</td><td>可编辑的表格</td></tr>
+<tr><td>Mermaid 图表</td><td>流程图、时序图等</td></tr>
+<tr><td>思维导图</td><td>树状思维导图</td></tr>
+<tr><td>链接备忘</td><td>通过 [[]] 引用其他备忘录</td></tr></table>
+<h3>5.4 文件附件</h3>
+<ul>
+<li><strong>允许类型</strong>：PDF、Word、Excel、PPT、图片、压缩包、文本等 19 种</li>
+<li><strong>大小限制</strong>：单个文件 ≤ 5MB</li>
+<li><strong>存储</strong>：文件上传到云端存储，公开 URL 嵌入备忘录</li>
+</ul>
+<h3>5.5 其他功能</h3>
+<table><tr><th>功能</th><th>操作</th></tr>
+<tr><td>置顶</td><td>点击标题栏图钉图标，置顶备忘录显示在列表顶部</td></tr>
+<tr><td>搜索</td><td>侧边栏搜索框实时过滤备忘录列表</td></tr>
+<tr><td>标签筛选</td><td>点击标签名筛选包含该标签的备忘录</td></tr>
+<tr><td>导出</td><td>复制为 Markdown 或纯文本</td></tr>
+<tr><td>图片灯箱</td><td>双击图片全屏查看</td></tr>
+<tr><td>备忘录关联</td><td>输入 [[]] 引用其他备忘录</td></tr></table>
+</section>
+
+<!-- ===== Chapter 6 ===== -->
+<section class="chapter" id="ch6">
+<div class="chapter-header"><span class="chapter-num">6</span><h2>周报</h2></div>
+<p class="chapter-desc">自动汇总周度数据、AI 智能总结、海报导出</p>
+<p>周报模块自动汇总每周的任务完成情况、待办事项、统计数据，并支持 AI 生成智能总结和海报模式导出。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/10-reports.png" alt="周报列表">
+<div class="screenshot-caption">图 6-1  周报列表页面</div>
+</div>
+<h3>6.1 生成周报</h3>
+<div class="steps">
+<div class="step"><h4>选择周次</h4><p>使用侧边栏的左右箭头切换到目标周次，或直接点击列表中的历史周报查看。</p></div>
+<div class="step"><h4>点击「+ 生成」</h4><p>系统分两阶段生成：第一阶段立即生成统计概览和任务明细表格；第二阶段异步调用 AI 生成智能总结。</p></div>
+<div class="step"><h4>等待 AI 总结</h4><p>AI 总结区域显示加载动画。生成完成后显示总结内容；如果失败，可点击「重新生成」重试。</p></div>
+<div class="step"><h4>查看或导出</h4><p>周报生成后可直接在页面查看，也可点击海报按钮进入海报模式，通过浏览器打印为 PDF 或图片。</p></div>
+</div>
+<div class="screenshot-wrap">
+<img src="screenshots/10-report-detail.png" alt="周报详情">
+<div class="screenshot-caption">图 6-2  周报详情页面，包含 AI 智能总结与统计概览</div>
+</div>
+<h3>6.2 周报内容结构</h3>
+<table><tr><th>区域</th><th>内容</th></tr>
+<tr><td>AI 智能总结</td><td>AI 根据本周数据生成的文字总结，包含完成情况分析和建议</td></tr>
+<tr><td>统计概览</td><td>完成率、完成任务、新增任务、经验获得、连续天数、新增待办</td></tr>
+<tr><td>任务明细表</td><td>本周所有任务的名称、优先级、状态、完成时间</td></tr>
+<tr><td>本周完成任务</td><td>已完成的任务列表</td></tr>
+<tr><td>完成率圆环</td><td>SVG 圆环显示完成百分比（≥80% 绿色，≥50% 黄色，&lt;50% 红色）</td></tr></table>
+<h3>6.3 海报模式</h3>
+<p>点击周报详情区的海报图标，进入海报模式。海报模式将周报渲染为适合分享的竖版卡片布局，可通过浏览器打印功能导出为 PDF 或 PNG 图片。</p>
+<div class="callout callout-info"><div class="callout-title">AI 总结配置</div><p>AI 总结功能需要在设置页面配置 AI API 地址、API Key 和模型名称后才能使用。支持 OpenAI 兼容格式的 API（如 DeepSeek、通义千问等）。</p></div>
+</section>
+
+<!-- ===== Chapter 7 ===== -->
+<section class="chapter" id="ch7">
+<div class="chapter-header"><span class="chapter-num">7</span><h2>AI 助手</h2></div>
+<p class="chapter-desc">智能任务分析、优先级建议、任务拆解</p>
+<p>AI 助手提供对话式交互界面，基于你的任务数据提供智能分析和建议。支持从任务管理页面快速发起 AI 分析。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/04-ai.png" alt="AI 助手页面">
+<div class="screenshot-caption">图 7-1  AI 助手页面</div>
+</div>
+<h3>7.1 快捷提问</h3>
+<p>对话区顶部提供 4 个快捷标签，点击后自动发送预设提示词：</p>
+<table><tr><th>标签</th><th>提示词</th><th>用途</th></tr>
+<tr><td>今日任务</td><td>「帮我看看今天的任务，给个优先级建议」</td><td>获取今日任务优先级排序</td></tr>
+<tr><td>已逾期</td><td>「有哪些已逾期的任务？我该怎么处理？」</td><td>查看逾期任务和处理建议</td></tr>
+<tr><td>任务总结</td><td>「总结一下我最近的任务完成情况」</td><td>获取近期完成情况分析</td></tr>
+<tr><td>智能拆解</td><td>「帮我分析当前待办任务，把大任务拆解为小步骤」</td><td>将大任务拆解为可执行步骤</td></tr></table>
+<h3>7.2 手动提问</h3>
+<p>在底部输入框输入问题后发送，AI 将基于任务上下文进行回复。若 AI 配置未设置，系统会提示先配置 API 地址和密钥。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/06-ai-chat.png" alt="AI 助手对话">
+<div class="screenshot-caption">图 7-2  AI 助手对话示例，未配置 AI 时系统给出提示</div>
+</div>
+<h3>7.3 从任务管理发起 AI 分析</h3>
+<p>任务管理页面提供多个入口快速跳转到 AI 助手：</p>
+<ul>
+<li><strong>智能分析</strong>：分析当天任务，给出优先级建议</li>
+<li><strong>逾期处理</strong>：分析逾期任务，给出处理建议</li>
+<li><strong>任务拆解</strong>：将待办任务拆解为更小的步骤</li>
+<li><strong>单任务 AI 按钮</strong>：任务卡片上的紫色 AI 按钮，分析单个任务</li>
+</ul>
+<div class="callout callout-warning"><div class="callout-title">隐私提示</div><p>使用 AI 助手时，任务标题、状态、优先级等信息将作为上下文发送给 AI 服务提供商。请勿在任务中包含敏感信息。</p></div>
+</section>
+
+<!-- ===== Chapter 8 ===== -->
+<section class="chapter" id="ch8">
+<div class="chapter-header"><span class="chapter-num">8</span><h2>设置</h2></div>
+<p class="chapter-desc">账号管理、主题切换、AI 配置、用户审核（管理员）</p>
+<div class="screenshot-wrap">
+<img src="screenshots/04-settings.png" alt="设置页面">
+<div class="screenshot-caption">图 8-1  设置页面概览</div>
+</div>
+<h3>8.1 账号信息</h3>
+<table><tr><th>设置项</th><th>说明</th></tr>
+<tr><td>邮箱</td><td>只读显示，脱敏处理（如 al***@domain）</td></tr>
+<tr><td>昵称</td><td>可编辑，保存后立即生效</td></tr></table>
+<h3>8.2 修改密码</h3>
+<div class="steps">
+<div class="step"><h4>输入当前密码</h4><p>验证当前密码以确保操作安全。</p></div>
+<div class="step"><h4>输入新密码</h4><p>新密码至少 8 位。</p></div>
+<div class="step"><h4>确认新密码</h4><p>再次输入新密码，确保两次输入一致。</p></div>
+<div class="step"><h4>保存</h4><p>点击「修改密码」按钮完成密码修改。</p></div>
+</div>
+<h3>8.3 外观主题</h3>
+<table><tr><th>主题</th><th>说明</th></tr>
+<tr><td>腾讯蓝</td><td>蓝色主色调 #0052D9，清爽专业</td></tr>
+<tr><td>ZURU</td><td>红色主色调 #E53935，品牌主题</td></tr>
+<tr><td>深色</td><td>暗黑模式，深色背景配浅色文字</td></tr>
+<tr><td>跟随系统</td><td>自动检测系统主题偏好，浅色→腾讯蓝，深色→深色模式</td></tr></table>
+<h3>8.4 AI 配置</h3>
+<div class="screenshot-wrap">
+<img src="screenshots/07-settings-bottom.png" alt="设置页面 AI 配置区域">
+<div class="screenshot-caption">图 8-2  设置页面下方的 AI 接口配置与上下班时间</div>
+</div>
+<table><tr><th>配置项</th><th>说明</th></tr>
+<tr><td>API 地址</td><td>OpenAI 兼容格式，可填写基础地址或完整地址，系统自动补全路径</td></tr>
+<tr><td>API Key</td><td>密码输入框，可切换显示/隐藏。采用客户端 AES-GCM 加密存储</td></tr>
+<tr><td>模型名称</td><td>如 gpt-4o-mini、deepseek-chat 等</td></tr></table>
+<div class="callout callout-info"><div class="callout-title">提示</div><p>1. 支持 OpenAI 兼容格式的 API（如 DeepSeek、通义千问等）。<br>2. API Key 采用客户端 AES-GCM 加密存储，可防御数据库单独泄露。<br>3. 使用 AI 助手时，任务信息将作为上下文发送给 AI 服务提供商，请勿在任务中包含敏感信息。</p></div>
+<h3>8.5 上班时间</h3>
+<p>设置上班和下班时间，用于任务时间统计和精力系统计算。</p>
+<h3>8.6 用户审核管理（仅管理员）</h3>
+<p>管理员账号（shzalen@163.com）登录后，设置页面底部显示用户审核管理面板。功能包括：</p>
+<table><tr><th>功能</th><th>说明</th></tr>
+<tr><td>统计概览</td><td>总用户数、待审核数、已通过数、已拒绝数</td></tr>
+<tr><td>用户列表</td><td>表格显示所有用户的邮箱、昵称、状态、注册时间</td></tr>
+<tr><td>通过审核</td><td>将待审核用户状态改为「已通过」</td></tr>
+<tr><td>拒绝注册</td><td>将待审核用户状态改为「已拒绝」（管理员账号不显示拒绝按钮）</td></tr>
+<tr><td>重置密码</td><td>向已通过用户发送密码重置邮件（需确认）</td></tr></table>
+<div class="admin-placeholder">
+<div class="admin-placeholder-icon">🛡️</div>
+<div>管理员审核面板仅对管理员账号可见</div>
+<div style="font-size:13px;margin-top:8px">当前截图账号为普通用户，因此不显示该面板</div>
+</div>
+<h3>8.7 密码重置横幅</h3>
+<p>当通过密码重置邮件链接进入设置页面时，顶部显示黄色重置横幅，可直接设置新密码（无需输入旧密码）。设置完成后横幅自动消失。</p>
+</section>
+
+<!-- ===== Chapter 9 ===== -->
+<section class="chapter" id="ch9">
+<div class="chapter-header"><span class="chapter-num">9</span><h2>常用工具</h2></div>
+<p class="chapter-desc">PDM 表重建工具及其他实用工具</p>
+<p>常用工具模块提供开发与运维辅助工具，当前包含 PDM 表重建工具。左侧为工具子菜单，右侧为工具内容区。</p>
+<div class="screenshot-wrap">
+<img src="screenshots/04-tools.png" alt="PDM 表重建工具">
+<div class="screenshot-caption">图 9-1  PDM 表重建脚本生成工具</div>
+</div>
+<h3>9.1 PDM 表重建工具</h3>
+<p>PDM（Physical Data Model）表重建工具用于对比新旧 PDM 文件，生成 SQL Server 重建脚本。</p>
+<div class="steps">
+<div class="step"><h4>上传 PDM 文件</h4><p>上传新旧两个 PDM 文件（.pdm 格式），系统解析其中的表结构定义。</p></div>
+<div class="step"><h4>选择表</h4><p>系统列出所有表，勾选需要重建的表。支持全选/反选。</p></div>
+<div class="step"><h4>生成脚本</h4><p>点击「生成脚本」按钮，系统根据新旧 PDM 差异生成 SQL Server DDL 脚本（包含 DROP、CREATE、INSERT 等语句）。</p></div>
+<div class="step"><h4>下载或复制</h4><p>生成完成后可下载 .sql 文件或直接复制脚本内容。</p></div>
+</div>
+<div class="callout callout-info"><div class="callout-title">工具扩展</div><p>常用工具模块采用模块化架构，后续可添加更多工具。Vue 工具组件放在 <code>src/views/tools/</code>，静态 HTML 工具放在 <code>public/tools/</code>。</p></div>
+</section>
+
+<!-- ===== Chapter 10 ===== -->
+<section class="chapter" id="ch10">
+<div class="chapter-header"><span class="chapter-num">10</span><h2>移动端</h2></div>
+<p class="chapter-desc">H5 移动端适配，支持手机浏览器访问</p>
+<p>系统提供独立的 H5 移动端版本，在手机浏览器中打开系统地址会自动跳转到移动端。移动端与 PC 端共享同一账号和数据，实现无缝跨设备使用。</p>
+<h3>10.1 移动端入口</h3>
+<p>在手机浏览器中输入系统访问地址，系统自动检测设备类型并跳转到 <code>/mobile.html</code>。也可在 PC 端浏览器中手动访问 <code>/mobile.html</code> 预览移动端界面。</p>
+<div class="screenshot-wrap mobile">
+<img src="screenshots/09-mobile-login.png" alt="移动端首页">
+<div class="screenshot-caption">图 10-1  移动端首页</div>
+</div>
+<h3>10.2 底部导航</h3>
+<p>移动端采用底部 Tab 栏导航，包含 3 个主要标签：</p>
+<table><tr><th>Tab</th><th>功能</th></tr>
+<tr><td>首页</td><td>任务概览、问候卡片、今日完成率</td></tr>
+<tr><td>日历</td><td>月历视图，查看每日任务</td></tr>
+<tr><td>我的</td><td>个人中心、设置、登出</td></tr></table>
+<div class="screenshot-wrap mobile">
+<img src="screenshots/09-mobile-calendar.png" alt="移动端日历">
+<div class="screenshot-caption">图 10-2  移动端日历页面</div>
+</div>
+<div class="screenshot-wrap mobile">
+<img src="screenshots/09-mobile-profile.png" alt="移动端我的页面">
+<div class="screenshot-caption">图 10-3  移动端「我的」页面</div>
+</div>
+<h3>10.3 特色功能</h3>
+<table><tr><th>功能</th><th>说明</th></tr>
+<tr><td>天气沉浸式特效</td><td>根据实时天气显示雨滴、雪花、星空等粒子动画</td></tr>
+<tr><td>时段问候语</td><td>根据当前时间显示不同问候（早上好/下午好等）</td></tr>
+<tr><td>触摸手势</td><td>支持滑动手势切换页面、左滑删除等</td></tr>
+<tr><td>音效反馈</td><td>完成任务时播放提示音</td></tr>
+<tr><td>下拉刷新</td><td>下拉刷新页面数据</td></tr>
+<tr><td>底部弹出面板</td><td>任务创建/编辑/详情使用底部 Sheet 弹出</td></tr>
+<tr><td>PWA 支持</td><td>可添加到手机桌面，全屏体验</td></tr></table>
+</section>
+
+<!-- ===== Chapter 11 ===== -->
+<section class="chapter" id="ch11">
+<div class="chapter-header"><span class="chapter-num">11</span><h2>快捷键</h2></div>
+<p class="chapter-desc">提高操作效率的键盘快捷键</p>
+<table><tr><th>快捷键</th><th>功能</th><th>适用位置</th></tr>
+<tr><td><code>Ctrl + N</code></td><td>新建备忘录</td><td>备忘录页面</td></tr>
+<tr><td><code>/</code></td><td>唤出 Slash 命令面板</td><td>富文本编辑器</td></tr>
+<tr><td><code>[[</code></td><td>插入备忘录链接</td><td>富文本编辑器</td></tr>
+<tr><td><code>Enter</code></td><td>快速捕获保存</td><td>备忘录侧边栏快速捕获框</td></tr>
+<tr><td><code>Esc</code></td><td>关闭弹窗/对话框</td><td>全局</td></tr></table>
+<div class="callout callout-info"><div class="callout-title">提示</div><p>富文本编辑器还支持多种 Markdown 输入规则，如输入 <code>#</code> + 空格自动转为 H1 标题，<code>-</code> + 空格转为无序列表等。</p></div>
+</section>
+
+<!-- ===== Chapter 12 ===== -->
+<section class="chapter" id="ch12">
+<div class="chapter-header"><span class="chapter-num">12</span><h2>常见问题</h2></div>
+<p class="chapter-desc">使用过程中可能遇到的问题与解决方案</p>
+
+<div class="faq-item">
+<div class="faq-q">Q: 注册后为什么不能立即登录？</div>
+<div class="faq-a">A: 新用户注册后需要管理员审核通过才能登录。注册成功后会显示「请等待管理员审核」提示。请联系管理员审核你的账号。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 忘记密码怎么办？</div>
+<div class="faq-a">A: 在登录页面点击「忘记密码？」，输入注册邮箱，系统会发送密码重置邮件。点击邮件中的链接即可设置新密码。也可联系管理员在审核面板帮你重置密码。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 数据会丢失吗？</div>
+<div class="faq-a">A: 所有数据存储在云端服务器，自动同步。即使更换设备或清除浏览器缓存，登录账号后数据会自动恢复。删除的任务进入回收站，7 天内可恢复。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: AI 助手不工作怎么办？</div>
+<div class="faq-a">A: 1) 检查设置页面是否已配置 AI API 地址、API Key 和模型名称。2) 确认 API Key 有效且有余额。3) 确认网络能访问 AI 服务地址。4) 查看 AI 返回的错误提示信息。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 移动端怎么访问？</div>
+<div class="faq-a">A: 在手机浏览器中输入系统访问地址，系统会自动检测设备并跳转到移动端版本。也可手动在地址后加 <code>/mobile.html</code> 访问。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 周报的 AI 总结一直显示「生成中」？</div>
+<div class="faq-a">A: AI 总结是异步生成的，通常需要 10-30 秒。如果超过 1 分钟仍未完成，可能是 AI 服务超时。点击「重新生成」按钮重试。如果反复失败，请检查 AI 配置是否正确。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 任务删除后能恢复吗？</div>
+<div class="faq-a">A: 可以。删除的任务进入回收站，7 天内可在回收站中恢复。超过 7 天的任务将被自动永久删除。已完成的任务也可以删除，但需要先确认。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 备忘录支持哪些文件附件？</div>
+<div class="faq-a">A: 支持 PDF、Word（.doc/.docx）、Excel（.xls/.xlsx）、PPT（.ppt/.pptx）、图片（.jpg/.png/.gif/.webp/.svg）、压缩包（.zip/.rar/.7z）、文本（.txt/.md/.csv/.json）等 19 种类型，单个文件不超过 5MB。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 如何切换主题？</div>
+<div class="faq-a">A: 在设置页面「外观」区域选择主题。提供腾讯蓝、ZURU、深色和跟随系统四种选项。「跟随系统」会根据你的操作系统设置自动切换。</div>
+</div>
+<div class="faq-item">
+<div class="faq-q">Q: 多设备数据会冲突吗？</div>
+<div class="faq-a">A: 不会。系统通过云端服务器实时同步，多个设备编辑同一数据时采用「最后写入优先」策略。跨标签页通过 BroadcastChannel 实时同步变更。</div>
+</div>
+</section>
+
+</div>
+<script>
+// Active nav tracking
+const navLinks = document.querySelectorAll('.sidebar-nav a');
+const chapters = document.querySelectorAll('.chapter');
+window.addEventListener('scroll', () => {
+  let current = '';
+  chapters.forEach(ch => {
+    const top = ch.offsetTop - 100;
+    if (window.scrollY >= top) current = ch.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+</body>
+</html>
