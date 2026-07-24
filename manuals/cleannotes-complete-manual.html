@@ -72,10 +72,63 @@ tr:hover td{background:var(--bg-2)}
 .screenshot-wrap.mobile{max-width:420px;margin-left:auto;margin-right:auto}
 .admin-placeholder{background:var(--bg-2);border:1px dashed var(--border);border-radius:12px;padding:48px 24px;margin:20px 0;text-align:center;color:var(--text-3)}
 .admin-placeholder-icon{font-size:32px;margin-bottom:12px}
-@media print{@page{margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.sidebar{display:none}html,body{background:var(--bg) !important;color:var(--text-1);min-height:100vh}.main{margin-left:0;padding:20px 28px 40px;max-width:100%;background:var(--bg) !important;min-height:100vh}.chapter{page-break-before:always}.chapter:first-of-type{page-break-before:avoid}.screenshot-wrap,.svg-wrap{page-break-inside:avoid;border:1px solid var(--border);background:var(--bg-2) !important}h2,h3,h4{color:var(--text-1)}p,li,td,th{color:var(--text-2)}strong{color:var(--text-1)}.callout{border-left:3px solid}.callout-info{background:var(--info-light)!important;border-color:var(--info)}.callout-warning{background:var(--warning-light)!important;border-color:var(--warning)}.callout-danger{background:var(--danger-light)!important;border-color:var(--danger)}.callout-success{background:var(--success-light)!important;border-color:var(--success)}table{border-color:var(--border)}th{background:var(--bg-3) !important;color:var(--text-2);border-bottom:1px solid var(--border)}td{border-bottom:1px solid var(--border-light)}tr:hover td{background:var(--bg-2) !important}.step::before{background:var(--primary) !important}.chapter-num{background:var(--primary) !important;color:#fff !important}.badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}.screenshot-wrap img{border:1px solid var(--border)}.screenshot-caption{color:var(--text-3)}.faq-item{background:var(--bg-2) !important;border:1px solid var(--border)}.faq-q{color:var(--text-1)}.faq-a{color:var(--text-2)}code{background:var(--bg-3) !important;color:var(--accent)}.admin-placeholder{background:var(--bg-2) !important;border:1px dashed var(--border);color:var(--text-3)}}
+
+/* ── 移动端顶栏 ── */
+.mobile-header{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:var(--bg-2);border-bottom:1px solid var(--border);z-index:200;align-items:center;justify-content:space-between;padding:0 16px}
+.mobile-header__menu{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;background:transparent;color:var(--text-1);cursor:pointer;border-radius:8px}
+.mobile-header__menu:active{background:var(--bg-3)}
+.mobile-header__menu svg{width:22px;height:22px}
+.mobile-header__title{font-size:15px;font-weight:600;color:var(--text-1)}
+.mobile-header__pdf{font-size:12px;color:var(--info);text-decoration:none;padding:6px 12px;border-radius:6px;background:var(--info-light)}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150}
+
+/* ── 移动端响应式 ── */
+@media(max-width:768px){
+  .mobile-header{display:flex}
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:180}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-backdrop.open{display:block}
+  .main{margin-left:0;padding:60px 16px 60px;max-width:100%}
+  body{font-size:14px}
+  .chapter-header h2{font-size:19px}
+  .chapter-num{width:28px;height:28px;font-size:13px}
+  h3{font-size:16px;margin:24px 0 10px}
+  h4{font-size:14px;margin:16px 0 6px}
+  p{font-size:14px;line-height:1.65}
+  .step{padding-left:38px;margin-bottom:16px}
+  .step::before{width:26px;height:26px;font-size:12px}
+  .screenshot-wrap{padding:8px;margin:14px 0}
+  .svg-wrap{padding:12px;margin:12px 0}
+  table{font-size:12px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  th,td{padding:6px 8px}
+  .callout{padding:10px 12px;margin:12px 0}
+  .callout p{font-size:13px}
+  .faq-item{padding:12px 14px}
+  .faq-q{font-size:13px}
+  .faq-a{font-size:13px}
+  .sidebar-brand{padding:0 20px 16px}
+  .sidebar-brand h1{font-size:16px}
+  .sidebar-nav a{font-size:14px;padding:10px 14px}
+  .sidebar-footer{padding:12px 20px}
+}
+@media(max-width:380px){
+  .main{padding:56px 12px 48px}
+  body{font-size:13px}
+  .chapter-header h2{font-size:17px}
+}
+@media print{@page{margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.sidebar,.mobile-header,.sidebar-backdrop{display:none}html,body{background:var(--bg) !important;color:var(--text-1);min-height:100vh}.main{margin-left:0;padding:20px 28px 40px;max-width:100%;background:var(--bg) !important;min-height:100vh}.chapter{page-break-before:always}.chapter:first-of-type{page-break-before:avoid}.screenshot-wrap,.svg-wrap{page-break-inside:avoid;border:1px solid var(--border);background:var(--bg-2) !important}h2,h3,h4{color:var(--text-1)}p,li,td,th{color:var(--text-2)}strong{color:var(--text-1)}.callout{border-left:3px solid}.callout-info{background:var(--info-light)!important;border-color:var(--info)}.callout-warning{background:var(--warning-light)!important;border-color:var(--warning)}.callout-danger{background:var(--danger-light)!important;border-color:var(--danger)}.callout-success{background:var(--success-light)!important;border-color:var(--success)}table{border-color:var(--border)}th{background:var(--bg-3) !important;color:var(--text-2);border-bottom:1px solid var(--border)}td{border-bottom:1px solid var(--border-light)}tr:hover td{background:var(--bg-2) !important}.step::before{background:var(--primary) !important}.chapter-num{background:var(--primary) !important;color:#fff !important}.badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}.screenshot-wrap img{border:1px solid var(--border)}.screenshot-caption{color:var(--text-3)}.faq-item{background:var(--bg-2) !important;border:1px solid var(--border)}.faq-q{color:var(--text-1)}.faq-a{color:var(--text-2)}code{background:var(--bg-3) !important;color:var(--accent)}.admin-placeholder{background:var(--bg-2) !important;border:1px dashed var(--border);color:var(--text-3)}}
 </style>
 </head>
 <body>
+<!-- 移动端顶栏 -->
+<div class="mobile-header">
+  <button class="mobile-header__menu" id="menuToggle" aria-label="目录">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <span class="mobile-header__title">CleanNotes 操作手册</span>
+  <a href="javascript:window.print()" class="mobile-header__pdf">PDF</a>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 <nav class="sidebar">
 <div class="sidebar-brand"><h1>📖 CleanNotes</h1><p>完整操作手册 v1.3.0</p></div>
 <div class="sidebar-nav" id="nav">
@@ -606,6 +659,21 @@ window.addEventListener('scroll', () => {
     a.classList.toggle('active', a.getAttribute('href') === '#' + current);
   });
 });
+
+// Mobile sidebar toggle
+const sidebar = document.querySelector('.sidebar');
+const backdrop = document.getElementById('sidebarBackdrop');
+const menuToggle = document.getElementById('menuToggle');
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  backdrop.classList.remove('open');
+}
+menuToggle.addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+  backdrop.classList.toggle('open');
+});
+backdrop.addEventListener('click', closeSidebar);
+navLinks.forEach(a => a.addEventListener('click', closeSidebar));
 </script>
 </body>
 </html>
