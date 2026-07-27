@@ -113,6 +113,16 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .fs-btn svg{width:14px;height:14px}
 
+/* Fullscreen exit button (visible only in fullscreen) */
+.fs-exit-btn{display:none;align-items:center;justify-content:center;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);font-size:11px;font-weight:500;gap:4px;transition:all .15s}
+.fs-exit-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-exit-btn svg{width:12px;height:12px}
+.preview-panel.fullscreen .fs-exit-btn{display:inline-flex}
+
+/* Navigation flash */
+@keyframes nav-flash{0%{background:#fde68a}100%{background:transparent}}
+.markdown-body .flash{animation:nav-flash 1.5s ease;border-radius:4px}
+
 /* Divider resizer */
 .resizer{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;z-index:5}
 .resizer:hover,.resizer.dragging{background:var(--primary)}
@@ -266,6 +276,10 @@ const App = {
     // Setup drag-drop
     this.initDragDrop();
 
+    // Click-to-navigate: editor → preview, preview → editor
+    this.editor.addEventListener('click', () => this.onEditorClick());
+    this.preview.addEventListener('click', (e) => this.onPreviewClick(e));
+
     // Setup keyboard shortcut: Ctrl/Cmd+S to export, ESC to exit fullscreen
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -318,6 +332,191 @@ const App = {
     const chars = md.length;
     const lines = md.split('\n').length;
     this.wordCount.textContent = chars + ' 字 · ' + lines + ' 行';
+  },
+
+  // ── Bidirectional navigation ──
+
+  // Editor click → locate in preview
+  onEditorClick() {
+    const md = this.editor.value;
+    if (!md.trim() || this.preview.style.display === 'none') return;
+
+    const pos = this.editor.selectionStart;
+    const before = md.substring(0, pos);
+    const lineNum = before.split('\n').length - 1;
+    const lines = md.split('\n');
+    const line = lines[lineNum] || '';
+    const trimmed = line.trim();
+
+    if (!trimmed) return;
+
+    const elements = this.preview.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,hr,img');
+
+    // Heading: # text
+    if (/^#{1,6}\s/.test(trimmed)) {
+      const headingText = trimmed.replace(/^#{1,6}\s+/, '').trim();
+      for (const el of elements) {
+        if (/^H[1-6]$/.test(el.tagName) && el.textContent.trim() === headingText) {
+          this.scrollToPreviewElement(el);
+          return;
+        }
+      }
+    }
+
+    // List item: - text / * text / 1. text
+    if (/^[-*+]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) {
+      const itemText = trimmed.replace(/^[-*+]\s+|^\d+\.\s+/, '').trim();
+      for (const el of elements) {
+        if (el.tagName === 'LI') {
+          const elText = el.textContent.trim();
+          if (elText === itemText || elText.includes(itemText) || itemText.includes(elText)) {
+            this.scrollToPreviewElement(el);
+            return;
+          }
+        }
+      }
+    }
+
+    // Code block: ```
+    if (/^```/.test(trimmed)) {
+      for (const el of elements) {
+        if (el.tagName === 'PRE') { this.scrollToPreviewElement(el); return; }
+      }
+    }
+
+    // Blockquote: > text
+    if (/^>\s?/.test(trimmed)) {
+      const quoteText = trimmed.replace(/^>\s*/, '').trim();
+      for (const el of elements) {
+        if (el.tagName === 'BLOCKQUOTE') {
+          const elText = el.textContent.trim();
+          if (!quoteText || elText.includes(quoteText) || quoteText.includes(elText)) {
+            this.scrollToPreviewElement(el); return;
+          }
+        }
+      }
+    }
+
+    // Table row: | text
+    if (/^\|/.test(trimmed)) {
+      for (const el of elements) {
+        if (el.tagName === 'TABLE') { this.scrollToPreviewElement(el); return; }
+      }
+    }
+
+    // Horizontal rule: --- / ***
+    if (/^(---+|\*\*\*+)$/.test(trimmed)) {
+      for (const el of elements) {
+        if (el.tagName === 'HR') { this.scrollToPreviewElement(el); return; }
+      }
+    }
+
+    // General text matching
+    for (const el of elements) {
+      const elText = el.textContent.trim();
+      if (elText && (elText.includes(trimmed) || trimmed.includes(elText))) {
+        this.scrollToPreviewElement(el);
+        return;
+      }
+    }
+  },
+
+  // Preview click → locate in editor
+  onPreviewClick(e) {
+    const md = this.editor.value;
+    if (!md.trim()) return;
+
+    // Don't interfere with link or checkbox clicks
+    if (e.target.closest('a') || e.target.tagName === 'INPUT') return;
+
+    const el = e.target.closest('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,tr,img,hr,code');
+    if (!el) return;
+
+    const elText = el.textContent.trim();
+    const lines = md.split('\n');
+
+    // Headings
+    if (/^H[1-6]$/.test(el.tagName)) {
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (/^#{1,6}\s/.test(t)) {
+          const mdHeading = t.replace(/^#{1,6}\s+/, '').trim();
+          if (mdHeading === elText || mdHeading.includes(elText) || elText.includes(mdHeading)) {
+            this.scrollToEditorLine(i); return;
+          }
+        }
+      }
+    }
+
+    // List items
+    if (el.tagName === 'LI') {
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (/^[-*+]\s/.test(t) || /^\d+\.\s/.test(t)) {
+          const mdItem = t.replace(/^[-*+]\s+|^\d+\.\s+/, '').trim();
+          if (elText.includes(mdItem) || mdItem.includes(elText)) {
+            this.scrollToEditorLine(i); return;
+          }
+        }
+      }
+    }
+
+    // Code blocks
+    if (el.tagName === 'PRE') {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('```')) { this.scrollToEditorLine(i); return; }
+      }
+    }
+
+    // Blockquotes
+    if (el.tagName === 'BLOCKQUOTE') {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('>')) { this.scrollToEditorLine(i); return; }
+      }
+    }
+
+    // Tables
+    if (el.tagName === 'TABLE' || el.tagName === 'TR') {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim().startsWith('|')) { this.scrollToEditorLine(i); return; }
+      }
+    }
+
+    // Horizontal rules
+    if (el.tagName === 'HR') {
+      for (let i = 0; i < lines.length; i++) {
+        if (/^(---+|\*\*\*+)$/.test(lines[i].trim())) { this.scrollToEditorLine(i); return; }
+      }
+    }
+
+    // General text matching
+    if (elText) {
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (t && (elText.includes(t) || t.includes(elText))) {
+          this.scrollToEditorLine(i); return;
+        }
+      }
+    }
+  },
+
+  scrollToPreviewElement(el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1500);
+  },
+
+  scrollToEditorLine(lineIndex) {
+    const lines = this.editor.value.split('\n');
+    let charPos = 0;
+    for (let i = 0; i < lineIndex && i < lines.length; i++) {
+      charPos += lines[i].length + 1;
+    }
+    this.editor.focus();
+    const lineLength = (lines[lineIndex] || '').length;
+    this.editor.setSelectionRange(charPos, charPos + lineLength);
+    const lineHeight = 13 * 1.7;
+    this.editor.scrollTop = Math.max(0, lineIndex * lineHeight - this.editor.clientHeight / 3);
   },
 
   // ── File operations ──

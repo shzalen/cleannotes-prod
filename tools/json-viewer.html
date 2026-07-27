@@ -68,8 +68,11 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .panel-header .actions{display:flex;align-items:center;gap:6px}
 
 /* Editor */
-.editor-wrap{flex:1;position:relative;min-height:0}
-.editor-area{width:100%;height:100%;border:none;outline:none;resize:none;padding:16px 20px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--surface);tab-size:2}
+.editor-wrap{flex:1;display:flex;position:relative;min-height:0;overflow:hidden}
+.line-gutter{flex-shrink:0;width:48px;padding:16px 8px 16px 0;text-align:right;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text-3);background:#f8fafc;border-right:1px solid var(--border);overflow:hidden;user-select:none;white-space:pre}
+.gutter-line{height:calc(13px * 1.7);line-height:calc(13px * 1.7)}
+.gutter-line.flash{background:#fde68a;color:var(--primary);font-weight:600;transition:background .3s}
+.editor-area{flex:1;height:100%;border:none;outline:none;resize:none;padding:16px 20px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--surface);tab-size:2}
 .editor-area::placeholder{color:var(--text-3)}
 .drop-zone{position:absolute;inset:0;border:2px dashed transparent;border-radius:8px;transition:all .2s;pointer-events:none;display:flex;align-items:center;justify-content:center}
 .drop-zone.dragover{border-color:var(--primary);background:rgba(37,99,235,.06);pointer-events:auto}
@@ -139,6 +142,18 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .block-leaf-val-null{color:var(--json-null);font-style:italic}
 .block-header.match{background:#fef9c3}
 .block-leaf.match{background:#fef9c3}
+
+/* Fullscreen exit button (only visible in fullscreen) */
+.fs-exit-btn{display:none;align-items:center;justify-content:center;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);font-size:11px;font-weight:500;gap:4px;transition:all .15s}
+.fs-exit-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-exit-btn svg{width:12px;height:12px}
+.preview-panel.fullscreen .fs-exit-btn{display:inline-flex}
+
+/* Flash highlight for navigation */
+@keyframes nav-flash{0%{background:#fde68a}100%{background:transparent}}
+.tree-row.flash{animation:nav-flash 1.5s ease}
+.block-header.flash{animation:nav-flash 1.5s ease}
+.block-leaf.flash{animation:nav-flash 1.5s ease}
 
 /* Alert */
 .alert{padding:10px 14px;border-radius:7px;font-size:13px;margin:0 24px 12px;display:none}
@@ -231,6 +246,7 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
       <div class="stats" id="editor-stats">0 字</div>
     </div>
     <div class="editor-wrap">
+      <div class="line-gutter" id="line-gutter"></div>
       <textarea class="editor-area" id="editor" placeholder='在此粘贴 JSON 内容...
 
 示例：
@@ -262,6 +278,10 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
         <div class="stats" id="preview-stats"></div>
         <button class="btn btn-secondary btn-sm" id="expand-all-btn" onclick="App.expandAll(true)" style="font-size:11px;padding:3px 8px" title="全部展开">展开</button>
         <button class="btn btn-secondary btn-sm" id="collapse-all-btn" onclick="App.expandAll(false)" style="font-size:11px;padding:3px 8px" title="全部折叠">折叠</button>
+        <button class="fs-exit-btn" onclick="App.toggleFullscreen()" title="退出全屏 (Esc)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          退出全屏
+        </button>
       </div>
     </div>
     <div class="preview-wrap" id="preview-wrap">
@@ -295,6 +315,7 @@ const App = {
   alert: null,
   treeView: null,
   blockView: null,
+  lineGutter: null,
 
   init() {
     this.editor = document.getElementById('editor');
@@ -307,9 +328,23 @@ const App = {
     this.alert = document.getElementById('alert');
     this.treeView = document.getElementById('tree-view');
     this.blockView = document.getElementById('block-view');
+    this.lineGutter = document.getElementById('line-gutter');
 
     this.initResizer();
     this.initDragDrop();
+    this.updateLineGutter();
+
+    // Sync gutter scroll with editor
+    this.editor.addEventListener('scroll', () => {
+      this.lineGutter.scrollTop = this.editor.scrollTop;
+    });
+
+    // Click-to-navigate: editor → preview
+    this.editor.addEventListener('click', () => this.onEditorClick());
+
+    // Click-to-navigate: preview → editor (event delegation)
+    this.treeView.addEventListener('click', (e) => this.onPreviewClick(e, 'tree'));
+    this.blockView.addEventListener('click', (e) => this.onPreviewClick(e, 'block'));
 
     // Ctrl/Cmd+S export, ESC exit fullscreen
     document.addEventListener('keydown', (e) => {
@@ -327,6 +362,7 @@ const App = {
   parse() {
     const raw = this.editor.value.trim();
     this.editorStats.textContent = raw.length + ' 字';
+    this.updateLineGutter();
 
     if (!raw) {
       this.showEmpty();
@@ -498,14 +534,19 @@ const App = {
       children.appendChild(closeRow);
       container.appendChild(children);
 
-      // Toggle handler
-      toggle.addEventListener('click', () => {
+      // Toggle handler (stopPropagation so container click handler doesn't navigate)
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
         const isopen = toggle.classList.toggle('open');
         children.classList.toggle('collapsed', !isopen);
         // Show/hide preview
         const prev = row.querySelector('.tree-preview');
         if (prev) prev.style.display = isopen ? 'none' : 'inline';
       });
+
+      // Store navigation data on the row
+      if (key !== null) row.dataset.navKey = String(key);
+      row.dataset.navValue = typeof value === 'object' ? '' : String(value);
 
     } else {
       // Leaf value
@@ -525,6 +566,8 @@ const App = {
         valEl.textContent = valStr;
       }
       row.appendChild(valEl);
+      if (key !== null) row.dataset.navKey = String(key);
+      row.dataset.navValue = String(value);
       container.appendChild(row);
     }
 
@@ -648,11 +691,21 @@ const App = {
 
     node.appendChild(body);
 
-    // Toggle handler — click header to expand/collapse
-    header.addEventListener('click', () => {
+    // Toggle handler — click header to expand/collapse + navigate
+    header.addEventListener('click', (e) => {
+      // Always toggle
       const isopen = arrow.classList.toggle('open');
       body.classList.toggle('collapsed', !isopen);
+      // If clicked on arrow, don't navigate (stop propagation)
+      if (e.target === arrow) {
+        e.stopPropagation();
+      }
+      // Otherwise let event bubble to container for navigation
     });
+
+    // Store navigation data
+    if (key !== null) header.dataset.navKey = String(key);
+    header.dataset.navValue = typeof value === 'object' ? '' : String(value);
 
     return node;
   },
@@ -672,6 +725,8 @@ const App = {
     leaf.appendChild(colon);
 
     leaf.appendChild(this.createLeafValue(value));
+    leaf.dataset.navKey = String(key);
+    leaf.dataset.navValue = String(value);
     return leaf;
   },
 
@@ -691,6 +746,146 @@ const App = {
       el.textContent = String(value);
     }
     return el;
+  },
+
+  // ── Line gutter ──
+  updateLineGutter() {
+    const count = this.editor.value.split('\n').length;
+    let html = '';
+    for (let i = 1; i <= count; i++) {
+      html += '<div class="gutter-line">' + i + '</div>';
+    }
+    this.lineGutter.innerHTML = html;
+    this.lineGutter.scrollTop = this.editor.scrollTop;
+  },
+
+  // ── Bidirectional navigation ──
+
+  // Editor click → locate in preview
+  onEditorClick() {
+    if (this.parsed === null) return;
+    const pos = this.editor.selectionStart;
+    const before = this.editor.value.substring(0, pos);
+    const lineNum = before.split('\n').length - 1;
+    const lines = this.editor.value.split('\n');
+    const line = lines[lineNum] || '';
+    const trimmed = line.trim();
+
+    if (!trimmed) return;
+
+    // Extract key from line: "key": ...
+    const keyMatch = trimmed.match(/^"([^"]+)"\s*:/);
+    if (keyMatch) {
+      this.locateInPreview(keyMatch[1]);
+      return;
+    }
+
+    // Extract value from line: : "value" / : 123 / : true
+    const valMatch = trimmed.match(/:\s*("(?:[^"\\]|\\.)*"|\d+\.?\d*|true|false|null)/);
+    if (valMatch) {
+      const val = valMatch[1].replace(/^"|"$/g, '');
+      this.locateInPreview(val);
+      return;
+    }
+
+    // Fallback: use the trimmed line content
+    const cleaned = trimmed.replace(/["'\[\]{},]/g, '').trim();
+    if (cleaned) this.locateInPreview(cleaned);
+  },
+
+  // Preview click → locate in editor
+  onPreviewClick(e, view) {
+    if (this.parsed === null) return;
+
+    if (view === 'tree') {
+      // Skip toggle clicks (already stopPropagation'd)
+      const row = e.target.closest('.tree-row');
+      if (!row) return;
+      const key = row.dataset.navKey;
+      const value = row.dataset.navValue;
+      this.locateInEditor(key, value);
+    } else {
+      // Block view
+      const header = e.target.closest('.block-header');
+      const leaf = e.target.closest('.block-leaf');
+      const target = header || leaf;
+      if (!target) return;
+      const key = target.dataset.navKey;
+      const value = target.dataset.navValue;
+      this.locateInEditor(key, value);
+    }
+  },
+
+  // Find and scroll to a line in the editor
+  locateInEditor(key, value) {
+    const text = this.editor.value;
+    const lines = text.split('\n');
+
+    // Strategy 1: search for "key" pattern
+    if (key) {
+      const searchKey = '"' + key + '"';
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(searchKey)) {
+          this.scrollToEditorLine(i);
+          return;
+        }
+      }
+    }
+
+    // Strategy 2: search for the value
+    if (value) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(value)) {
+          this.scrollToEditorLine(i);
+          return;
+        }
+      }
+    }
+
+    // Fallback: go to first line
+    this.scrollToEditorLine(0);
+  },
+
+  scrollToEditorLine(lineIndex) {
+    const lines = this.editor.value.split('\n');
+    let charPos = 0;
+    for (let i = 0; i < lineIndex && i < lines.length; i++) {
+      charPos += lines[i].length + 1;
+    }
+
+    this.editor.focus();
+    const lineLength = (lines[lineIndex] || '').length;
+    this.editor.setSelectionRange(charPos, charPos + lineLength);
+
+    // Scroll to make line visible
+    const lineHeight = 13 * 1.7;
+    this.editor.scrollTop = Math.max(0, lineIndex * lineHeight - this.editor.clientHeight / 3);
+    this.lineGutter.scrollTop = this.editor.scrollTop;
+
+    // Flash the gutter line
+    const gutterLines = this.lineGutter.querySelectorAll('.gutter-line');
+    if (gutterLines[lineIndex]) {
+      gutterLines[lineIndex].classList.add('flash');
+      setTimeout(() => gutterLines[lineIndex].classList.remove('flash'), 1500);
+    }
+  },
+
+  // Find and scroll to an element in the preview
+  locateInPreview(searchText) {
+    const view = this.currentView === 'tree' ? this.treeView : this.blockView;
+    const selector = this.currentView === 'tree'
+      ? '.tree-row'
+      : '.block-header, .block-leaf';
+    const elements = view.querySelectorAll(selector);
+
+    for (const el of elements) {
+      if (el.textContent.includes(searchText)) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 1500);
+        return;
+      }
+    }
   },
 
   // ── View mode ──
@@ -915,6 +1110,7 @@ const App = {
     this.showEmpty();
     this.editor.focus();
     this.editorStats.textContent = '0 字';
+    this.updateLineGutter();
   },
 
   // ── Alerts ──

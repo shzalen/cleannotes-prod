@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>数据导入脚本生成工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--text-2:#64748b;--text-3:#94a3b8;
+  --primary:#2563eb;--primary-hover:#1d4ed8;--primary-light:#eff6ff;
+  --success:#16a34a;--success-light:#f0fdf4;--success-text:#166534;
+  --warning:#d97706;--warning-light:#fffbeb;--warning-text:#92400e;
+  --danger:#dc2626;--danger-light:#fef2f2;--danger-text:#991b1b;
+  --code-bg:#1e293b;--code-text:#e2e8f0;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0}
+header h1{font-size:18px;font-weight:600;color:#0f172a}
+header p{font-size:12px;color:var(--text-2);margin-top:2px}
+.main-scroll{flex:1;overflow-y:auto;padding:20px 24px 40px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title .step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--primary);color:#fff;border-radius:50%;font-size:11px;font-weight:600;flex-shrink:0}
+.card-title .step-label{font-size:15px}
+.card.disabled{opacity:.4;pointer-events:none}
+.mode-tabs{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content}
+.mode-tab{padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;background:var(--bg);color:var(--text-2);border:none;transition:all .15s}
+.mode-tab:not(:last-child){border-right:1px solid var(--border)}
+.mode-tab:hover{background:#e2e8f0}
+.mode-tab.active{background:var(--primary);color:#fff}
+.mode-panel{display:none}
+.mode-panel.active{display:block}
+.form-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;min-width:0}
+.form-group label{font-size:11px;font-weight:600;color:var(--text-2);margin-bottom:4px;text-transform:uppercase}
+.form-group input,.form-group select,.form-group textarea{font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;color:var(--text);background:var(--surface);transition:border-color .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.form-group input.input-error{border-color:var(--danger)}
+.form-group select{min-width:120px}
+.ddl-textarea{width:100%;min-height:180px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.6;resize:vertical}
+.upload-box{border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-box:hover{border-color:var(--primary);background:var(--primary-light)}
+.upload-box.has-file{border-color:var(--success);border-style:solid;background:var(--success-light)}
+.upload-box .upload-icon{font-size:24px;color:var(--text-3);margin-bottom:6px}
+.upload-box.has-file .upload-icon{color:var(--success)}
+.upload-box .upload-label{font-weight:600;font-size:13px;color:var(--text)}
+.upload-box .upload-hint{font-size:11px;color:var(--text-3);margin-top:2px}
+.upload-box .upload-filename{font-size:12px;color:var(--success);font-weight:500;margin-top:4px;word-break:break-all}
+.upload-box input{display:none}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{background:var(--text-3);cursor:not-allowed}
+.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-xs{padding:2px 8px;font-size:11px;border-radius:5px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-info{background:var(--primary-light);color:var(--primary)}
+.badge-success{background:var(--success-light);color:var(--success-text)}
+.badge-warning{background:var(--warning-light);color:var(--warning-text)}
+.badge-danger{background:var(--danger-light);color:var(--danger-text)}
+.badge-gray{background:var(--bg);color:var(--text-2)}
+.alert{padding:10px 14px;border-radius:7px;font-size:12px;margin-bottom:12px}
+.alert-info{background:var(--primary-light);color:var(--primary);border:1px solid #bfdbfe}
+.alert-success{background:var(--success-light);color:var(--success-text);border:1px solid #bbf7d0}
+.alert-warning{background:var(--warning-light);color:var(--warning-text);border:1px solid #fde68a}
+.alert-error{background:var(--danger-light);color:var(--danger-text);border:1px solid #fecaca}
+.table-list{max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+.table-list table{width:100%;border-collapse:collapse}
+.table-list th{background:#f8fafc;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+.table-list td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px}
+.table-list tr:hover{background:#f8fafc}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.field-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;transition:border-color .15s}
+.field-item:hover{border-color:#cbd5e1}
+.field-item.field-error{border-color:var(--danger);background:var(--danger-light)}
+.field-item.field-skip{opacity:.5;border-style:dashed}
+.field-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.field-name{font-weight:600;font-size:12px;color:var(--text);font-family:"Cascadia Code","Fira Code",Consolas,monospace}
+.field-meta{display:flex;gap:4px;flex-wrap:wrap}
+.field-input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--text);background:var(--surface);font-family:"Cascadia Code","Fira Code",Consolas,monospace}
+.field-input:focus{outline:none;border-color:var(--primary)}
+.field-input.field-input-error{border-color:var(--danger)}
+.field-hint{font-size:10px;color:var(--text-3);margin-top:3px;min-height:14px}
+.field-hint.field-hint-error{color:var(--danger)}
+.field-hint.field-hint-ok{color:var(--success)}
+.script-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border)}
+.script-tab{padding:8px 18px;font-size:13px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-2);border:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;position:relative}
+.script-tab:hover{color:var(--text)}
+.script-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.script-tab .tab-count{font-size:10px;margin-left:4px;opacity:.7}
+.code-area{position:relative;border:1px solid var(--border);border-radius:0 0 8px 8px;background:var(--code-bg);overflow:auto;max-height:500px}
+.code-area pre{padding:16px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:12.5px;line-height:1.7;color:var(--code-text);white-space:pre-wrap;word-break:break-word;margin:0;tab-size:2}
+.code-area .kw{color:#7dd3fc}
+.code-area .str{color:#fde68a}
+.code-area .num{color:#c4b5fd}
+.code-area .cmt{color:#64748b}
+.code-area .fn{color:#f0abfc}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap}
+.toolbar-left{display:flex;align-items:center;gap:8px}
+.toolbar-right{display:flex;align-items:center;gap:8px}
+.empty-state{text-align:center;padding:36px 20px;color:var(--text-3)}
+.empty-state .icon{font-size:32px;margin-bottom:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--success);color:#fff;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast.error{background:var(--danger)}
+.conn-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;font-size:14px}
+.icon-btn:hover{background:var(--bg);color:var(--text)}
+.icon-btn.danger:hover{background:var(--danger-light);color:var(--danger);border-color:var(--danger)}
+.stats-bar{display:flex;gap:20px;padding:10px 14px;background:var(--bg);border-radius:7px;margin-bottom:12px;font-size:12px}
+.stat-item{display:flex;align-items:center;gap:6px;color:var(--text-2)}
+.stat-item strong{color:var(--text);font-size:14px}
+.confirm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:9990;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.confirm-overlay.show{opacity:1;pointer-events:auto}
+.confirm-dialog{background:var(--surface);border-radius:12px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+.confirm-dialog h3{font-size:15px;margin-bottom:8px;color:var(--text)}
+.confirm-dialog p{font-size:13px;color:var(--text-2);margin-bottom:18px}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>数据导入脚本生成工具</h1>
+  <p>支持数据库 DDL 解析、PDM 文件导入、手动定义表结构，填写数据后自动生成 INSERT / UPDATE / DELETE 脚本（MySQL / PostgreSQL / SQL Server / SQLite）</p>
+</header>
+
+<div class="main-scroll" id="main-scroll">
+
+  <!-- ====== Step 1: 导入表结构 ====== -->
+  <div class="card" id="card-import">
+    <div class="card-title"><span class="step-num">1</span><span class="step-label">导入表结构</span></div>
+
+    <div class="mode-tabs" id="mode-tabs">
+      <button class="mode-tab active" data-mode="ddl">DDL 粘贴</button>
+      <button class="mode-tab" data-mode="pdm">PDM 上传</button>
+      <button class="mode-tab" data-mode="manual">手动定义</button>
+      <button class="mode-tab" data-mode="proxy">数据库连接</button>
+    </div>
+
+    <!-- DDL Mode -->
+    <div class="mode-panel active" id="panel-ddl">
+      <div class="form-row">
+        <div class="form-group">
+          <label>目标数据库类型</label>
+          <select id="ddl-db-type">
+            <option value="mssql">SQL Server</option>
+            <option value="mysql" selected>MySQL</option>
+            <option value="pgsql">PostgreSQL</option>
+            <option value="sqlite">SQLite</option>
+          </select>
+        </div>
+      </div>
+      <textarea class="ddl-textarea" id="ddl-input" placeholder="粘贴 CREATE TABLE 语句...
+  
+  示例:
+  CREATE TABLE orders (
+    id INT NOT NULL AUTO_INCREMENT,
+    order_no VARCHAR(32) NOT NULL DEFAULT '' COMMENT '订单号',
+    customer_name VARCHAR(100) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    status TINYINT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+  );"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn btn-primary" id="btn-parse-ddl" onclick="App.parseDDL()">解析 DDL</button>
+        <button class="btn btn-secondary" onclick="App.loadSampleDDL()">加载示例</button>
+      </div>
+      <div class="alert alert-error" id="ddl-error" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <!-- PDM Mode -->
+    <div class="mode-panel" id="panel-pdm">
+      <div class="upload-box" id="pdm-upload-box" onclick="document.getElementById('pdm-file-input').click()">
+        <div class="upload-icon">&#128193;</div>
+        <div class="upload-label">点击上传 PDM 文件</div>
+        <div class="upload-hint">支持 PowerDesigner .pdm 文件（XML 格式）</div>
+        <div class="upload-filename" id="pdm-filename" style="display:none"></div>
+        <input type="file" id="pdm-file-input" accept=".pdm,.xml">
+      </div>
+      <div class="alert alert-info" id="pdm-info" style="display:none;margin-top:12px"></div>
+      <div class="form-row" id="pdm-table-select-row" style="display:none;margin-top:12px">
+        <div class="form-group" style="flex:1;min-width:200px">
+          <label>选择数据表</label>
+          <select id="pdm-table-select" onchange="App.onPDMTableSelect()"></select>
+        </div>
+        <button class="btn btn-primary" id="btn-load-pdm-table" onclick="App.loadPDMTable()" style="align-self:flex-end">加载选中表</button>
+      </div>
+    </div>
+
+    <!-- Manual Mode -->
+    <div class="mode-panel" id="panel-manual">
+      <div class="form-row">
+        <div class="form-group" style="flex:1;min-width:180px">
+          <label>表名</label>
+          <input type="text" id="manual-table-name" placeholder="例如: orders">
+        </div>
+        <div class="form-group">
+          <label>数据库类型</label>
+          <select id="manual-db-type">
+            <option value="mssql">SQL Server</option>
+            <option value="mysql" selected>MySQL</option>
+            <option value="pgsql">PostgreSQL</option>
+            <option value="sqlite">SQLite</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-2);margin-bottom:10px">添加列定义（每行列名、类型、约束）：</div>
+      <div id="manual-columns">
+        <div class="form-row manual-col-row" style="margin-bottom:6px">
+          <input type="text" placeholder="列名" class="mc-name" style="width:130px">
+          <input type="text" placeholder="类型 (如 VARCHAR(50))" class="mc-type" style="width:150px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+            <input type="checkbox" class="mc-required"> 必填
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+            <input type="checkbox" class="mc-pk"> 主键
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+            <input type="checkbox" class="mc-auto"> 自增
+          </label>
+          <input type="text" placeholder="默认值" class="mc-default" style="width:100px">
+          <button class="btn btn-secondary btn-xs" onclick="App.removeManualCol(this)" style="color:var(--danger)">&#10005;</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="App.addManualCol()">+ 添加列</button>
+        <button class="btn btn-primary btn-sm" onclick="App.applyManual()">应用表定义</button>
+      </div>
+    </div>
+
+    <!-- Proxy (Database Connection) Mode -->
+    <div class="mode-panel" id="panel-proxy">
+      <div class="alert alert-warning">
+        <strong>注意：</strong>浏览器无法直接连接数据库。请先启动本地代理服务器（运行 <code>node db-proxy-server.js</code>），或在下方粘贴 DDL 语句作为替代方案。
+      </div>
+      <div class="conn-row">
+        <div class="form-group">
+          <label>数据库类型</label>
+          <select id="proxy-db-type">
+            <option value="mysql" selected>MySQL</option>
+            <option value="pgsql">PostgreSQL</option>
+            <option value="mssql">SQL Server</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>主机地址</label>
+          <input type="text" id="proxy-host" value="localhost">
+        </div>
+        <div class="form-group">
+          <label>端口</label>
+          <input type="number" id="proxy-port" value="3306">
+        </div>
+        <div class="form-group">
+          <label>数据库名</label>
+          <input type="text" id="proxy-database" placeholder="database_name">
+        </div>
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="proxy-user" value="root">
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="proxy-pass" placeholder="password">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div class="form-group" style="flex:1;min-width:180px">
+          <label>代理服务器地址</label>
+          <input type="text" id="proxy-url" value="http://localhost:3579">
+        </div>
+        <div class="form-group" style="flex:1;min-width:180px">
+          <label>表名</label>
+          <input type="text" id="proxy-table" placeholder="输入表名">
+        </div>
+        <button class="btn btn-primary" onclick="App.connectDB()" style="align-self:flex-end">连接并获取表结构</button>
+      </div>
+      <div class="alert" id="proxy-status" style="display:none;margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- ====== Step 2: 填写数据 ====== -->
+  <div class="card disabled" id="card-fields">
+    <div class="card-title"><span class="step-num">2</span><span class="step-label">填写数据 - <span id="table-info-text"></span></span></div>
+    <div class="alert alert-info" id="field-summary" style="display:none"></div>
+    <div class="field-grid" id="field-grid"></div>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-primary" id="btn-add-record" onclick="App.addRecord()">+ 添加到记录列表</button>
+      <button class="btn btn-secondary" id="btn-cancel-edit" onclick="App.cancelEdit()" style="display:none">取消编辑</button>
+      <span style="font-size:12px;color:var(--text-3);margin-left:8px;align-self:center">（输入即时校验，无效字段会标红）</span>
+    </div>
+  </div>
+
+  <!-- ====== Step 3: 数据记录 ====== -->
+  <div class="card disabled" id="card-records">
+    <div class="card-title"><span class="step-num">3</span><span class="step-label">数据记录 - <span id="record-count-text">共 0 条</span></span></div>
+    <div class="empty-state" id="records-empty">
+      <div class="icon">&#128203;</div>
+      <div>暂无记录，请在上方填写数据后点击"添加到记录列表"</div>
+    </div>
+    <div id="records-table-wrap" style="display:none">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <span style="font-size:12px;color:var(--text-2)" id="record-table-count"></span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-secondary btn-sm" onclick="App.clearRecords()">清空全部记录</button>
+        </div>
+      </div>
+      <div class="table-list">
+        <table>
+          <thead id="records-thead"></thead>
+          <tbody id="records-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Step 4: 生成脚本 ====== -->
+  <div class="card disabled" id="card-scripts">
+    <div class="card-title"><span class="step-num">4</span><span class="step-label">生成脚本</span></div>
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="form-group">
+          <label>目标数据库</label>
+          <select id="script-db-type">
+            <option value="mysql" selected>MySQL</option>
+            <option value="pgsql">PostgreSQL</option>
+            <option value="mssql">SQL Server</option>
+            <option value="sqlite">SQLite</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-generate" onclick="App.generateScripts()">生成脚本</button>
+      </div>
+      <div class="toolbar-right" id="script-actions" style="display:none">
+        <button class="btn btn-secondary btn-sm" onclick="App.copyCurrentScript()">复制当前脚本</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.downloadCurrentScript()">下载当前脚本</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.copyAllScripts()">复制全部脚本</button>
+      </div>
+    </div>
+    <div class="alert alert-error" id="gen-error" style="display:none"></div>
+    <div id="script-output" style="display:none">
+      <div class="script-tabs" id="script-tabs"></div>
+      <div class="code-area"><pre id="script-code"></pre></div>
+      <div class="stats-bar" style="margin-top:12px">
+        <div class="stat-item">INSERT: <strong id="stat-insert">0</strong> 条</div>
+        <div class="stat-item">UPDATE: <strong id="stat-update">0</strong> 条</div>
+        <div class="stat-item">DELETE: <strong id="stat-delete">0</strong> 条</div>
+        <div class="stat-item">总计: <strong id="stat-total">0</strong> 条</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-dialog">
+    <h3 id="confirm-title">确认操作</h3>
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary btn-sm" onclick="App.dismissConfirm()">取消</button>
+      <button class="btn btn-danger btn-sm" id="confirm-ok-btn">确认</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   PDM Parser — 解析 PowerDesigner PDM 文件，提取表和列信息
+   ================================================================ */
+const PDMParser = {
+  parse(xmlText) {
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    const errNode = doc.querySelector('parsererror');
+    if (errNode) throw new Error('XML 解析失败，请确认文件为合法 PDM');
+    const model = this._findModel(doc);
+    if (!model) throw new Error('未找到 Model 节点');
+
+    const tables = [];
+    const tableEls = model.getElementsByTagName('o:Table');
+    const colIndex = {}; // objectId → { code, ... }
+
+    for (let i = 0; i < tableEls.length; i++) {
+      const t = this._parseTable(tableEls[i], colIndex);
+      if (t) tables.push(t);
+    }
+    return { tables, colIndex };
+  },
+
+  _findModel(doc) {
+    const m = doc.getElementsByTagName('o:Model');
+    return m.length > 0 ? m[0] : null;
+  },
+
+  _gt(parent, tag) {
+    const els = parent.getElementsByTagName(tag);
+    return els.length > 0 ? els[0].textContent.trim() : null;
+  },
+
+  _ref(el) {
+    return el.getAttribute('Ref') || el.getAttribute('o:Ref') || null;
+  },
+
+  _parseTable(el, colIndex) {
+    const code = this._gt(el, 'a:Code');
+    if (!code) return null;
+    const objectId = this._gt(el, 'a:ObjectID') || code;
+    const name = this._gt(el, 'a:Name') || code;
+
+    const columns = [];
+    const colEls = el.getElementsByTagName('o:Column');
+    const seen = new Set();
+    for (let i = 0; i < colEls.length; i++) {
+      if (seen.has(colEls[i])) continue;
+      seen.add(colEls[i]);
+      const col = this._parseColumn(colEls[i]);
+      if (col) {
+        columns.push(col);
+        colIndex[col.objectId] = col;
+      }
+    }
+
+    // Primary key
+    let pkColumns = [];
+    const pkContainer = el.getElementsByTagName('c:PrimaryKey');
+    if (pkContainer.length > 0) {
+      const keyEls = pkContainer[0].getElementsByTagName('o:Key');
+      if (keyEls.length > 0) {
+        pkColumns = this._parseKeyColumns(keyEls[0], colIndex);
+      }
+    }
+    // Also check c:Keys for inline primary keys
+    if (pkColumns.length === 0) {
+      const keysContainer = el.getElementsByTagName('c:Keys');
+      if (keysContainer.length > 0) {
+        const keyEls = keysContainer[0].getElementsByTagName('o:Key');
+        for (let i = 0; i < keyEls.length; i++) {
+          const pkCheck = this._gt(keyEls[i], 'a:PrimaryKey') || '';
+          if (pkCheck === '1') {
+            pkColumns = this._parseKeyColumns(keyEls[i], colIndex);
+            if (pkColumns.length > 0) break;
+          }
+        }
+      }
+    }
+
+    // Mark PK flags on columns
+    for (const col of columns) {
+      col.isPrimaryKey = pkColumns.includes(col.code);
+    }
+
+    return { objectId, code, name, columns, pkColumns };
+  },
+
+  _parseColumn(el) {
+    const code = this._gt(el, 'a:Code');
+    if (!code) return null;
+    const objectId = this._gt(el, 'a:ObjectID') || code;
+    const name = this._gt(el, 'a:Name') || code;
+    let dataType = this._gt(el, 'a:DataType') || 'varchar(50)';
+    const length = this._gt(el, 'a:Length');
+    const precision = this._gt(el, 'a:Precision');
+    const mandatory = this._gt(el, 'a:Mandatory') || this._gt(el, 'a:Column.Mandatory');
+    const identity = this._gt(el, 'a:Identity');
+    const defaultValue = this._gt(el, 'a:DefaultValue');
+
+    const sqlType = this._buildSQLType(dataType.trim(), length, precision);
+
+    return {
+      objectId, code, name,
+      dataType: sqlType,
+      mandatory: mandatory === '1',
+      identity: identity === '1',
+      defaultValue: defaultValue ? defaultValue.trim() : null,
+      isPrimaryKey: false
+    };
+  },
+
+  _parseKeyColumns(keyEl, colIndex) {
+    const cols = [];
+    const refEls = keyEl.getElementsByTagName('c:Key.Columns');
+    if (refEls.length === 0) return cols;
+    const colRefs = refEls[0].getElementsByTagName('o:Column');
+    for (let i = 0; i < colRefs.length; i++) {
+      const ref = this._ref(colRefs[i]);
+      if (ref && colIndex[ref]) cols.push(colIndex[ref].code);
+    }
+    return cols;
+  },
+
+  _buildSQLType(dataType, length, precision) {
+    let dt = dataType;
+    if (/\(.*\)/.test(dt)) return dt.toLowerCase();
+    const lower = dt.toLowerCase();
+    const needLen = ['varchar', 'char', 'nvarchar', 'nchar', 'varbinary', 'binary'];
+    const needPrec = ['decimal', 'numeric'];
+    if (needLen.includes(lower) && length) return lower + '(' + length + ')';
+    if (needPrec.includes(lower) && length) return lower + '(' + length + ',' + (precision || '0') + ')';
+    if (needLen.includes(lower) && !length) return lower + '(50)';
+    if (needPrec.includes(lower) && !length) return lower + '(10,0)';
+    return lower;
+  }
+};
+
+/* ================================================================
+   DDL Parser — 解析 CREATE TABLE 语句
+   ================================================================ */
+const DDLParser = {
+  parse(sql) {
+    // Remove comments
+    sql = sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    // Extract table name
+    const tableMatch = sql.match(/create\s+table\s+(?:if\s+not\s+exists\s+)?[`"[\]]?(\w+)[`"\]\]]?\s*\(/i);
+    if (!tableMatch) throw new Error('未找到 CREATE TABLE 语句');
+    const tableName = tableMatch[1];
+
+    // Extract content between outer parentheses
+    const startIdx = tableMatch.index + tableMatch[0].length - 1;
+    let depth = 1, endIdx = startIdx + 1;
+    for (; endIdx < sql.length && depth > 0; endIdx++) {
+      if (sql[endIdx] === '(') depth++;
+      else if (sql[endIdx] === ')') depth--;
+    }
+    const body = sql.substring(startIdx + 1, endIdx - 1);
+
+    // Parse columns and constraints
+    const columns = [];
+    const tablePKs = [];
+    let colIndex = 0;
+
+    // Split by top-level commas
+    const parts = this._splitTopLevel(body);
+
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+
+      // Table-level constraint
+      const pkMatch = trimmed.match(/^(?:constraint\s+\w+\s+)?primary\s+key\s*\(([^)]+)\)/i);
+      if (pkMatch) {
+        const pkCols = pkMatch[1].split(',').map(c => c.replace(/[`"\[\]]/g, '').trim());
+        tablePKs.push(...pkCols);
+        continue;
+      }
+
+      // Skip other constraints
+      if (/^(constraint|unique|check|foreign|index|key)\s/i.test(trimmed)) continue;
+
+      // Column definition
+      const col = this._parseColumnDef(trimmed, colIndex++);
+      if (col) columns.push(col);
+    }
+
+    // Apply table-level PKs
+    for (const col of columns) {
+      if (tablePKs.includes(col.code)) col.isPrimaryKey = true;
+    }
+
+    return { tableName, columns };
+  },
+
+  _splitTopLevel(body) {
+    const parts = [];
+    let depth = 0, start = 0;
+    for (let i = 0; i < body.length; i++) {
+      if (body[i] === '(') depth++;
+      else if (body[i] === ')') depth--;
+      else if (body[i] === ',' && depth === 0) {
+        parts.push(body.substring(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(body.substring(start));
+    return parts;
+  },
+
+  _parseColumnDef(def, idx) {
+    // Extract column name (first word, possibly quoted)
+    const nameMatch = def.match(/^[`"\[\]]?(\w+)[`"\]\]]?/);
+    if (!nameMatch) return null;
+    const code = nameMatch[1];
+
+    const rest = def.substring(nameMatch[0].length).trim();
+
+    // Extract data type
+    let dataType = '';
+    let rest2 = '';
+
+    // Handle types with spaces: "character varying(50)", "double precision"
+    const typeComplex = rest.match(/^(\w+\s+\w+)(\([^)]*\))?/i);
+    if (typeComplex) {
+      dataType = (typeComplex[1] + (typeComplex[2] || '')).toLowerCase();
+      rest2 = rest.substring(typeComplex[0].length).trim();
+    } else {
+      const typeMatch = rest.match(/^(\w+)(\([^)]*\))?/i);
+      if (typeMatch) {
+        dataType = (typeMatch[1] + (typeMatch[2] || '')).toLowerCase();
+        rest2 = rest.substring(typeMatch[0].length).trim();
+      }
+    }
+    if (!dataType) return null;
+
+    // Parse constraints
+    const mandatory = /not\s+null/i.test(rest2);
+    const isPrimaryKey = /primary\s+key/i.test(rest2);
+    const identity = /auto_increment|identity|serial/i.test(rest2) || /serial/i.test(dataType);
+
+    // Parse default value
+    let defaultValue = null;
+    const defMatch = rest2.match(/default\s+('[^']*'|"[^"]*"|\S+)/i);
+    if (defMatch) {
+      let dv = defMatch[1];
+      // Strip surrounding quotes
+      if ((dv.startsWith("'") && dv.endsWith("'")) || (dv.startsWith('"') && dv.endsWith('"'))) {
+        dv = dv.slice(1, -1);
+      }
+      defaultValue = dv;
+    }
+
+    return { code, dataType, mandatory, isPrimaryKey, identity, defaultValue };
+  }
+};
+
+/* ================================================================
+   Validation Engine — 字段值实时校验
+   ================================================================ */
+const Validation = {
+  validate(value, col) {
+    if (!value || value.trim() === '') {
+      if (col.mandatory) return { valid: false, msg: '必填字段' };
+      if (col.isPrimaryKey && !col.identity) return { valid: false, msg: '主键不能为空' };
+      return { valid: true, msg: '' };
+    }
+
+    const v = value.trim();
+    const baseType = col.dataType.replace(/\(.*\)/, '').trim().toLowerCase();
+
+    // Integer types
+    if (['int', 'integer', 'bigint', 'smallint', 'tinyint', 'int2', 'int4', 'int8', 'serial', 'bigserial', 'smallserial'].includes(baseType)) {
+      if (!/^-?\d+$/.test(v)) return { valid: false, msg: '请输入整数' };
+      return { valid: true, msg: '' };
+    }
+
+    // Decimal/numeric types
+    if (['decimal', 'numeric', 'float', 'double', 'real', 'money', 'smallmoney', 'float4', 'float8', 'double precision'].includes(baseType)) {
+      if (!/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) return { valid: false, msg: '请输入有效数字' };
+      return { valid: true, msg: '' };
+    }
+
+    // Boolean/bit types
+    if (['bit', 'boolean', 'bool'].includes(baseType)) {
+      if (!/^(0|1|true|false|yes|no|t|f|y|n)$/i.test(v)) return { valid: false, msg: '请输入 0/1 或 true/false' };
+      return { valid: true, msg: '' };
+    }
+
+    // Date types
+    if (['date', 'datetime', 'datetime2', 'timestamp', 'timestamptz', 'smalldatetime'].includes(baseType)) {
+      const d = new Date(v);
+      if (isNaN(d.getTime()) && !/^(now|current_timestamp|getdate|sysdatetime)/i.test(v)) {
+        return { valid: false, msg: '日期格式无效' };
+      }
+      return { valid: true, msg: '' };
+    }
+
+    // Length check for string types
+    const lenMatch = col.dataType.match(/\((\d+)/);
+    if (lenMatch && ['varchar', 'char', 'nvarchar', 'nchar', 'character varying', 'character'].includes(baseType)) {
+      const maxLen = parseInt(lenMatch[1]);
+      if (v.length > maxLen) return { valid: false, msg: `超过最大长度 ${maxLen}（当前 ${v.length}）` };
+    }
+
+    return { valid: true, msg: '' };
+  }
+};
+
+/* ================================================================
+   SQL Generator — 生成 INSERT / UPDATE / DELETE 脚本
+   ================================================================ */
+const SQLGenerator = {
+  _quoter: { mysql: '`', pgsql: '"', sqlite: '"', mssql: ['[', ']'] },
+
+  quoteIdent(name, dbType) {
+    const q = this._quoter[dbType];
+    if (Array.isArray(q)) return q[0] + String(name).replace(/]/g, ']]') + q[1];
+    return q + String(name).replace(new RegExp(q, 'g'), q + q) + q;
+  },
+
+  formatValue(value, colType, dbType) {
+    if (value === null || value === undefined || value === '') return 'NULL';
+
+    let v = String(value).trim();
+    if (v === '') return 'NULL';
+
+    const baseType = colType.replace(/\(.*\)/, '').trim().toLowerCase();
+
+    // Integers: strip quotes
+    if (['int', 'integer', 'bigint', 'smallint', 'tinyint', 'int2', 'int4', 'int8', 'serial', 'bigserial', 'smallserial'].includes(baseType)) {
+      return /^-?\d+$/.test(v) ? v : 'NULL';
+    }
+
+    // Decimals
+    if (['decimal', 'numeric', 'float', 'double', 'real', 'money', 'smallmoney', 'float4', 'float8', 'double precision'].includes(baseType)) {
+      return /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v) ? v : 'NULL';
+    }
+
+    // Boolean → 0/1 for MySQL/SQLite/MSSQL, TRUE/FALSE for PostgreSQL
+    if (['bit', 'boolean', 'bool'].includes(baseType)) {
+      if (/^(1|true|yes|t|y)$/i.test(v)) return dbType === 'pgsql' ? 'TRUE' : '1';
+      return dbType === 'pgsql' ? 'FALSE' : '0';
+    }
+
+    // Date/time functions that should not be quoted
+    if (/^(now\(\)|current_timestamp|getdate\(\)|sysdatetime\(\)|sysutcdatetime\(\)|getutcdate\(\)|newid\(\)|uuid_generate_v4\(\))/i.test(v)) {
+      return v;
+    }
+
+    // String: escape single quotes, wrap
+    if (dbType === 'pgsql') {
+      // PostgreSQL uses $$ quoting for strings containing single quotes
+      if (v.includes("'")) {
+        return '$$\n' + v + '\n$$';
+      }
+    }
+    return "'" + v.replace(/'/g, "''") + "'";
+  },
+
+  /**
+   * Get columns that should be included in INSERT/UPDATE
+   * Excludes identity/auto-increment columns
+   */
+  getDataColumns(columns) {
+    return columns.filter(c => !c.identity);
+  },
+
+  getPKColumns(columns) {
+    return columns.filter(c => c.isPrimaryKey);
+  },
+
+  genInsert(tableName, columns, records, dbType) {
+    const dataCols = this.getDataColumns(columns);
+    if (dataCols.length === 0) return '-- 无可用于 INSERT 的数据列\n';
+    if (records.length === 0) return '-- 无数据记录\n';
+
+    const colNames = dataCols.map(c => this.quoteIdent(c.code, dbType)).join(', ');
+    const lines = [];
+    lines.push(`-- INSERT 脚本 — 表: ${tableName} (${records.length} 条记录)`);
+    lines.push(`-- 目标数据库: ${dbType.toUpperCase()}`);
+
+    // Identity insert for SQL Server
+    const hasIdentity = columns.some(c => c.identity);
+    if (hasIdentity && dbType === 'mssql') {
+      lines.push(`SET IDENTITY_INSERT ${this.quoteIdent(tableName, dbType)} ON;`);
+      lines.push('');
+    }
+
+    for (const record of records) {
+      const vals = dataCols.map(c => this.formatValue(record[c.code], c.dataType, dbType));
+      lines.push(`INSERT INTO ${this.quoteIdent(tableName, dbType)} (${colNames}) VALUES (${vals.join(', ')});`);
+    }
+
+    if (hasIdentity && dbType === 'mssql') {
+      lines.push('');
+      lines.push(`SET IDENTITY_INSERT ${this.quoteIdent(tableName, dbType)} OFF;`);
+    }
+
+    return lines.join('\n');
+  },
+
+  genUpdate(tableName, columns, records, dbType) {
+    const pkCols = this.getPKColumns(columns);
+    if (pkCols.length === 0) return '-- 未找到主键，无法生成 UPDATE 脚本\n';
+    if (records.length === 0) return '-- 无数据记录\n';
+
+    const dataCols = this.getDataColumns(columns).filter(c => !c.isPrimaryKey);
+    const lines = [];
+    lines.push(`-- UPDATE 脚本 — 表: ${tableName} (${records.length} 条记录)`);
+    lines.push(`-- 目标数据库: ${dbType.toUpperCase()}`);
+
+    for (const record of records) {
+      const setClauses = dataCols.map(c =>
+        `${this.quoteIdent(c.code, dbType)} = ${this.formatValue(record[c.code], c.dataType, dbType)}`
+      ).join(', ');
+      const whereClauses = pkCols.map(c =>
+        `${this.quoteIdent(c.code, dbType)} = ${this.formatValue(record[c.code], c.dataType, dbType)}`
+      ).join(' AND ');
+      lines.push(`UPDATE ${this.quoteIdent(tableName, dbType)} SET ${setClauses} WHERE ${whereClauses};`);
+    }
+
+    return lines.join('\n');
+  },
+
+  genDelete(tableName, columns, records, dbType) {
+    const pkCols = this.getPKColumns(columns);
+    if (pkCols.length === 0) return '-- 未找到主键，无法生成 DELETE 脚本\n';
+    if (records.length === 0) return '-- 无数据记录\n';
+
+    const lines = [];
+    lines.push(`-- DELETE 脚本 — 表: ${tableName} (${records.length} 条记录)`);
+    lines.push(`-- 目标数据库: ${dbType.toUpperCase()}`);
+
+    // If single PK, use IN clause for batch delete
+    if (pkCols.length === 1 && records.length > 1) {
+      const pkCol = pkCols[0];
+      const vals = records.map(r => this.formatValue(r[pkCol.code], pkCol.dataType, dbType));
+      lines.push(`-- 批量删除（单条可单独执行）`);
+      lines.push('');
+      lines.push(`DELETE FROM ${this.quoteIdent(tableName, dbType)} WHERE ${this.quoteIdent(pkCol.code, dbType)} IN (${vals.join(', ')});`);
+      lines.push('');
+      lines.push(`-- 逐条删除：`);
+      for (const record of records) {
+        const whereClauses = pkCols.map(c =>
+          `${this.quoteIdent(c.code, dbType)} = ${this.formatValue(record[c.code], c.dataType, dbType)}`
+        ).join(' AND ');
+        lines.push(`-- DELETE FROM ${this.quoteIdent(tableName, dbType)} WHERE ${whereClauses};`);
+      }
+    } else {
+      for (const record of records) {
+        const whereClauses = pkCols.map(c =>
+          `${this.quoteIdent(c.code, dbType)} = ${this.formatValue(record[c.code], c.dataType, dbType)}`
+        ).join(' AND ');
+        lines.push(`DELETE FROM ${this.quoteIdent(tableName, dbType)} WHERE ${whereClauses};`);
+      }
+    }
+
+    return lines.join('\n');
+  }
+};
+
+/* ================================================================
+   UI Controller
+   ================================================================ */
+const App = {
+  mode: 'ddl',
+  tableName: '',
+  columns: [],       // [{ code, dataType, mandatory, isPrimaryKey, identity, defaultValue }]
+  records: [],       // [{ colCode: value, ... }]
+  editingIndex: -1,  // -1 = adding new
+  pdmData: null,     // parsed PDM result
+  generated: { insert: '', update: '', delete: '' },
+  currentScript: 'insert',
+  confirmCallback: null,
+
+  init() {
+    // Mode tabs
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => this.switchMode(tab.dataset.mode));
+    });
+
+    // PDM file upload
+    document.getElementById('pdm-file-input').addEventListener('change', e => {
+      if (e.target.files[0]) this.handlePDMFile(e.target.files[0]);
+    });
+
+    // Drag & drop for PDM
+    const uploadBox = document.getElementById('pdm-upload-box');
+    uploadBox.addEventListener('dragover', e => { e.preventDefault(); uploadBox.style.borderColor = 'var(--primary)'; });
+    uploadBox.addEventListener('dragleave', () => { uploadBox.style.borderColor = 'var(--border)'; });
+    uploadBox.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadBox.style.borderColor = 'var(--border)';
+      const file = e.dataTransfer.files[0];
+      if (file) this.handlePDMFile(file);
+    });
+  },
+
+  /* ---- Mode switching ---- */
+  switchMode(mode) {
+    this.mode = mode;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+    document.querySelectorAll('.mode-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + mode));
+  },
+
+  /* ---- DDL Mode ---- */
+  parseDDL() {
+    const sql = document.getElementById('ddl-input').value.trim();
+    const dbType = document.getElementById('ddl-db-type').value;
+    const errEl = document.getElementById('ddl-error');
+    if (!sql) { errEl.style.display = 'block'; errEl.textContent = '请粘贴 DDL 语句'; return; }
+    try {
+      const result = DDLParser.parse(sql);
+      this.loadTable(result.tableName, result.columns, dbType);
+      errEl.style.display = 'none';
+      document.getElementById('ddl-db-type').value = dbType;
+    } catch (e) {
+      errEl.style.display = 'block';
+      errEl.textContent = '解析失败: ' + e.message;
+    }
+  },
+
+  loadSampleDDL() {
+    const samples = {
+      mysql: `CREATE TABLE orders (
+  id INT NOT NULL AUTO_INCREMENT,
+  order_no VARCHAR(32) NOT NULL DEFAULT '' COMMENT '订单号',
+  customer_name VARCHAR(100) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  status TINYINT NOT NULL DEFAULT 0 COMMENT '0=待处理,1=已完成,2=已取消',
+  remark VARCHAR(500) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);`,
+      mssql: `CREATE TABLE [dbo].[orders] (
+  [id] INT NOT NULL IDENTITY(1,1),
+  [order_no] VARCHAR(32) NOT NULL DEFAULT '',
+  [customer_name] NVARCHAR(100) NOT NULL,
+  [amount] DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  [status] TINYINT NOT NULL DEFAULT 0,
+  [remark] NVARCHAR(500) NULL,
+  [created_at] DATETIME DEFAULT GETDATE(),
+  [updated_at] DATETIME DEFAULT GETDATE(),
+  PRIMARY KEY ([id])
+);`,
+      pgsql: `CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  order_no VARCHAR(32) NOT NULL DEFAULT '',
+  customer_name VARCHAR(100) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  status SMALLINT NOT NULL DEFAULT 0,
+  remark VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);`,
+      sqlite: `CREATE TABLE orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_no TEXT NOT NULL DEFAULT '',
+  customer_name TEXT NOT NULL,
+  amount REAL NOT NULL DEFAULT 0.00,
+  status INTEGER NOT NULL DEFAULT 0,
+  remark TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);`
+    };
+    const dbType = document.getElementById('ddl-db-type').value;
+    document.getElementById('ddl-input').value = samples[dbType] || samples.mysql;
+  },
+
+  /* ---- PDM Mode ---- */
+  handlePDMFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        this.pdmData = PDMParser.parse(e.target.result);
+        const box = document.getElementById('pdm-upload-box');
+        const fn = document.getElementById('pdm-filename');
+        box.classList.add('has-file');
+        fn.style.display = 'block';
+        fn.textContent = file.name;
+
+        const info = document.getElementById('pdm-info');
+        info.style.display = 'block';
+        info.innerHTML = `解析成功：${this.pdmData.tables.length} 张表。请选择需要生成数据的表。`;
+
+        const select = document.getElementById('pdm-table-select');
+        select.innerHTML = '<option value="">-- 请选择表 --</option>';
+        this.pdmData.tables.sort((a, b) => a.code.localeCompare(b.code)).forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.code;
+          opt.textContent = `${t.code} (${t.name || ''}) - ${t.columns.length} 列`;
+          select.appendChild(opt);
+        });
+
+        document.getElementById('pdm-table-select-row').style.display = 'flex';
+      } catch (err) {
+        alert('PDM 解析失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  },
+
+  onPDMTableSelect() {
+    // Preview only - user clicks "加载选中表" to confirm
+  },
+
+  loadPDMTable() {
+    const code = document.getElementById('pdm-table-select').value;
+    if (!code || !this.pdmData) return;
+    const table = this.pdmData.tables.find(t => t.code === code);
+    if (!table) return;
+    this.loadTable(table.code, table.columns, 'mssql'); // PDM default to SQL Server
+    document.getElementById('script-db-type').value = 'mssql';
+  },
+
+  /* ---- Manual Mode ---- */
+  addManualCol() {
+    const container = document.getElementById('manual-columns');
+    const row = document.createElement('div');
+    row.className = 'form-row manual-col-row';
+    row.style.marginBottom = '6px';
+    row.innerHTML = `
+      <input type="text" placeholder="列名" class="mc-name" style="width:130px">
+      <input type="text" placeholder="类型 (如 VARCHAR(50))" class="mc-type" style="width:150px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+        <input type="checkbox" class="mc-required"> 必填
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+        <input type="checkbox" class="mc-pk"> 主键
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap">
+        <input type="checkbox" class="mc-auto"> 自增
+      </label>
+      <input type="text" placeholder="默认值" class="mc-default" style="width:100px">
+      <button class="btn btn-secondary btn-xs" onclick="App.removeManualCol(this)" style="color:var(--danger)">✕</button>
+    `;
+    container.appendChild(row);
+  },
+
+  removeManualCol(btn) {
+    const row = btn.closest('.manual-col-row');
+    if (document.querySelectorAll('.manual-col-row').length > 1) {
+      row.remove();
+    }
+  },
+
+  applyManual() {
+    const tableName = document.getElementById('manual-table-name').value.trim();
+    if (!tableName) { alert('请输入表名'); return; }
+
+    const columns = [];
+    document.querySelectorAll('.manual-col-row').forEach(row => {
+      const code = row.querySelector('.mc-name').value.trim();
+      const dataType = row.querySelector('.mc-type').value.trim() || 'VARCHAR(50)';
+      if (!code) return;
+      columns.push({
+        code, dataType: dataType.toLowerCase(),
+        mandatory: row.querySelector('.mc-required').checked,
+        isPrimaryKey: row.querySelector('.mc-pk').checked,
+        identity: row.querySelector('.mc-auto').checked,
+        defaultValue: row.querySelector('.mc-default').value.trim() || null
+      });
+    });
+
+    if (columns.length === 0) { alert('请至少添加一列'); return; }
+    const dbType = document.getElementById('manual-db-type').value;
+    this.loadTable(tableName, columns, dbType);
+  },
+
+  /* ---- Proxy (DB Connection) Mode ---- */
+  async connectDB() {
+    const proxyUrl = document.getElementById('proxy-url').value.trim();
+    const dbType = document.getElementById('proxy-db-type').value;
+    const table = document.getElementById('proxy-table').value.trim();
+    const statusEl = document.getElementById('proxy-status');
+
+    if (!table) { statusEl.style.display = 'block'; statusEl.className = 'alert alert-error'; statusEl.textContent = '请输入表名'; return; }
+
+    statusEl.style.display = 'block';
+    statusEl.className = 'alert alert-info';
+    statusEl.innerHTML = '<span class="spin"></span> 正在连接数据库...';
+
+    try {
+      const resp = await fetch(proxyUrl + '/api/columns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dbType,
+          host: document.getElementById('proxy-host').value,
+          port: parseInt(document.getElementById('proxy-port').value) || 3306,
+          database: document.getElementById('proxy-database').value,
+          user: document.getElementById('proxy-user').value,
+          password: document.getElementById('proxy-pass').value,
+          table
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(err || `HTTP ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      if (!data.columns || data.columns.length === 0) {
+        throw new Error('表 ' + table + ' 不存在或无列');
+      }
+
+      const columns = data.columns.map(c => ({
+        code: c.column_name || c.COLUMN_NAME,
+        dataType: (c.data_type || c.DATA_TYPE || 'varchar').toLowerCase(),
+        mandatory: (c.is_nullable === 'NO' || c.IS_NULLABLE === 'NO'),
+        isPrimaryKey: c.is_primary_key || false,
+        identity: c.is_identity || c.is_autoincrement || false,
+        defaultValue: c.column_default || c.COLUMN_DEFAULT || null
+      }));
+
+      this.loadTable(data.table || table, columns, dbType);
+      statusEl.className = 'alert alert-success';
+      statusEl.textContent = `连接成功！已加载表 ${data.table || table}（${columns.length} 列）`;
+    } catch (e) {
+      statusEl.className = 'alert alert-error';
+      statusEl.textContent = '连接失败: ' + e.message + '。请确认代理服务器正在运行（node db-proxy-server.js）';
+      statusEl.innerHTML += '<br><span style="font-size:11px">或切换到"DDL 粘贴"模式手动输入表结构。</span>';
+    }
+  },
+
+  /* ---- Load table into data entry form ---- */
+  loadTable(tableName, columns, dbType) {
+    this.tableName = tableName;
+    this.columns = columns;
+    this.records = [];
+    this.editingIndex = -1;
+    this.generated = { insert: '', update: '', delete: '' };
+
+    // Update UI
+    document.getElementById('table-info-text').textContent =
+      `表: ${tableName}，${columns.length} 列，主键: ${columns.filter(c => c.isPrimaryKey).map(c => c.code).join(', ') || '无'}`;
+
+    document.getElementById('script-db-type').value = dbType || 'mysql';
+
+    // Enable cards
+    document.getElementById('card-fields').classList.remove('disabled');
+    document.getElementById('card-records').classList.remove('disabled');
+    document.getElementById('card-scripts').classList.remove('disabled');
+
+    // Hide script output
+    document.getElementById('script-output').style.display = 'none';
+    document.getElementById('script-actions').style.display = 'none';
+
+    this.renderFields();
+    this.renderRecords();
+    this.scrollTo('card-fields');
+  },
+
+  /* ---- Render field input grid ---- */
+  renderFields() {
+    const grid = document.getElementById('field-grid');
+    grid.innerHTML = '';
+
+    const summary = document.getElementById('field-summary');
+    const identityCols = this.columns.filter(c => c.identity);
+    const skipCols = this.columns.filter(c => c.isPrimaryKey && c.identity);
+    if (skipCols.length > 0) {
+      summary.style.display = 'block';
+      summary.innerHTML = `以下 ${skipCols.map(c => c.code).join('、')} 列为自增主键，将自动跳过。填写完成后点击"添加到记录列表"。`;
+    } else if (identityCols.length > 0) {
+      summary.style.display = 'block';
+      summary.innerHTML = `${identityCols.map(c => c.code).join('、')} 为自增列，生成脚本时将自动排除。`;
+    } else {
+      summary.style.display = 'none';
+    }
+
+    for (const col of this.columns) {
+      const isAuto = col.isPrimaryKey && col.identity;
+      const item = document.createElement('div');
+      item.className = 'field-item' + (isAuto ? ' field-skip' : '');
+      item.dataset.col = col.code;
+
+      // Determine placeholder and initial value
+      let placeholder = '';
+      let initialValue = '';
+
+      if (isAuto) {
+        placeholder = '自增主键（自动跳过）';
+      } else if (col.defaultValue !== null && col.defaultValue !== undefined) {
+        initialValue = col.defaultValue;
+      } else if (!col.mandatory) {
+        placeholder = 'NULL';
+      }
+
+      // Type badge
+      const badges = [];
+      badges.push(`<span class="badge badge-gray">${col.dataType}</span>`);
+      if (col.mandatory) badges.push('<span class="badge badge-danger">NOT NULL</span>');
+      if (col.isPrimaryKey) badges.push('<span class="badge badge-warning">PK</span>');
+      if (col.identity) badges.push('<span class="badge badge-info">自增</span>');
+
+      item.innerHTML = `
+        <div class="field-header">
+          <span class="field-name">${col.code}</span>
+          <div class="field-meta">${badges.join('')}</div>
+        </div>
+        <input type="text"
+          class="field-input${isAuto ? '' : ''}"
+          data-col="${col.code}"
+          placeholder="${placeholder}"
+          value="${this._escapeAttr(initialValue)}"
+          ${isAuto ? 'disabled' : ''}
+          oninput="App.validateField(this)"
+          onblur="App.validateField(this)">
+        <div class="field-hint" data-col="${col.code}">${isAuto ? '✓ 自动跳过' : ''}</div>
+      `;
+
+      grid.appendChild(item);
+    }
+  },
+
+  _escapeAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  },
+
+  /* ---- Real-time field validation ---- */
+  validateField(input) {
+    const colCode = input.dataset.col;
+    const col = this.columns.find(c => c.code === colCode);
+    if (!col) return;
+
+    const hintEl = input.parentElement.querySelector('.field-hint');
+    const result = Validation.validate(input.value, col);
+
+    if (!result.valid) {
+      input.classList.add('field-input-error');
+      input.parentElement.classList.add('field-error');
+      hintEl.className = 'field-hint field-hint-error';
+      hintEl.textContent = '✕ ' + result.msg;
+    } else {
+      input.classList.remove('field-input-error');
+      input.parentElement.classList.remove('field-error');
+      hintEl.className = 'field-hint field-hint-ok';
+      hintEl.textContent = input.value.trim() === '' ? (col.mandatory ? '' : '(将插入 NULL)') : '✓';
+    }
+  },
+
+  /* ---- Compile record from form ---- */
+  getFormRecord() {
+    const record = {};
+    let hasError = false;
+    const inputs = document.querySelectorAll('#field-grid .field-input:not([disabled])');
+
+    for (const input of inputs) {
+      const colCode = input.dataset.col;
+      const col = this.columns.find(c => c.code === colCode);
+      if (!col) continue;
+
+      // Validate
+      const result = Validation.validate(input.value, col);
+      if (!result.valid) {
+        hasError = true;
+        input.classList.add('field-input-error');
+        input.parentElement.classList.add('field-error');
+        const hint = input.parentElement.querySelector('.field-hint');
+        hint.className = 'field-hint field-hint-error';
+        hint.textContent = '✕ ' + result.msg;
+      }
+
+      record[colCode] = input.value.trim();
+    }
+
+    // Add auto/skip columns as null (they'll be excluded from scripts)
+    for (const col of this.columns) {
+      if (!(col.code in record)) {
+        record[col.code] = col.defaultValue || '';
+      }
+    }
+
+    return { record, hasError };
+  },
+
+  /* ---- Add or update record ---- */
+  addRecord() {
+    const { record, hasError } = this.getFormRecord();
+    if (hasError) {
+      this.toast('请修正标红的字段后再添加', 'error');
+      document.getElementById('card-fields').scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (this.editingIndex >= 0) {
+      // Update existing
+      this.records[this.editingIndex] = record;
+      this.editingIndex = -1;
+      document.getElementById('btn-add-record').innerHTML = '+ 添加到记录列表';
+      document.getElementById('btn-cancel-edit').style.display = 'none';
+      this.clearForm();
+      this.toast('记录已更新');
+    } else {
+      // Add new
+      this.records.push(record);
+      this.clearForm();
+      this.toast('记录已添加');
+    }
+
+    this.renderRecords();
+    this.scrollTo('card-records');
+  },
+
+  /* ---- Edit a record ---- */
+  editRecord(index) {
+    this.editingIndex = index;
+    const record = this.records[index];
+    document.getElementById('btn-add-record').innerHTML = '更新记录';
+    document.getElementById('btn-cancel-edit').style.display = 'inline-flex';
+
+    const inputs = document.querySelectorAll('#field-grid .field-input:not([disabled])');
+    for (const input of inputs) {
+      const colCode = input.dataset.col;
+      input.value = record[colCode] || '';
+      this.validateField(input);
+    }
+    document.getElementById('card-fields').scrollIntoView({ behavior: 'smooth' });
+  },
+
+  cancelEdit() {
+    this.editingIndex = -1;
+    document.getElementById('btn-add-record').innerHTML = '+ 添加到记录列表';
+    document.getElementById('btn-cancel-edit').style.display = 'none';
+    this.clearForm();
+  },
+
+  clearForm() {
+    document.querySelectorAll('#field-grid .field-input:not([disabled])').forEach(input => {
+      const col = this.columns.find(c => c.code === input.dataset.col);
+      if (col && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
+        input.value = col.defaultValue;
+      } else {
+        input.value = '';
+      }
+      input.classList.remove('field-input-error');
+      const item = input.parentElement;
+      item.classList.remove('field-error');
+      const hint = item.querySelector('.field-hint');
+      hint.className = 'field-hint';
+      hint.textContent = '';
+    });
+  },
+
+  deleteRecord(index) {
+    const record = this.records[index];
+    const pkDisplay = this.columns.filter(c => c.isPrimaryKey)
+      .map(c => c.code + '=' + record[c.code]).join(', ') || `第 ${index + 1} 条`;
+    this.confirm(
+      '确认删除',
+      `确定要删除记录（${pkDisplay}）吗？此操作不可恢复。`,
+      () => {
+        this.records.splice(index, 1);
+        if (this.editingIndex === index) this.cancelEdit();
+        else if (this.editingIndex > index) this.editingIndex--;
+        this.renderRecords();
+        this.toast('记录已删除');
+      }
+    );
+  },
+
+  clearRecords() {
+    if (this.records.length === 0) return;
+    this.confirm(
+      '确认清空',
+      `确定要清空全部 ${this.records.length} 条记录吗？此操作不可恢复。`,
+      () => {
+        this.records = [];
+        this.editingIndex = -1;
+        this.cancelEdit();
+        this.renderRecords();
+        this.generated = { insert: '', update: '', delete: '' };
+        document.getElementById('script-output').style.display = 'none';
+        document.getElementById('script-actions').style.display = 'none';
+        this.toast('已清空全部记录');
+      }
+    );
+  },
+
+  /* ---- Render records table ---- */
+  renderRecords() {
+    const empty = document.getElementById('records-empty');
+    const wrap = document.getElementById('records-table-wrap');
+    document.getElementById('record-count-text').textContent = `共 ${this.records.length} 条`;
+    document.getElementById('record-table-count').textContent = `共 ${this.records.length} 条记录`;
+
+    if (this.records.length === 0) {
+      empty.style.display = 'block';
+      wrap.style.display = 'none';
+      return;
+    }
+
+    empty.style.display = 'none';
+    wrap.style.display = 'block';
+
+    // Visible columns: all non-identity columns, up to 8 max + actions
+    const visibleCols = this.columns.filter(c => !c.identity).slice(0, 8);
+    const hasMore = this.columns.filter(c => !c.identity).length > 8;
+    if (hasMore) visibleCols.push({ code: '__more', dataType: '', name: '更多...' });
+
+    // Table head
+    const thead = document.getElementById('records-thead');
+    thead.innerHTML = '<tr><th style="width:40px">#</th>' +
+      visibleCols.map(c => `<th>${c.code === '__more' ? '更多...' : c.code}</th>`).join('') +
+      '<th style="width:100px">操作</th></tr>';
+
+    // Table body
+    const tbody = document.getElementById('records-tbody');
+    tbody.innerHTML = '';
+    this.records.forEach((rec, i) => {
+      const tr = document.createElement('tr');
+      let cells = `<td><span class="badge badge-gray">${i + 1}</span></td>`;
+      for (const vc of visibleCols) {
+        if (vc.code === '__more') {
+          cells += `<td><span style="font-size:11px;color:var(--text-3)">...</span></td>`;
+        } else {
+          const val = rec[vc.code];
+          const display = val === '' || val === null || val === undefined
+            ? '<span style="color:var(--text-3)">NULL</span>'
+            : String(val).length > 30 ? String(val).substring(0, 30) + '...' : String(val);
+          cells += `<td>${display}</td>`;
+        }
+      }
+      cells += `<td>
+        <button class="icon-btn" onclick="App.editRecord(${i})" title="编辑">✎</button>
+        <button class="icon-btn danger" onclick="App.deleteRecord(${i})" title="删除">✕</button>
+      </td>`;
+      tr.innerHTML = cells;
+      tbody.appendChild(tr);
+    });
+  },
+
+  /* ---- Generate scripts ---- */
+  generateScripts() {
+    if (this.records.length === 0) {
+      this.toast('请先添加至少一条数据记录', 'error');
+      return;
+    }
+
+    const dbType = document.getElementById('script-db-type').value;
+    document.getElementById('gen-error').style.display = 'none';
+
+    try {
+      this.generated = {
+        insert: SQLGenerator.genInsert(this.tableName, this.columns, this.records, dbType),
+        update: SQLGenerator.genUpdate(this.tableName, this.columns, this.records, dbType),
+        delete: SQLGenerator.genDelete(this.tableName, this.columns, this.records, dbType)
+      };
+
+      this.renderScriptTabs();
+      this.showScript('insert');
+      document.getElementById('script-output').style.display = 'block';
+      document.getElementById('script-actions').style.display = 'flex';
+
+      // Stats
+      document.getElementById('stat-insert').textContent = this.records.length;
+      document.getElementById('stat-update').textContent = this.records.length;
+      document.getElementById('stat-delete').textContent = this.records.length;
+      document.getElementById('stat-total').textContent = this.records.length * 3;
+
+      this.scrollTo('card-scripts');
+      this.toast(`已生成 ${this.records.length * 3} 条 SQL 语句`);
+    } catch (e) {
+      document.getElementById('gen-error').style.display = 'block';
+      document.getElementById('gen-error').textContent = '生成失败: ' + e.message;
+    }
+  },
+
+  renderScriptTabs() {
+    const tabs = document.getElementById('script-tabs');
+    const types = [
+      { key: 'insert', label: 'INSERT 脚本', icon: '📥' },
+      { key: 'update', label: 'UPDATE 脚本', icon: '📝' },
+      { key: 'delete', label: 'DELETE 脚本', icon: '🗑' }
+    ];
+    tabs.innerHTML = types.map(t =>
+      `<button class="script-tab${t.key === this.currentScript ? ' active' : ''}" data-type="${t.key}" onclick="App.showScript('${t.key}')">
+        ${t.icon} ${t.label}<span class="tab-count">(${this.records.length})</span>
+      </button>`
+    ).join('');
+  },
+
+  showScript(type) {
+    this.currentScript = type;
+    document.querySelectorAll('.script-tab').forEach(t => t.classList.toggle('active', t.dataset.type === type));
+    const code = this.generated[type] || '-- 暂无脚本';
+    document.getElementById('script-code').innerHTML = this.highlightSQL(code);
+  },
+
+  highlightSQL(sql) {
+    return sql
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/(--[^\n]*)/g, '<span class="cmt">$1</span>')
+      .replace(/('(?:[^']|'')*')/g, '<span class="str">$1</span>')
+      .replace(/(\$\$[\s\S]*?\$\$)/g, '<span class="str">$1</span>')
+      .replace(/\b(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, '<span class="num">$1</span>')
+      .replace(/\b(CREATE|TABLE|ALTER|DROP|INSERT|INTO|VALUES|UPDATE|SET|DELETE|FROM|WHERE|AND|OR|IN|SELECT|GO|SET|NULL|NOT|DEFAULT|PRIMARY|KEY|FOREIGN|REFERENCES|IDENTITY|SERIAL|AUTO_INCREMENT|AUTOINCREMENT|CONSTRAINT|INDEX|UNIQUE|CHECK|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|FETCH|NEXT|ROWS|ONLY|CASCADE|RESTRICT|IF|EXISTS|THEN|ELSE|END|CASE|WHEN|BEGIN|COMMIT|ROLLBACK|TOP|PERCENT)\b/gi,
+        '<span class="kw">$1</span>')
+      .replace(/\b(CURRENT_TIMESTAMP|NOW|GETDATE|GETUTCDATE|SYSDATETIME|SYSUTCDATETIME|NEWID|UUID_GENERATE_V4)\b/gi,
+        '<span class="fn">$1</span>');
+  },
+
+  /* ---- Copy / Download ---- */
+  async copyCurrentScript() {
+    const text = this.generated[this.currentScript];
+    if (!text) return;
+    await this.copyToClipboard(text);
+    this.toast('已复制到剪贴板');
+  },
+
+  downloadCurrentScript() {
+    const text = this.generated[this.currentScript];
+    if (!text) return;
+    const dbType = document.getElementById('script-db-type').value;
+    const typeName = { insert: 'INSERT', update: 'UPDATE', delete: 'DELETE' }[this.currentScript];
+    const filename = `${typeName}_${this.tableName}_${dbType}.sql`;
+    this.downloadFile(filename, text);
+    this.toast('已下载: ' + filename);
+  },
+
+  async copyAllScripts() {
+    const parts = [];
+    const typeNames = { insert: 'INSERT', update: 'UPDATE', delete: 'DELETE' };
+    for (const [type, label] of Object.entries(typeNames)) {
+      parts.push(`/* ==================== ${label} 脚本 ==================== */`);
+      parts.push(this.generated[type] || '-- 无');
+      parts.push('');
+    }
+    await this.copyToClipboard(parts.join('\n'));
+    this.toast('已复制全部脚本到剪贴板');
+  },
+
+  async copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+  },
+
+  downloadFile(filename, content) {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+
+  /* ---- Confirm dialog ---- */
+  confirm(title, msg, callback) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('confirm-overlay').classList.add('show');
+    this.confirmCallback = callback;
+    document.getElementById('confirm-ok-btn').onclick = () => {
+      document.getElementById('confirm-overlay').classList.remove('show');
+      if (this.confirmCallback) this.confirmCallback();
+      this.confirmCallback = null;
+    };
+  },
+
+  dismissConfirm() {
+    document.getElementById('confirm-overlay').classList.remove('show');
+    this.confirmCallback = null;
+  },
+
+  /* ---- Toast notification ---- */
+  toast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + (type || '') + ' show';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => { t.className = 'toast'; }, 2000);
+  },
+
+  /* ---- Utility ---- */
+  scrollTo(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
+</body>
+</html>
