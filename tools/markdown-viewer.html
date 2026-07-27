@@ -106,6 +106,13 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .alert.show{display:block}
 .alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
 
+/* Fullscreen mode */
+.preview-panel.fullscreen{position:fixed;inset:0;z-index:9999;border-radius:0}
+.preview-panel.fullscreen .preview-wrap{padding:40px 64px}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-btn svg{width:14px;height:14px}
+
 /* Divider resizer */
 .resizer{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;z-index:5}
 .resizer:hover,.resizer.dragging{background:var(--primary)}
@@ -197,7 +204,12 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
   <div class="preview-panel">
     <div class="panel-header">
       <div class="title"><span class="dot"></span> 渲染预览</div>
-      <div class="word-count" id="render-info"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="word-count" id="render-info"></div>
+        <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+        </button>
+      </div>
     </div>
     <div class="preview-wrap" id="preview-wrap">
       <div class="preview-empty" id="preview-empty">
@@ -218,10 +230,13 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 
 const App = {
   currentFormat: 'md',
+  isFullscreen: false,
   editor: null,
   preview: null,
   previewEmpty: null,
   previewWrap: null,
+  previewPanel: null,
+  fsBtn: null,
   alert: null,
   wordCount: null,
   renderInfo: null,
@@ -231,6 +246,8 @@ const App = {
     this.preview = document.getElementById('preview');
     this.previewEmpty = document.getElementById('preview-empty');
     this.previewWrap = document.getElementById('preview-wrap');
+    this.previewPanel = document.querySelector('.preview-panel');
+    this.fsBtn = document.getElementById('fs-btn');
     this.alert = document.getElementById('alert');
     this.wordCount = document.getElementById('word-count');
     this.renderInfo = document.getElementById('render-info');
@@ -249,11 +266,14 @@ const App = {
     // Setup drag-drop
     this.initDragDrop();
 
-    // Setup keyboard shortcut: Ctrl/Cmd+S to export
+    // Setup keyboard shortcut: Ctrl/Cmd+S to export, ESC to exit fullscreen
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         this.exportContent();
+      }
+      if (e.key === 'Escape' && this.isFullscreen) {
+        this.toggleFullscreen();
       }
     });
   },
@@ -376,6 +396,21 @@ const App = {
     document.querySelectorAll('.format-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.format === fmt);
     });
+  },
+
+  // ── Fullscreen toggle ──
+  toggleFullscreen() {
+    this.isFullscreen = !this.isFullscreen;
+    this.previewPanel.classList.toggle('fullscreen', this.isFullscreen);
+
+    // Swap icon: expand → collapse, collapse → expand
+    if (this.isFullscreen) {
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+      this.fsBtn.title = '退出全屏 (Esc)';
+    } else {
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+      this.fsBtn.title = '全屏查看';
+    }
   },
 
   // ── Export ──
