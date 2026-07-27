@@ -74,14 +74,15 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
 .table-list th{background:#f8fafc;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
 .table-list td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px}
 .table-list tr:hover{background:#f8fafc}
-.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.field-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;transition:border-color .15s}
+.field-grid{display:flex;flex-direction:column;gap:6px}
+.field-item{display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:border-color .15s}
 .field-item:hover{border-color:#cbd5e1}
 .field-item.field-error{border-color:var(--danger);background:var(--danger-light)}
 .field-item.field-skip{opacity:.5;border-style:dashed}
-.field-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.field-name{font-weight:600;font-size:12px;color:var(--text);font-family:"Cascadia Code","Fira Code",Consolas,monospace}
+.field-info{width:200px;flex-shrink:0;padding-top:2px}
+.field-name{font-weight:600;font-size:12px;color:var(--text);font-family:"Cascadia Code","Fira Code",Consolas,monospace;margin-bottom:4px}
 .field-meta{display:flex;gap:4px;flex-wrap:wrap}
+.field-input-wrap{flex:1;min-width:0}
 .field-input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--text);background:var(--surface);font-family:"Cascadia Code","Fira Code",Consolas,monospace}
 .field-input:focus{outline:none;border-color:var(--primary)}
 .field-input.field-input-error{border-color:var(--danger)}
@@ -425,6 +426,7 @@ const PDMParser = {
       const col = this._parseColumn(colEls[i]);
       if (col) {
         columns.push(col);
+        if (col.xmlId) colIndex[col.xmlId] = col;
         colIndex[col.objectId] = col;
       }
     }
@@ -438,14 +440,19 @@ const PDMParser = {
         pkColumns = this._parseKeyColumns(keyEls[0], colIndex);
       }
     }
-    // Also check c:Keys for inline primary keys
+    // Also check c:Keys for primary keys (by a:PrimaryKey flag or name)
     if (pkColumns.length === 0) {
       const keysContainer = el.getElementsByTagName('c:Keys');
       if (keysContainer.length > 0) {
         const keyEls = keysContainer[0].getElementsByTagName('o:Key');
         for (let i = 0; i < keyEls.length; i++) {
           const pkCheck = this._gt(keyEls[i], 'a:PrimaryKey') || '';
-          if (pkCheck === '1') {
+          const keyName = (this._gt(keyEls[i], 'a:Name') || '').toUpperCase();
+          const keyCode = (this._gt(keyEls[i], 'a:Code') || '').toUpperCase();
+          const isPrimary = pkCheck === '1' || pkCheck === 'true' ||
+            keyName.startsWith('PK_') || keyCode.startsWith('PK_') ||
+            keyName.includes('PRIMARY') || keyCode.includes('PRIMARY');
+          if (isPrimary) {
             pkColumns = this._parseKeyColumns(keyEls[i], colIndex);
             if (pkColumns.length > 0) break;
           }
@@ -464,6 +471,7 @@ const PDMParser = {
   _parseColumn(el) {
     const code = this._gt(el, 'a:Code');
     if (!code) return null;
+    const xmlId = el.getAttribute('Id') || '';
     const objectId = this._gt(el, 'a:ObjectID') || code;
     const name = this._gt(el, 'a:Name') || code;
     let dataType = this._gt(el, 'a:DataType') || 'varchar(50)';
@@ -476,7 +484,7 @@ const PDMParser = {
     const sqlType = this._buildSQLType(dataType.trim(), length, precision);
 
     return {
-      objectId, code, name,
+      xmlId, objectId, code, name,
       dataType: sqlType,
       mandatory: mandatory === '1',
       identity: identity === '1',
@@ -487,12 +495,28 @@ const PDMParser = {
 
   _parseKeyColumns(keyEl, colIndex) {
     const cols = [];
+    // Try c:Key.Columns first
     const refEls = keyEl.getElementsByTagName('c:Key.Columns');
-    if (refEls.length === 0) return cols;
-    const colRefs = refEls[0].getElementsByTagName('o:Column');
+    let colRefs;
+    if (refEls.length > 0) {
+      colRefs = refEls[0].getElementsByTagName('o:Column');
+    } else {
+      // Some PDMs have o:Column directly under o:Key
+      colRefs = keyEl.getElementsByTagName('o:Column');
+    }
     for (let i = 0; i < colRefs.length; i++) {
       const ref = this._ref(colRefs[i]);
-      if (ref && colIndex[ref]) cols.push(colIndex[ref].code);
+      if (ref && colIndex[ref]) {
+        cols.push(colIndex[ref].code);
+      } else if (ref) {
+        // Try lookup by code (some PDMs use column code as ref)
+        for (const key in colIndex) {
+          if (colIndex[key].code === ref || colIndex[key].objectId === ref) {
+            cols.push(colIndex[key].code);
+            break;
+          }
+        }
+      }
     }
     return cols;
   },
@@ -1175,19 +1199,22 @@ const App = {
       if (col.identity) badges.push('<span class="badge badge-info">自增</span>');
 
       item.innerHTML = `
-        <div class="field-header">
-          <span class="field-name">${col.code}</span>
+        <div class="field-info">
+          <div class="field-name">${col.code}</div>
           <div class="field-meta">${badges.join('')}</div>
         </div>
-        <input type="text"
-          class="field-input${isAuto ? '' : ''}"
-          data-col="${col.code}"
-          placeholder="${placeholder}"
-          value="${this._escapeAttr(initialValue)}"
-          ${isAuto ? 'disabled' : ''}
-          oninput="App.validateField(this)"
-          onblur="App.validateField(this)">
-        <div class="field-hint" data-col="${col.code}">${isAuto ? '✓ 自动跳过' : ''}</div>
+        <div class="field-input-wrap">
+          <input type="text"
+            class="field-input${isAuto ? '' : ''}"
+            data-col="${col.code}"
+            placeholder="${placeholder}"
+            value="${this._escapeAttr(initialValue)}"
+            ${isAuto ? 'disabled' : ''}
+            oninput="App.validateField(this)"
+            onblur="App.validateField(this)"
+            onkeydown="App.handleFieldKeydown(event, this)">
+          <div class="field-hint" data-col="${col.code}">${isAuto ? '✓ 自动跳过' : ''}</div>
+        </div>
       `;
 
       grid.appendChild(item);
@@ -1205,19 +1232,39 @@ const App = {
     const col = this.columns.find(c => c.code === colCode);
     if (!col) return;
 
-    const hintEl = input.parentElement.querySelector('.field-hint');
+    const itemEl = input.closest('.field-item');
+    const hintEl = itemEl.querySelector('.field-hint');
     const result = Validation.validate(input.value, col);
 
     if (!result.valid) {
       input.classList.add('field-input-error');
-      input.parentElement.classList.add('field-error');
+      itemEl.classList.add('field-error');
       hintEl.className = 'field-hint field-hint-error';
       hintEl.textContent = '✕ ' + result.msg;
     } else {
       input.classList.remove('field-input-error');
-      input.parentElement.classList.remove('field-error');
+      itemEl.classList.remove('field-error');
       hintEl.className = 'field-hint field-hint-ok';
       hintEl.textContent = input.value.trim() === '' ? (col.mandatory ? '' : '(将插入 NULL)') : '✓';
+    }
+  },
+
+  /* ---- Enter key to advance to next field ---- */
+  handleFieldKeydown(event, input) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+
+    const allInputs = Array.from(document.querySelectorAll('#field-grid .field-input:not([disabled])'));
+    const idx = allInputs.indexOf(input);
+
+    if (idx >= 0 && idx < allInputs.length - 1) {
+      const next = allInputs[idx + 1];
+      next.focus();
+      next.select();
+    } else {
+      // Last field: focus the add-record button
+      const btn = document.getElementById('btn-add-record');
+      if (btn) btn.focus();
     }
   },
 
@@ -1237,8 +1284,9 @@ const App = {
       if (!result.valid) {
         hasError = true;
         input.classList.add('field-input-error');
-        input.parentElement.classList.add('field-error');
-        const hint = input.parentElement.querySelector('.field-hint');
+        const itemEl = input.closest('.field-item');
+        itemEl.classList.add('field-error');
+        const hint = itemEl.querySelector('.field-hint');
         hint.className = 'field-hint field-hint-error';
         hint.textContent = '✕ ' + result.msg;
       }
@@ -1308,20 +1356,68 @@ const App = {
   },
 
   clearForm() {
+    const idCol = this._getIdColumn();
+    const nextId = this._computeNextId(idCol);
+
     document.querySelectorAll('#field-grid .field-input:not([disabled])').forEach(input => {
       const col = this.columns.find(c => c.code === input.dataset.col);
-      if (col && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
+      if (col && col === idCol && nextId !== null) {
+        // Auto-increment ID by 10 from previous record
+        input.value = String(nextId);
+      } else if (col && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
         input.value = col.defaultValue;
       } else {
         input.value = '';
       }
       input.classList.remove('field-input-error');
-      const item = input.parentElement;
+      const item = input.closest('.field-item');
       item.classList.remove('field-error');
       const hint = item.querySelector('.field-hint');
       hint.className = 'field-hint';
       hint.textContent = '';
     });
+  },
+
+  /* ---- Find the ID/primary-key column for auto-increment ---- */
+  _getIdColumn() {
+    if (!this.columns || this.columns.length === 0) return null;
+    // Prefer identity PK column
+    for (const c of this.columns) {
+      if (c.isPrimaryKey && c.identity) return c;
+    }
+    // Then any PK column
+    for (const c of this.columns) {
+      if (c.isPrimaryKey) return c;
+    }
+    // Then any column named "id" (case-insensitive)
+    for (const c of this.columns) {
+      if (/^id$/i.test(c.code)) return c;
+    }
+    // Fallback: first non-skip column
+    return this.columns[0];
+  },
+
+  /* ---- Compute next ID value (previous + 10) ---- */
+  _computeNextId(idCol) {
+    if (!idCol) return null;
+    if (idCol.identity) return null; // True identity columns are auto-generated, don't override
+
+    if (this.records.length > 0) {
+      let maxVal = 0;
+      for (const r of this.records) {
+        const v = parseInt(r[idCol.code], 10);
+        if (!isNaN(v) && v > maxVal) maxVal = v;
+      }
+      if (maxVal > 0) return maxVal + 10;
+    }
+
+    // First record: use default value
+    const defVal = idCol.defaultValue;
+    if (defVal !== null && defVal !== undefined && defVal !== '') {
+      const n = parseInt(defVal, 10);
+      if (!isNaN(n)) return n;
+    }
+    return null;
   },
 
   deleteRecord(index) {
