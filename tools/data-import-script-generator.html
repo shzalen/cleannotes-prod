@@ -478,6 +478,7 @@ const PDMParser = {
     if (!code) return null;
     const objectId = this._gt(el, 'a:ObjectID') || code;
     const name = this._gt(el, 'a:Name') || code;
+    const comment = this._gt(el, 'a:Comment') || '';
 
     const columns = [];
     const colEls = el.getElementsByTagName('o:Column');
@@ -527,7 +528,7 @@ const PDMParser = {
       col.isPrimaryKey = pkColumns.includes(col.code);
     }
 
-    return { objectId, code, name, columns, pkColumns };
+    return { objectId, code, name, comment, columns, pkColumns };
   },
 
   _parseColumn(el) {
@@ -536,6 +537,7 @@ const PDMParser = {
     const xmlId = el.getAttribute('Id') || '';
     const objectId = this._gt(el, 'a:ObjectID') || code;
     const name = this._gt(el, 'a:Name') || code;
+    const comment = this._gt(el, 'a:Comment') || '';
     let dataType = this._gt(el, 'a:DataType') || 'varchar(50)';
     const length = this._gt(el, 'a:Length');
     const precision = this._gt(el, 'a:Precision');
@@ -546,7 +548,7 @@ const PDMParser = {
     const sqlType = this._buildSQLType(dataType.trim(), length, precision);
 
     return {
-      xmlId, objectId, code, name,
+      xmlId, objectId, code, name, comment,
       dataType: sqlType,
       mandatory: mandatory === '1',
       identity: identity === '1',
@@ -724,7 +726,7 @@ const DDLParser = {
       name = cmt;
     }
 
-    return { code, dataType, mandatory, isPrimaryKey, identity, defaultValue, name };
+    return { code, dataType, mandatory, isPrimaryKey, identity, defaultValue, name, comment: name };
   }
 };
 
@@ -956,7 +958,14 @@ const COMMON_DEFAULTS = {
 function parseDictionary(desc) {
   if (!desc) return null;
   const opts = [];
-  const regex = /([A-Z\d]+)[：:\s]+([^\n]+)/g;
+  // Support multiple formats:
+  //   L1：Low 轻微
+  //   L1: Low 轻微
+  //   L1 - Low 轻微
+  //   L1. Low 轻微
+  //   1: Low 轻微
+  //   1. Low 轻微
+  const regex = /([A-Z\d]+)[：:\s.\-]+([^\n]+)/g;
   let m;
   while ((m = regex.exec(desc)) !== null) {
     opts.push({ key: m[1].trim(), label: m[2].trim() });
@@ -1229,7 +1238,8 @@ const App = {
         mandatory: row.querySelector('.mc-required').checked,
         isPrimaryKey: row.querySelector('.mc-pk').checked,
         identity: row.querySelector('.mc-auto').checked,
-        defaultValue: row.querySelector('.mc-default').value.trim() || null
+        defaultValue: row.querySelector('.mc-default').value.trim() || null,
+        name: '', comment: ''
       });
     });
 
@@ -1282,7 +1292,9 @@ const App = {
         mandatory: (c.is_nullable === 'NO' || c.IS_NULLABLE === 'NO'),
         isPrimaryKey: c.is_primary_key || false,
         identity: c.is_identity || c.is_autoincrement || false,
-        defaultValue: c.column_default || c.COLUMN_DEFAULT || null
+        defaultValue: c.column_default || c.COLUMN_DEFAULT || null,
+        name: c.column_comment || c.COLUMN_COMMENT || c.column_name || c.COLUMN_NAME || '',
+        comment: c.column_comment || c.COLUMN_COMMENT || ''
       }));
 
       this.loadTable(data.table || table, columns, dbType);
@@ -1321,6 +1333,7 @@ const App = {
     this.columns = columns;
     this.records = [];
     this.generated = { insert: '', update: '', delete: '' };
+    this._dictCols = {};
 
     // Update UI
     document.getElementById('table-info-text').textContent =
@@ -1385,7 +1398,8 @@ const App = {
     // Pre-parse dictionary columns
     this._dictCols = {};
     for (const col of visibleCols) {
-      const opts = parseDictionary(col.name);
+      const dictSource = col.comment || col.name;
+      const opts = parseDictionary(dictSource);
       if (opts) this._dictCols[col.code] = opts;
     }
 
@@ -1715,6 +1729,13 @@ const App = {
   /* ---- Rebuild tbody from this.records ---- */
   _rebuildGridBody(visibleCols) {
     if (!visibleCols) visibleCols = this.columns.filter(c => !c.identity);
+    // Re-parse dictionary columns in case columns changed
+    this._dictCols = {};
+    for (const col of visibleCols) {
+      const dictSource = col.comment || col.name;
+      const opts = parseDictionary(dictSource);
+      if (opts) this._dictCols[col.code] = opts;
+    }
     const tbody = document.getElementById('grid-tbody');
     tbody.innerHTML = '';
     this.records.forEach((rec, i) => {
