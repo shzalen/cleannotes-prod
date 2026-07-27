@@ -108,6 +108,27 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
 .grid-action-btn.add-row:hover{background:var(--success-light);color:var(--success);border-color:var(--success)}
 .grid-action-btn.copy-row:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary)}
 .grid-action-btn.del-row:hover{background:var(--danger-light);color:var(--danger);border-color:var(--danger)}
+/* Split button with dropdown popover */
+.split-btn{position:relative;display:inline-flex;align-items:stretch}
+.split-btn .split-btn-main{border-radius:6px 0 0 6px;border-right:none}
+.split-btn .split-btn-caret{border-radius:0 6px 6px 0;padding:0 5px;font-size:9px;min-width:auto;border-left:1px solid rgba(0,0,0,.08)}
+.split-popover{position:absolute;top:100%;right:0;margin-top:4px;display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:100;white-space:nowrap}
+.popover-input{width:56px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;text-align:center;color:var(--text);background:var(--bg);-moz-appearance:textfield}
+.popover-input::-webkit-inner-spin-button,.popover-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.popover-input:focus{outline:none;border-color:var(--primary)}
+/* Column header batch-edit */
+.col-batch-trigger{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:3px;border-radius:3px;cursor:pointer;color:var(--text-3);font-size:10px;opacity:0;transition:all .15s;vertical-align:middle}
+th:hover .col-batch-trigger{opacity:1}
+.col-batch-trigger:hover{opacity:1;background:var(--primary-light);color:var(--primary)}
+.col-batch-trigger.active{opacity:1;background:var(--primary);color:#fff}
+.batch-edit-popover{position:fixed;display:none;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--primary);border-radius:8px;padding:6px 10px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:1000;white-space:nowrap}
+/* Column header auto-fill trigger (for PK/ID columns) */
+.col-autofill-trigger{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:3px;border-radius:3px;cursor:pointer;color:var(--text-3);font-size:11px;opacity:0;transition:all .15s;vertical-align:middle;font-weight:700}
+th:hover .col-autofill-trigger{opacity:1}
+.col-autofill-trigger:hover{opacity:1;background:var(--primary-light);color:var(--primary)}
+.col-autofill-trigger.active{opacity:1;background:var(--primary);color:#fff}
+.autofill-popover{position:fixed;display:none;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--primary);border-radius:8px;padding:6px 10px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:1000;white-space:nowrap}
+.autofill-popover .sep{color:var(--text-3);font-size:11px}
 .grid-empty{text-align:center;padding:40px 20px;color:var(--text-3)}
 .grid-empty .gicon{font-size:32px;margin-bottom:8px}
 .script-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border)}
@@ -323,7 +344,16 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
         <span style="font-size:11px;color:var(--text-3);margin-left:12px">（方向键导航单元格 · 末列回车新增行 · Tab 切换单元格）</span>
       </div>
       <div class="toolbar-right">
-        <button class="btn btn-secondary btn-sm" onclick="App.addGridRow(-1)">+ 添加行</button>
+        <div class="split-btn" id="add-row-split">
+          <button class="btn btn-secondary btn-sm split-btn-main" onclick="App.addGridRow(-1, 1)">+ 添加行</button>
+          <button class="btn btn-secondary btn-sm split-btn-caret" onclick="App.toggleAddRowPopover(event)" title="添加多行">▼</button>
+          <div class="split-popover" id="add-row-popover" style="display:none">
+            <span style="font-size:12px;color:var(--text-2)">添加</span>
+            <input type="number" id="add-row-count" class="popover-input" value="5" min="1" max="1000" onkeydown="if(event.key==='Enter')App.addMultipleRows()">
+            <span style="font-size:12px;color:var(--text-2)">行</span>
+            <button class="btn btn-primary btn-sm" onclick="App.addMultipleRows()" style="padding:4px 12px;font-size:12px">确定</button>
+          </div>
+        </div>
         <button class="btn btn-secondary btn-sm" onclick="App.clearAllRows()">清空全部</button>
       </div>
     </div>
@@ -337,15 +367,32 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
         <tbody id="grid-tbody"></tbody>
       </table>
     </div>
+    <!-- Shared batch-edit popover for column headers -->
+    <div class="batch-edit-popover" id="batch-edit-popover" style="display:none">
+      <span style="font-size:11px;color:var(--text-2);white-space:nowrap" id="batch-edit-label"></span>
+      <input type="text" id="batch-edit-input" class="popover-input" style="width:80px" placeholder="统一值" onkeydown="if(event.key==='Enter')App.applyBatchEdit()">
+      <button class="btn btn-primary btn-sm" onclick="App.applyBatchEdit()" style="padding:3px 10px;font-size:11px">确定</button>
+    </div>
+    <!-- Auto-fill popover for ID/PK columns -->
+    <div class="autofill-popover" id="autofill-popover" style="display:none">
+      <span style="font-size:11px;color:var(--text-2);white-space:nowrap" id="autofill-label"></span>
+      <span style="font-size:11px;color:var(--text-3)">起始</span>
+      <input type="number" id="autofill-start" class="popover-input" style="width:64px" placeholder="起始值" onkeydown="if(event.key==='Enter')App.applyAutoFill()">
+      <span class="sep">步长</span>
+      <input type="number" id="autofill-step" class="popover-input" style="width:52px" value="10" min="1" onkeydown="if(event.key==='Enter')App.applyAutoFill()">
+      <button class="btn btn-primary btn-sm" onclick="App.applyAutoFill()" style="padding:3px 10px;font-size:11px">确定</button>
+    </div>
   </div>
 
   <!-- ====== Step 3: 生成脚本 ====== -->
   <div class="card disabled" id="card-scripts">
     <div class="card-title" style="justify-content:space-between">
       <div style="display:flex;align-items:center;gap:8px"><span class="step-num">3</span><span class="step-label">生成脚本</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="form-group" style="margin-bottom:0">
-          <label>目标数据库</label>
+    </div>
+    <div class="toolbar" style="border-top:none;padding-top:0;justify-content:space-between">
+      <div style="display:flex;align-items:flex-end;gap:10px">
+        <div class="form-group" style="margin-bottom:0;flex-direction:row;align-items:center;gap:8px">
+          <label style="margin-bottom:0">目标数据库</label>
           <select id="script-db-type">
             <option value="mysql" selected>MySQL</option>
             <option value="pgsql">PostgreSQL</option>
@@ -355,8 +402,6 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
         </div>
         <button class="btn btn-primary" id="btn-generate" onclick="App.generateScripts()">生成脚本</button>
       </div>
-    </div>
-    <div class="toolbar" style="border-top:none;padding-top:0">
       <div class="toolbar-right" id="script-actions" style="display:none">
         <button class="btn btn-secondary btn-sm" onclick="App.copyCurrentScript()">复制当前脚本</button>
         <button class="btn btn-secondary btn-sm" onclick="App.downloadCurrentScript()">下载当前脚本</button>
@@ -957,6 +1002,36 @@ const App = {
     // Fullscreen change listener
     document.addEventListener('fullscreenchange', () => this._onFullscreenChange());
     document.addEventListener('webkitfullscreenchange', () => this._onFullscreenChange());
+
+    // Close popovers on outside click
+    document.addEventListener('click', (e) => {
+      // Add-row popover
+      const addPopover = document.getElementById('add-row-popover');
+      if (addPopover && addPopover.style.display !== 'none') {
+        const split = document.getElementById('add-row-split');
+        if (split && !split.contains(e.target)) {
+          addPopover.style.display = 'none';
+        }
+      }
+      // Batch-edit popover
+      const batchPopover = document.getElementById('batch-edit-popover');
+      if (batchPopover && batchPopover.style.display !== 'none') {
+        const trigger = e.target.closest('.col-batch-trigger');
+        if (!trigger && !batchPopover.contains(e.target)) {
+          batchPopover.style.display = 'none';
+          document.querySelectorAll('.col-batch-trigger.active').forEach(el => el.classList.remove('active'));
+        }
+      }
+      // Auto-fill popover
+      const autoPopover = document.getElementById('autofill-popover');
+      if (autoPopover && autoPopover.style.display !== 'none') {
+        const trigger = e.target.closest('.col-autofill-trigger');
+        if (!trigger && !autoPopover.contains(e.target)) {
+          autoPopover.style.display = 'none';
+          document.querySelectorAll('.col-autofill-trigger.active').forEach(el => el.classList.remove('active'));
+        }
+      }
+    });
   },
 
   /* ---- Fullscreen (browser-level) ---- */
@@ -1290,11 +1365,20 @@ const App = {
     const visibleCols = this.columns.filter(c => !c.identity);
     thead.innerHTML = '<tr>' +
       '<th style="width:40px;min-width:40px">#</th>' +
-      visibleCols.map(c => {
+      visibleCols.map((c, ci) => {
         let typeLabel = c.dataType;
         if (c.isPrimaryKey) typeLabel += ' <span class="col-pk">PK</span>';
         if (c.mandatory) typeLabel += ' <span style="color:var(--danger);font-size:10px"> *</span>';
-        return `<th>${c.code}<span class="col-type">${typeLabel}</span></th>`;
+        const isDefault = COMMON_DEFAULTS[c.code] !== undefined;
+        const isPkCol = c.isPrimaryKey;
+        let batchTrigger = '';
+        if (isDefault) {
+          batchTrigger += `<span class="col-batch-trigger" onclick="event.stopPropagation();App.toggleBatchEdit(event,'${c.code}')" title="批量修改此列">&#9998;</span>`;
+        }
+        if (isPkCol) {
+          batchTrigger += `<span class="col-autofill-trigger" onclick="event.stopPropagation();App.toggleAutoFill(event,'${c.code}')" title="自动递增值">&#8645;</span>`;
+        }
+        return `<th data-col="${c.code}" data-ci="${ci}">${c.code}${batchTrigger}<span class="col-type">${typeLabel}</span></th>`;
       }).join('') +
       '<th class="col-actions">操作</th></tr>';
 
@@ -1388,42 +1472,46 @@ const App = {
     return tr;
   },
 
-  /* ---- Insert a new blank row after given index ---- */
-  addGridRow(afterIndex) {
+  /* ---- Insert new blank row(s) after given index ---- */
+  addGridRow(afterIndex, count) {
+    count = count || 1;
     const visibleCols = this.columns.filter(c => !c.identity);
     const tbody = document.getElementById('grid-tbody');
-
-    // Compute next ID if applicable
     const idCol = this._getIdColumn();
-    const newRecord = {};
-    if (idCol && !idCol.identity) {
-      const nextId = this._computeNextGridId(idCol);
-      if (nextId !== null) newRecord[idCol.code] = String(nextId);
-    }
-    // Apply common defaults
-    for (const col of visibleCols) {
-      if (newRecord[col.code] === undefined && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
-        newRecord[col.code] = col.defaultValue;
+
+    // Build N new record objects
+    const newRecords = [];
+    for (let n = 0; n < count; n++) {
+      const rec = {};
+      if (idCol && !idCol.identity) {
+        const nextId = this._computeNextGridId(idCol);
+        if (nextId !== null) rec[idCol.code] = String(nextId);
       }
+      for (const col of visibleCols) {
+        if (rec[col.code] === undefined && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
+          rec[col.code] = col.defaultValue;
+        }
+      }
+      newRecords.push(rec);
     }
 
-    // Insert into records array and rebuild DOM row
+    // Insert into records array
     const insertAt = afterIndex >= 0 ? afterIndex + 1 : this.records.length;
-    this.records.splice(insertAt, 0, newRecord);
+    this.records.splice(insertAt, 0, ...newRecords);
 
     if (afterIndex >= 0) {
-      // Rebuild from scratch for correct row indices
       this._rebuildGridBody(visibleCols);
     } else {
-      // Append to end
-      const row = this._buildGridRow(newRecord, this.records.length - 1, visibleCols);
-      tbody.appendChild(row);
+      for (let n = 0; n < count; n++) {
+        const row = this._buildGridRow(newRecords[n], insertAt + n, visibleCols);
+        tbody.appendChild(row);
+      }
       this._renumberRows();
     }
 
     this._updateGridRowCount();
 
-    // Focus first input of new row
+    // Focus first input of first new row
     setTimeout(() => {
       const rows = tbody.querySelectorAll('tr');
       const newRow = rows[insertAt];
@@ -1447,6 +1535,150 @@ const App = {
     this.records.splice(index + 1, 0, src);
     this._rebuildGridBody(visibleCols);
     this._updateGridRowCount();
+  },
+
+  /* ---- Toggle the multi-row add popover ---- */
+  toggleAddRowPopover(event) {
+    event.stopPropagation();
+    const popover = document.getElementById('add-row-popover');
+    const isOpen = popover.style.display !== 'none';
+    popover.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen) {
+      const input = document.getElementById('add-row-count');
+      setTimeout(() => { input.focus(); input.select(); }, 100);
+    }
+  },
+
+  /* ---- Add multiple rows from popover input ---- */
+  addMultipleRows() {
+    const input = document.getElementById('add-row-count');
+    const count = parseInt(input.value) || 1;
+    const clamped = Math.max(1, Math.min(1000, count));
+    input.value = clamped;
+    document.getElementById('add-row-popover').style.display = 'none';
+    this.addGridRow(-1, clamped);
+  },
+
+  /* ---- Toggle batch-edit popover on column header ---- */
+  toggleBatchEdit(event, colCode) {
+    event.stopPropagation();
+    const popover = document.getElementById('batch-edit-popover');
+    const trigger = event.target.closest('.col-batch-trigger');
+    const isOpen = popover.style.display !== 'none' && this._batchEditCol === colCode;
+
+    // Close all triggers
+    document.querySelectorAll('.col-batch-trigger.active').forEach(el => el.classList.remove('active'));
+    popover.style.display = 'none';
+
+    if (!isOpen && trigger) {
+      this._batchEditCol = colCode;
+      trigger.classList.add('active');
+      const rect = trigger.getBoundingClientRect();
+      popover.style.top = (rect.bottom + 4) + 'px';
+      popover.style.left = Math.max(8, rect.right - 200) + 'px';
+      popover.style.display = 'flex';
+      document.getElementById('batch-edit-label').textContent = colCode + ' 列统一值：';
+      const input = document.getElementById('batch-edit-input');
+      input.value = '';
+      // Show current value hint from first row
+      const firstMatch = document.querySelector(`[data-col="${colCode}"]`);
+      if (firstMatch && firstMatch.tagName === 'INPUT') {
+        input.placeholder = '当前: ' + (firstMatch.value || '(空)');
+      }
+      setTimeout(() => { input.focus(); }, 100);
+    }
+  },
+
+  /* ---- Apply batch edit to all rows ---- */
+  applyBatchEdit() {
+    const colCode = this._batchEditCol;
+    if (!colCode) return;
+    const val = document.getElementById('batch-edit-input').value;
+    const popover = document.getElementById('batch-edit-popover');
+    popover.style.display = 'none';
+    document.querySelectorAll('.col-batch-trigger.active').forEach(el => el.classList.remove('active'));
+
+    // Update all inputs/selects for this column
+    const cells = document.querySelectorAll(`#grid-tbody [data-col="${colCode}"]`);
+    cells.forEach(el => {
+      if (el.tagName === 'INPUT') {
+        el.value = val;
+        this.validateGridCell(el);
+      } else if (el.tagName === 'SELECT') {
+        // For selects, try to match the value
+        const option = Array.from(el.options).find(o => o.value === val);
+        if (option) { el.value = val; this.validateGridCell(el); }
+        else if (val !== '') { this.toast(colCode + ' 下拉选项无匹配值 "' + val + '"，已跳过', 'warn'); }
+      }
+    });
+    this.syncGridToRecords();
+    this._batchEditCol = null;
+  },
+
+  /* ---- Toggle auto-fill popover on PK/ID column header ---- */
+  toggleAutoFill(event, colCode) {
+    event.stopPropagation();
+    const popover = document.getElementById('autofill-popover');
+    const trigger = event.target.closest('.col-autofill-trigger');
+    const isOpen = popover.style.display !== 'none' && this._autoFillCol === colCode;
+
+    document.querySelectorAll('.col-autofill-trigger.active').forEach(el => el.classList.remove('active'));
+    popover.style.display = 'none';
+
+    if (!isOpen && trigger) {
+      this._autoFillCol = colCode;
+      trigger.classList.add('active');
+      const rect = trigger.getBoundingClientRect();
+      popover.style.top = (rect.bottom + 4) + 'px';
+      popover.style.left = Math.max(8, rect.right - 250) + 'px';
+      popover.style.display = 'flex';
+      document.getElementById('autofill-label').textContent = colCode + '：';
+      // Pre-fill start from first row's current value
+      const startEl = document.getElementById('autofill-start');
+      const stepEl = document.getElementById('autofill-step');
+      const firstMatch = document.querySelector(`#grid-tbody [data-col="${colCode}"]`);
+      if (firstMatch && firstMatch.tagName === 'INPUT') {
+        startEl.value = firstMatch.value || '';
+        startEl.placeholder = '起始值';
+      } else {
+        startEl.value = '';
+        startEl.placeholder = '起始值';
+      }
+      stepEl.value = '10';
+      setTimeout(() => { startEl.focus(); startEl.select(); }, 100);
+    }
+  },
+
+  /* ---- Apply auto-fill to all rows with start + step ---- */
+  applyAutoFill() {
+    const colCode = this._autoFillCol;
+    if (!colCode) return;
+    const startVal = parseFloat(document.getElementById('autofill-start').value);
+    const stepVal = parseFloat(document.getElementById('autofill-step').value) || 10;
+    if (isNaN(startVal)) {
+      this.toast('请输入有效的起始值', 'error');
+      return;
+    }
+    if (stepVal <= 0) {
+      this.toast('步长必须大于 0', 'error');
+      return;
+    }
+    const popover = document.getElementById('autofill-popover');
+    popover.style.display = 'none';
+    document.querySelectorAll('.col-autofill-trigger.active').forEach(el => el.classList.remove('active'));
+
+    const cells = document.querySelectorAll(`#grid-tbody [data-col="${colCode}"]`);
+    cells.forEach((el, idx) => {
+      if (el.tagName === 'INPUT') {
+        // Use floor for integer-like start values, otherwise preserve decimals
+        const isInt = Number.isInteger(startVal) && Number.isInteger(stepVal);
+        const val = startVal + idx * stepVal;
+        el.value = String(isInt ? val : val);
+        this.validateGridCell(el);
+      }
+    });
+    this.syncGridToRecords();
+    this._autoFillCol = null;
   },
 
   /* ---- Delete a row ---- */

@@ -277,8 +277,7 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
         </button>
         <button class="fs-exit-btn" onclick="App.toggleFullscreen()" title="退出全屏 (Esc)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          退出全屏
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>
         </button>
       </div>
     </div>
@@ -370,13 +369,54 @@ const App = {
     }
 
     try {
-      this.parsed = JSON.parse(raw);
+      this.parsed = JSON.parse(this._stripComments(raw));
       this.hideAlert();
       this.render();
     } catch (err) {
       this.showAlert('JSON 解析错误: ' + err.message, 'error');
       this.showEmpty();
     }
+  },
+
+  // Strip // and block comments from JSON-like text, preserving string contents
+  _stripComments(text) {
+    const result = [];
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      // String literal — copy verbatim
+      if (text[i] === '"' || text[i] === "'") {
+        const quote = text[i];
+        let j = i + 1;
+        while (j < len) {
+          if (text[j] === '\\') { j += 2; continue; }
+          if (text[j] === quote) { j++; break; }
+          j++;
+        }
+        result.push(text.slice(i, j));
+        i = j;
+        continue;
+      }
+      // Single-line comment //
+      if (text[i] === '/' && text[i + 1] === '/') {
+        let j = i + 2;
+        while (j < len && text[j] !== '\n') j++;
+        // Keep the newline for line-number alignment
+        if (j < len) result.push('\n');
+        i = j + 1;
+        continue;
+      }
+      // Multi-line comment /* */
+      if (text[i] === '/' && text[i + 1] === '*') {
+        let j = i + 2;
+        while (j < len - 1 && !(text[j] === '*' && text[j + 1] === '/')) j++;
+        i = j + 2;
+        continue;
+      }
+      result.push(text[i]);
+      i++;
+    }
+    return result.join('');
   },
 
   render() {
@@ -961,7 +1001,7 @@ const App = {
     const raw = this.editor.value.trim();
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(this._stripComments(raw));
       this.editor.value = JSON.stringify(parsed, null, 2);
       this.parse();
       this.showAlert('已格式化', 'success');
@@ -974,7 +1014,7 @@ const App = {
     const raw = this.editor.value.trim();
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(this._stripComments(raw));
       this.editor.value = JSON.stringify(parsed);
       this.parse();
       this.showAlert('已压缩', 'success');
@@ -1012,7 +1052,7 @@ const App = {
       return;
     }
     // Validate before export
-    try { JSON.parse(raw); } catch(e) {
+    try { JSON.parse(this._stripComments(raw)); } catch(e) {
       this.showAlert('JSON 格式有误，无法导出', 'error');
       return;
     }
