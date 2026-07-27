@@ -15,9 +15,14 @@
   --code-bg:#1e293b;--code-text:#e2e8f0;
 }
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header .header-left{flex:1;min-width:0}
 header h1{font-size:18px;font-weight:600;color:#0f172a}
 header p{font-size:12px;color:var(--text-2);margin-top:2px}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0;margin-top:4px}
+.fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-btn svg{width:15px;height:15px}
+.fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .main-scroll{flex:1;overflow-y:auto;padding:20px 24px 40px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:16px}
 .card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
@@ -74,21 +79,37 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
 .table-list th{background:#f8fafc;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
 .table-list td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-size:12px}
 .table-list tr:hover{background:#f8fafc}
-.field-grid{display:flex;flex-direction:column;gap:6px}
-.field-item{display:flex;align-items:flex-start;gap:12px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);transition:border-color .15s}
-.field-item:hover{border-color:#cbd5e1}
-.field-item.field-error{border-color:var(--danger);background:var(--danger-light)}
-.field-item.field-skip{opacity:.5;border-style:dashed}
-.field-info{width:200px;flex-shrink:0;padding-top:2px}
-.field-name{font-weight:600;font-size:12px;color:var(--text);font-family:"Cascadia Code","Fira Code",Consolas,monospace;margin-bottom:4px}
-.field-meta{display:flex;gap:4px;flex-wrap:wrap}
-.field-input-wrap{flex:1;min-width:0}
-.field-input{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:5px;font-size:13px;color:var(--text);background:var(--surface);font-family:"Cascadia Code","Fira Code",Consolas,monospace}
-.field-input:focus{outline:none;border-color:var(--primary)}
-.field-input.field-input-error{border-color:var(--danger)}
-.field-hint{font-size:10px;color:var(--text-3);margin-top:3px;min-height:14px}
-.field-hint.field-hint-error{color:var(--danger)}
-.field-hint.field-hint-ok{color:var(--success)}
+/* Editable Grid */
+.grid-wrap{overflow-x:auto;overflow-y:auto;max-height:520px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.grid-table{width:100%;border-collapse:collapse;table-layout:auto;min-width:max-content}
+.grid-table thead{position:sticky;top:0;z-index:3}
+.grid-table th{background:#f1f5f9;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text-2);border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0}
+.grid-table th .col-type{font-weight:400;font-size:10px;color:var(--text-3);margin-left:4px}
+.grid-table th .col-pk{color:var(--warning);font-size:10px}
+.grid-table th.col-actions{text-align:center;width:115px;min-width:115px;max-width:115px;right:0;z-index:4;border-left:1px solid var(--border)}
+.grid-table td{padding:3px 5px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:middle;background:var(--surface)}
+.grid-table td.col-actions{position:sticky;right:0;background:var(--surface);border-left:1px solid var(--border);text-align:center;white-space:nowrap;padding:3px 6px;z-index:1}
+.grid-table tbody tr:hover td{background:#f8fafc}
+.grid-table tbody tr:hover td.col-actions{background:#f1f5f9}
+.grid-table tbody tr.row-error td{background:var(--danger-light)}
+.grid-table tbody tr.row-error td.col-actions{background:var(--danger-light)}
+.grid-table .row-num{text-align:center;font-size:11px;color:var(--text-3);font-weight:500;min-width:36px;width:36px}
+.grid-input{width:100%;padding:5px 8px;border:1px solid transparent;border-radius:4px;font-size:12px;color:var(--text);background:transparent;font-family:"Cascadia Code","Fira Code",Consolas,monospace;min-width:80px;transition:all .12s;box-sizing:border-box}
+.grid-input:hover{border-color:var(--border)}
+.grid-input:focus{outline:none;border-color:var(--primary);background:var(--surface);box-shadow:0 0 0 2px rgba(37,99,235,.1)}
+.grid-input.input-error{border-color:var(--danger)!important;background:var(--danger-light)!important}
+.grid-input:disabled{opacity:.35;cursor:not-allowed;background:transparent;font-style:italic}
+.grid-select{width:100%;padding:5px 8px;border:1px solid transparent;border-radius:4px;font-size:12px;color:var(--text);background:transparent;cursor:pointer;min-width:100px;transition:all .12s}
+.grid-select:hover{border-color:var(--border)}
+.grid-select:focus{outline:none;border-color:var(--primary);background:var(--surface)}
+.grid-select.input-error{border-color:var(--danger)!important;background:var(--danger-light)!important}
+.grid-action-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .12s;font-size:13px;margin:0 1px;padding:0}
+.grid-action-btn:hover{background:var(--bg);color:var(--text)}
+.grid-action-btn.add-row:hover{background:var(--success-light);color:var(--success);border-color:var(--success)}
+.grid-action-btn.copy-row:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary)}
+.grid-action-btn.del-row:hover{background:var(--danger-light);color:var(--danger);border-color:var(--danger)}
+.grid-empty{text-align:center;padding:40px 20px;color:var(--text-3)}
+.grid-empty .gicon{font-size:32px;margin-bottom:8px}
 .script-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border)}
 .script-tab{padding:8px 18px;font-size:13px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-2);border:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;position:relative}
 .script-tab:hover{color:var(--text)}
@@ -128,8 +149,13 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
 </head>
 <body>
 <header>
-  <h1>数据导入脚本生成工具</h1>
-  <p>支持数据库 DDL 解析、PDM 文件导入、手动定义表结构，填写数据后自动生成 INSERT / UPDATE / DELETE 脚本（MySQL / PostgreSQL / SQL Server / SQLite）</p>
+  <div class="header-left">
+    <h1>数据导入脚本生成工具</h1>
+    <p>支持数据库 DDL 解析、PDM 文件导入、手动定义表结构，填写数据后自动生成 INSERT / UPDATE / DELETE 脚本（MySQL / PostgreSQL / SQL Server / SQLite）</p>
+  </div>
+  <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+  </button>
 </header>
 
 <div class="main-scroll" id="main-scroll">
@@ -287,49 +313,38 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
     </div>
   </div>
 
-  <!-- ====== Step 2: 填写数据 ====== -->
-  <div class="card disabled" id="card-fields">
-    <div class="card-title"><span class="step-num">2</span><span class="step-label">填写数据 - <span id="table-info-text"></span></span></div>
-    <div class="alert alert-info" id="field-summary" style="display:none"></div>
-    <div class="field-grid" id="field-grid"></div>
-    <div style="margin-top:14px;display:flex;gap:8px">
-      <button class="btn btn-primary" id="btn-add-record" onclick="App.addRecord()">+ 添加到记录列表</button>
-      <button class="btn btn-secondary" id="btn-cancel-edit" onclick="App.cancelEdit()" style="display:none">取消编辑</button>
-      <span style="font-size:12px;color:var(--text-3);margin-left:8px;align-self:center">（输入即时校验，无效字段会标红）</span>
-    </div>
-  </div>
-
-  <!-- ====== Step 3: 数据记录 ====== -->
-  <div class="card disabled" id="card-records">
-    <div class="card-title"><span class="step-num">3</span><span class="step-label">数据记录 - <span id="record-count-text">共 0 条</span></span></div>
-    <div class="empty-state" id="records-empty">
-      <div class="icon">&#128203;</div>
-      <div>暂无记录，请在上方填写数据后点击"添加到记录列表"</div>
-    </div>
-    <div id="records-table-wrap" style="display:none">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <span style="font-size:12px;color:var(--text-2)" id="record-table-count"></span>
-        </div>
-        <div class="toolbar-right">
-          <button class="btn btn-secondary btn-sm" onclick="App.clearRecords()">清空全部记录</button>
-        </div>
-      </div>
-      <div class="table-list">
-        <table>
-          <thead id="records-thead"></thead>
-          <tbody id="records-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ====== Step 4: 生成脚本 ====== -->
-  <div class="card disabled" id="card-scripts">
-    <div class="card-title"><span class="step-num">4</span><span class="step-label">生成脚本</span></div>
-    <div class="toolbar">
+  <!-- ====== Step 2: 编辑数据（表格内联编辑） ====== -->
+  <div class="card disabled" id="card-grid">
+    <div class="card-title"><span class="step-num">2</span><span class="step-label">编辑数据 - <span id="table-info-text"></span></span></div>
+    <div class="alert alert-info" id="grid-summary" style="display:none"></div>
+    <div class="toolbar" style="margin-bottom:10px">
       <div class="toolbar-left">
-        <div class="form-group">
+        <span style="font-size:12px;color:var(--text-2)">共 <strong id="grid-row-count">0</strong> 行</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:12px">（方向键导航单元格 · 末列回车新增行 · Tab 切换单元格）</span>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-secondary btn-sm" onclick="App.addGridRow(-1)">+ 添加行</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.clearAllRows()">清空全部</button>
+      </div>
+    </div>
+    <div class="grid-wrap" id="grid-wrap">
+      <div class="grid-empty" id="grid-empty">
+        <div class="gicon">&#x1F4CB;</div>
+        <div>请先在上方导入表结构</div>
+      </div>
+      <table class="grid-table" id="grid-table" style="display:none">
+        <thead id="grid-thead"></thead>
+        <tbody id="grid-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====== Step 3: 生成脚本 ====== -->
+  <div class="card disabled" id="card-scripts">
+    <div class="card-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px"><span class="step-num">3</span><span class="step-label">生成脚本</span></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="form-group" style="margin-bottom:0">
           <label>目标数据库</label>
           <select id="script-db-type">
             <option value="mysql" selected>MySQL</option>
@@ -340,6 +355,8 @@ header p{font-size:12px;color:var(--text-2);margin-top:2px}
         </div>
         <button class="btn btn-primary" id="btn-generate" onclick="App.generateScripts()">生成脚本</button>
       </div>
+    </div>
+    <div class="toolbar" style="border-top:none;padding-top:0">
       <div class="toolbar-right" id="script-actions" style="display:none">
         <button class="btn btn-secondary btn-sm" onclick="App.copyCurrentScript()">复制当前脚本</button>
         <button class="btn btn-secondary btn-sm" onclick="App.downloadCurrentScript()">下载当前脚本</button>
@@ -651,7 +668,18 @@ const DDLParser = {
       defaultValue = dv;
     }
 
-    return { code, dataType, mandatory, isPrimaryKey, identity, defaultValue };
+    // Parse comment (MySQL style: COMMENT 'xxx')
+    let name = null;
+    const cmtMatch = rest2.match(/comment\s+('[^']*'|"[^"]*")/i);
+    if (cmtMatch) {
+      let cmt = cmtMatch[1];
+      if ((cmt.startsWith("'") && cmt.endsWith("'")) || (cmt.startsWith('"') && cmt.endsWith('"'))) {
+        cmt = cmt.slice(1, -1);
+      }
+      name = cmt;
+    }
+
+    return { code, dataType, mandatory, isPrimaryKey, identity, defaultValue, name };
   }
 };
 
@@ -861,6 +889,37 @@ const SQLGenerator = {
 };
 
 /* ================================================================
+   Common Field Defaults — 每个表都可能有的通用字段默认值
+   ================================================================ */
+const COMMON_DEFAULTS = {
+  tenant_id: '10',
+  org_id: '10',
+  creator_id: '1',
+  creation_time: 'getdate()',
+  last_modifier_id: '1',
+  last_modification_time: 'getdate()',
+  concurrency_stamp: '123456',
+  is_deleted: 'N',
+  sync_id: '0',
+  sync_time: null,
+  is_enable: 'Y',
+  note: null,
+  sortid: '0'
+};
+
+/* ---- Parse dictionary options from column description ---- */
+function parseDictionary(desc) {
+  if (!desc) return null;
+  const opts = [];
+  const regex = /([A-Z\d]+)[：:\s]+([^\n]+)/g;
+  let m;
+  while ((m = regex.exec(desc)) !== null) {
+    opts.push({ key: m[1].trim(), label: m[2].trim() });
+  }
+  return opts.length >= 2 ? opts : null;
+}
+
+/* ================================================================
    UI Controller
    ================================================================ */
 const App = {
@@ -868,7 +927,6 @@ const App = {
   tableName: '',
   columns: [],       // [{ code, dataType, mandatory, isPrimaryKey, identity, defaultValue }]
   records: [],       // [{ colCode: value, ... }]
-  editingIndex: -1,  // -1 = adding new
   pdmData: null,     // parsed PDM result
   generated: { insert: '', update: '', delete: '' },
   currentScript: 'insert',
@@ -895,6 +953,41 @@ const App = {
       const file = e.dataTransfer.files[0];
       if (file) this.handlePDMFile(file);
     });
+
+    // Fullscreen change listener
+    document.addEventListener('fullscreenchange', () => this._onFullscreenChange());
+    document.addEventListener('webkitfullscreenchange', () => this._onFullscreenChange());
+  },
+
+  /* ---- Fullscreen (browser-level) ---- */
+  toggleFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } else {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }
+  },
+
+  _onFullscreenChange() {
+    const btn = document.getElementById('fs-btn');
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    btn.classList.toggle('fullscreen-active', isFS);
+    if (isFS) {
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+      btn.title = '退出全屏 (Esc)';
+    } else {
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+      btn.title = '全屏';
+    }
   },
 
   /* ---- Mode switching ---- */
@@ -1129,10 +1222,29 @@ const App = {
 
   /* ---- Load table into data entry form ---- */
   loadTable(tableName, columns, dbType) {
+    const hasData = this.records.some(r => Object.values(r).some(v => v !== '' && v !== null && v !== undefined));
+    if (hasData) {
+      this.confirm('切换表确认', '当前表已有数据，切换表将清空所有数据，是否继续？', () => {
+        this._doLoadTable(tableName, columns, dbType);
+      });
+      return;
+    }
+    this._doLoadTable(tableName, columns, dbType);
+  },
+
+  _doLoadTable(tableName, columns, dbType) {
     this.tableName = tableName;
+
+    // Apply common defaults for known fields
+    for (const col of columns) {
+      if ((col.defaultValue === null || col.defaultValue === undefined || col.defaultValue === '') &&
+          COMMON_DEFAULTS[col.code] !== undefined) {
+        col.defaultValue = COMMON_DEFAULTS[col.code];
+      }
+    }
+
     this.columns = columns;
     this.records = [];
-    this.editingIndex = -1;
     this.generated = { insert: '', update: '', delete: '' };
 
     // Update UI
@@ -1142,30 +1254,31 @@ const App = {
     document.getElementById('script-db-type').value = dbType || 'mysql';
 
     // Enable cards
-    document.getElementById('card-fields').classList.remove('disabled');
-    document.getElementById('card-records').classList.remove('disabled');
+    document.getElementById('card-grid').classList.remove('disabled');
     document.getElementById('card-scripts').classList.remove('disabled');
 
     // Hide script output
     document.getElementById('script-output').style.display = 'none';
     document.getElementById('script-actions').style.display = 'none';
 
-    this.renderFields();
-    this.renderRecords();
-    this.scrollTo('card-fields');
+    this.renderEditableGrid();
+    this.scrollTo('card-grid');
   },
 
-  /* ---- Render field input grid ---- */
-  renderFields() {
-    const grid = document.getElementById('field-grid');
-    grid.innerHTML = '';
+  /* ---- Render editable data grid ---- */
+  renderEditableGrid() {
+    const summary = document.getElementById('grid-summary');
+    const empty = document.getElementById('grid-empty');
+    const table = document.getElementById('grid-table');
+    const thead = document.getElementById('grid-thead');
+    const tbody = document.getElementById('grid-tbody');
 
-    const summary = document.getElementById('field-summary');
+    // Summary for auto-skip columns
     const identityCols = this.columns.filter(c => c.identity);
     const skipCols = this.columns.filter(c => c.isPrimaryKey && c.identity);
     if (skipCols.length > 0) {
       summary.style.display = 'block';
-      summary.innerHTML = `以下 ${skipCols.map(c => c.code).join('、')} 列为自增主键，将自动跳过。填写完成后点击"添加到记录列表"。`;
+      summary.innerHTML = `${skipCols.map(c => c.code).join('、')} 为自增主键，将自动跳过。`;
     } else if (identityCols.length > 0) {
       summary.style.display = 'block';
       summary.innerHTML = `${identityCols.map(c => c.code).join('、')} 为自增列，生成脚本时将自动排除。`;
@@ -1173,245 +1286,273 @@ const App = {
       summary.style.display = 'none';
     }
 
-    for (const col of this.columns) {
-      const isAuto = col.isPrimaryKey && col.identity;
-      const item = document.createElement('div');
-      item.className = 'field-item' + (isAuto ? ' field-skip' : '');
-      item.dataset.col = col.code;
+    // Build table header
+    const visibleCols = this.columns.filter(c => !c.identity);
+    thead.innerHTML = '<tr>' +
+      '<th style="width:40px;min-width:40px">#</th>' +
+      visibleCols.map(c => {
+        let typeLabel = c.dataType;
+        if (c.isPrimaryKey) typeLabel += ' <span class="col-pk">PK</span>';
+        if (c.mandatory) typeLabel += ' <span style="color:var(--danger);font-size:10px"> *</span>';
+        return `<th>${c.code}<span class="col-type">${typeLabel}</span></th>`;
+      }).join('') +
+      '<th class="col-actions">操作</th></tr>';
 
-      // Determine placeholder and initial value
-      let placeholder = '';
-      let initialValue = '';
-
-      if (isAuto) {
-        placeholder = '自增主键（自动跳过）';
-      } else if (col.defaultValue !== null && col.defaultValue !== undefined) {
-        initialValue = col.defaultValue;
-      } else if (!col.mandatory) {
-        placeholder = 'NULL';
-      }
-
-      // Type badge
-      const badges = [];
-      badges.push(`<span class="badge badge-gray">${col.dataType}</span>`);
-      if (col.mandatory) badges.push('<span class="badge badge-danger">NOT NULL</span>');
-      if (col.isPrimaryKey) badges.push('<span class="badge badge-warning">PK</span>');
-      if (col.identity) badges.push('<span class="badge badge-info">自增</span>');
-
-      item.innerHTML = `
-        <div class="field-info">
-          <div class="field-name">${col.code}</div>
-          <div class="field-meta">${badges.join('')}</div>
-        </div>
-        <div class="field-input-wrap">
-          <input type="text"
-            class="field-input${isAuto ? '' : ''}"
-            data-col="${col.code}"
-            placeholder="${placeholder}"
-            value="${this._escapeAttr(initialValue)}"
-            ${isAuto ? 'disabled' : ''}
-            oninput="App.validateField(this)"
-            onblur="App.validateField(this)"
-            onkeydown="App.handleFieldKeydown(event, this)">
-          <div class="field-hint" data-col="${col.code}">${isAuto ? '✓ 自动跳过' : ''}</div>
-        </div>
-      `;
-
-      grid.appendChild(item);
+    // Pre-parse dictionary columns
+    this._dictCols = {};
+    for (const col of visibleCols) {
+      const opts = parseDictionary(col.name);
+      if (opts) this._dictCols[col.code] = opts;
     }
-  },
 
-  _escapeAttr(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  },
+    // Render rows
+    tbody.innerHTML = '';
 
-  /* ---- Real-time field validation ---- */
-  validateField(input) {
-    const colCode = input.dataset.col;
-    const col = this.columns.find(c => c.code === colCode);
-    if (!col) return;
-
-    const itemEl = input.closest('.field-item');
-    const hintEl = itemEl.querySelector('.field-hint');
-    const result = Validation.validate(input.value, col);
-
-    if (!result.valid) {
-      input.classList.add('field-input-error');
-      itemEl.classList.add('field-error');
-      hintEl.className = 'field-hint field-hint-error';
-      hintEl.textContent = '✕ ' + result.msg;
+    if (this.records.length === 0) {
+      // Start with one empty row
+      const row = this._buildGridRow({}, -1, visibleCols);
+      tbody.appendChild(row);
+      this.records.push({});
     } else {
-      input.classList.remove('field-input-error');
-      itemEl.classList.remove('field-error');
-      hintEl.className = 'field-hint field-hint-ok';
-      hintEl.textContent = input.value.trim() === '' ? (col.mandatory ? '' : '(将插入 NULL)') : '✓';
+      this.records.forEach((rec, i) => {
+        const row = this._buildGridRow(rec, i, visibleCols);
+        tbody.appendChild(row);
+      });
     }
+
+    table.style.display = 'table';
+    empty.style.display = 'none';
+    this._updateGridRowCount();
   },
 
-  /* ---- Enter key to advance to next field ---- */
-  handleFieldKeydown(event, input) {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
+  /* ---- Build a single grid row ---- */
+  _buildGridRow(record, index, visibleCols) {
+    if (!visibleCols) visibleCols = this.columns.filter(c => !c.identity);
+    const isFirstRow = this.records.length === 0 || (index === 0 && Object.keys(record).length === 0 && !record._hasValues);
+    const tr = document.createElement('tr');
+    tr.dataset.rowIndex = index;
 
-    const allInputs = Array.from(document.querySelectorAll('#field-grid .field-input:not([disabled])'));
-    const idx = allInputs.indexOf(input);
+    // Row number
+    const numCell = document.createElement('td');
+    numCell.className = 'row-num';
+    numCell.textContent = index >= 0 ? index + 1 : (this.records.length + 1);
+    tr.appendChild(numCell);
 
-    if (idx >= 0 && idx < allInputs.length - 1) {
-      const next = allInputs[idx + 1];
-      next.focus();
-      next.select();
+    // Data cells
+    visibleCols.forEach((col, ci) => {
+      const td = document.createElement('td');
+      const dictOpts = this._dictCols[col.code];
+      let val = record[col.code] !== undefined ? record[col.code] : '';
+      // Auto-fill defaults for first row
+      if (isFirstRow && (val === '' || val === null || val === undefined)) {
+        if (col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
+          val = col.defaultValue;
+        }
+      }
+
+      if (dictOpts) {
+        const sel = document.createElement('select');
+        sel.className = 'grid-select';
+        sel.dataset.col = col.code;
+        sel.dataset.colIndex = ci;
+        sel.innerHTML = '<option value="">--</option>' +
+          dictOpts.map(o => `<option value="${this._escapeAttr(o.key)}"${o.key === val ? ' selected' : ''}>${this._escapeAttr(o.label)}</option>`).join('');
+        sel.onchange = () => this.validateGridCell(sel);
+        sel.onkeydown = (e) => this.handleGridKeydown(e, sel, ci);
+        td.appendChild(sel);
+      } else {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'grid-input';
+        input.dataset.col = col.code;
+        input.dataset.colIndex = ci;
+        input.value = val;
+        if (!col.mandatory && val === '') input.placeholder = 'NULL';
+        input.oninput = () => this.validateGridCell(input);
+        input.onkeydown = (e) => this.handleGridKeydown(e, input, ci);
+        td.appendChild(input);
+      }
+      tr.appendChild(td);
+    });
+
+    // Action column (sticky right)
+    const actTd = document.createElement('td');
+    actTd.className = 'col-actions';
+    actTd.innerHTML = `
+      <button class="grid-action-btn add-row" onclick="App.addGridRow(${index})" title="在下方添加行">+</button>
+      <button class="grid-action-btn copy-row" onclick="App.copyGridRow(${index})" title="复制此行">⧉</button>
+      <button class="grid-action-btn del-row" onclick="App.deleteGridRow(${index})" title="删除此行">✕</button>
+    `;
+    tr.appendChild(actTd);
+
+    return tr;
+  },
+
+  /* ---- Insert a new blank row after given index ---- */
+  addGridRow(afterIndex) {
+    const visibleCols = this.columns.filter(c => !c.identity);
+    const tbody = document.getElementById('grid-tbody');
+
+    // Compute next ID if applicable
+    const idCol = this._getIdColumn();
+    const newRecord = {};
+    if (idCol && !idCol.identity) {
+      const nextId = this._computeNextGridId(idCol);
+      if (nextId !== null) newRecord[idCol.code] = String(nextId);
+    }
+    // Apply common defaults
+    for (const col of visibleCols) {
+      if (newRecord[col.code] === undefined && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
+        newRecord[col.code] = col.defaultValue;
+      }
+    }
+
+    // Insert into records array and rebuild DOM row
+    const insertAt = afterIndex >= 0 ? afterIndex + 1 : this.records.length;
+    this.records.splice(insertAt, 0, newRecord);
+
+    if (afterIndex >= 0) {
+      // Rebuild from scratch for correct row indices
+      this._rebuildGridBody(visibleCols);
     } else {
-      // Last field: focus the add-record button
-      const btn = document.getElementById('btn-add-record');
-      if (btn) btn.focus();
+      // Append to end
+      const row = this._buildGridRow(newRecord, this.records.length - 1, visibleCols);
+      tbody.appendChild(row);
+      this._renumberRows();
     }
+
+    this._updateGridRowCount();
+
+    // Focus first input of new row
+    setTimeout(() => {
+      const rows = tbody.querySelectorAll('tr');
+      const newRow = rows[insertAt];
+      if (newRow) {
+        const firstInput = newRow.querySelector('.grid-input:not([disabled]), .grid-select');
+        if (firstInput) { firstInput.focus(); firstInput.select(); }
+      }
+    }, 50);
   },
 
-  /* ---- Compile record from form ---- */
-  getFormRecord() {
-    const record = {};
-    let hasError = false;
-    const inputs = document.querySelectorAll('#field-grid .field-input:not([disabled])');
-
-    for (const input of inputs) {
-      const colCode = input.dataset.col;
-      const col = this.columns.find(c => c.code === colCode);
-      if (!col) continue;
-
-      // Validate
-      const result = Validation.validate(input.value, col);
-      if (!result.valid) {
-        hasError = true;
-        input.classList.add('field-input-error');
-        const itemEl = input.closest('.field-item');
-        itemEl.classList.add('field-error');
-        const hint = itemEl.querySelector('.field-hint');
-        hint.className = 'field-hint field-hint-error';
-        hint.textContent = '✕ ' + result.msg;
-      }
-
-      record[colCode] = input.value.trim();
+  /* ---- Copy an existing row ---- */
+  copyGridRow(index) {
+    const visibleCols = this.columns.filter(c => !c.identity);
+    const src = { ...this.records[index] };
+    // Clear identity PK
+    const idCol = this._getIdColumn();
+    if (idCol && !idCol.identity) {
+      const nextId = this._computeNextGridId(idCol);
+      if (nextId !== null) src[idCol.code] = String(nextId);
     }
-
-    // Add auto/skip columns as null (they'll be excluded from scripts)
-    for (const col of this.columns) {
-      if (!(col.code in record)) {
-        record[col.code] = col.defaultValue || '';
-      }
-    }
-
-    return { record, hasError };
+    this.records.splice(index + 1, 0, src);
+    this._rebuildGridBody(visibleCols);
+    this._updateGridRowCount();
   },
 
-  /* ---- Add or update record ---- */
-  addRecord() {
-    const { record, hasError } = this.getFormRecord();
-    if (hasError) {
-      this.toast('请修正标红的字段后再添加', 'error');
-      document.getElementById('card-fields').scrollIntoView({ behavior: 'smooth' });
+  /* ---- Delete a row ---- */
+  deleteGridRow(index) {
+    if (this.records.length <= 1) {
+      // Keep at least one empty row
+      this.records = [{}];
+      this._rebuildGridBody(this.columns.filter(c => !c.identity));
+      this._updateGridRowCount();
       return;
     }
-
-    if (this.editingIndex >= 0) {
-      // Update existing
-      this.records[this.editingIndex] = record;
-      this.editingIndex = -1;
-      document.getElementById('btn-add-record').innerHTML = '+ 添加到记录列表';
-      document.getElementById('btn-cancel-edit').style.display = 'none';
-      this.clearForm();
-      this.toast('记录已更新');
-    } else {
-      // Add new
-      this.records.push(record);
-      this.clearForm();
-      this.toast('记录已添加');
-    }
-
-    this.renderRecords();
-    this.scrollTo('card-records');
-  },
-
-  /* ---- Edit a record ---- */
-  editRecord(index) {
-    this.editingIndex = index;
     const record = this.records[index];
-    document.getElementById('btn-add-record').innerHTML = '更新记录';
-    document.getElementById('btn-cancel-edit').style.display = 'inline-flex';
-
-    const inputs = document.querySelectorAll('#field-grid .field-input:not([disabled])');
-    for (const input of inputs) {
-      const colCode = input.dataset.col;
-      input.value = record[colCode] || '';
-      this.validateField(input);
-    }
-    document.getElementById('card-fields').scrollIntoView({ behavior: 'smooth' });
-  },
-
-  cancelEdit() {
-    this.editingIndex = -1;
-    document.getElementById('btn-add-record').innerHTML = '+ 添加到记录列表';
-    document.getElementById('btn-cancel-edit').style.display = 'none';
-    this.clearForm();
-  },
-
-  clearForm() {
-    const idCol = this._getIdColumn();
-    const nextId = this._computeNextId(idCol);
-
-    document.querySelectorAll('#field-grid .field-input:not([disabled])').forEach(input => {
-      const col = this.columns.find(c => c.code === input.dataset.col);
-      if (col && col === idCol && nextId !== null) {
-        // Auto-increment ID by 10 from previous record
-        input.value = String(nextId);
-      } else if (col && col.defaultValue !== null && col.defaultValue !== undefined && col.defaultValue !== '') {
-        input.value = col.defaultValue;
-      } else {
-        input.value = '';
-      }
-      input.classList.remove('field-input-error');
-      const item = input.closest('.field-item');
-      item.classList.remove('field-error');
-      const hint = item.querySelector('.field-hint');
-      hint.className = 'field-hint';
-      hint.textContent = '';
+    const pkDisplay = this.columns.filter(c => c.isPrimaryKey)
+      .map(c => c.code + '=' + (record[c.code] || '?')).join(', ') || `第 ${index + 1} 行`;
+    this.confirm('确认删除', `确定要删除（${pkDisplay}）吗？`, () => {
+      this.records.splice(index, 1);
+      this._rebuildGridBody(this.columns.filter(c => !c.identity));
+      this._updateGridRowCount();
     });
   },
 
-  /* ---- Find the ID/primary-key column for auto-increment ---- */
-  _getIdColumn() {
-    if (!this.columns || this.columns.length === 0) return null;
-    // Prefer identity PK column
-    for (const c of this.columns) {
-      if (c.isPrimaryKey && c.identity) return c;
-    }
-    // Then any PK column
-    for (const c of this.columns) {
-      if (c.isPrimaryKey) return c;
-    }
-    // Then any column named "id" (case-insensitive)
-    for (const c of this.columns) {
-      if (/^id$/i.test(c.code)) return c;
-    }
-    // Fallback: first non-skip column
-    return this.columns[0];
+  /* ---- Clear all rows back to one empty row ---- */
+  clearAllRows() {
+    if (this.records.length === 0 || (this.records.length === 1 && Object.keys(this.records[0]).length === 0)) return;
+    this.confirm('确认清空', `确定要清空全部 ${this.records.length} 行数据吗？`, () => {
+      this.records = [{}];
+      this.generated = { insert: '', update: '', delete: '' };
+      document.getElementById('script-output').style.display = 'none';
+      document.getElementById('script-actions').style.display = 'none';
+      this.renderEditableGrid();
+    });
   },
 
-  /* ---- Compute next ID value (previous + 10) ---- */
-  _computeNextId(idCol) {
-    if (!idCol) return null;
-    if (idCol.identity) return null; // True identity columns are auto-generated, don't override
+  /* ---- Rebuild tbody from this.records ---- */
+  _rebuildGridBody(visibleCols) {
+    if (!visibleCols) visibleCols = this.columns.filter(c => !c.identity);
+    const tbody = document.getElementById('grid-tbody');
+    tbody.innerHTML = '';
+    this.records.forEach((rec, i) => {
+      tbody.appendChild(this._buildGridRow(rec, i, visibleCols));
+    });
+  },
 
-    if (this.records.length > 0) {
-      let maxVal = 0;
-      for (const r of this.records) {
-        const v = parseInt(r[idCol.code], 10);
+  /* ---- Re-number rows after DOM manipulation ---- */
+  _renumberRows() {
+    const tbody = document.getElementById('grid-tbody');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach((tr, i) => {
+      tr.dataset.rowIndex = i;
+      const numCell = tr.querySelector('.row-num');
+      if (numCell) numCell.textContent = i + 1;
+      // Update action buttons' onclick indices
+      const btns = tr.querySelectorAll('.grid-action-btn');
+      if (btns.length >= 3) {
+        btns[0].setAttribute('onclick', `App.addGridRow(${i})`);
+        btns[1].setAttribute('onclick', `App.copyGridRow(${i})`);
+        btns[2].setAttribute('onclick', `App.deleteGridRow(${i})`);
+      }
+    });
+  },
+
+  /* ---- Update row count display ---- */
+  _updateGridRowCount() {
+    document.getElementById('grid-row-count').textContent = this.records.length;
+  },
+
+  /* ---- Sync DOM cell values back to this.records ---- */
+  syncGridToRecords() {
+    const tbody = document.getElementById('grid-tbody');
+    const rows = tbody.querySelectorAll('tr');
+    this.records = [];
+    rows.forEach((tr, i) => {
+      const rec = {};
+      const cells = tr.querySelectorAll('.grid-input, .grid-select');
+      cells.forEach(el => {
+        const colCode = el.dataset.col;
+        let val = el.value.trim();
+        rec[colCode] = val;
+      });
+      // Include identity/skip columns from this.columns
+      for (const col of this.columns) {
+        if (col.identity && !(col.code in rec)) {
+          rec[col.code] = '';
+        }
+      }
+      this.records.push(rec);
+      tr.dataset.rowIndex = i;
+    });
+    this._renumberRows();
+    this._updateGridRowCount();
+  },
+
+  /* ---- Compute next ID for auto-increment (+10) from grid DOM ---- */
+  _computeNextGridId(idCol) {
+    if (!idCol || idCol.identity) return null;
+    let maxVal = 0;
+    const tbody = document.getElementById('grid-tbody');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(tr => {
+      const input = tr.querySelector(`.grid-input[data-col="${idCol.code}"], .grid-select[data-col="${idCol.code}"]`);
+      if (input && input.value.trim()) {
+        const v = parseInt(input.value.trim(), 10);
         if (!isNaN(v) && v > maxVal) maxVal = v;
       }
-      if (maxVal > 0) return maxVal + 10;
-    }
-
-    // First record: use default value
+    });
+    if (maxVal > 0) return maxVal + 10;
     const defVal = idCol.defaultValue;
     if (defVal !== null && defVal !== undefined && defVal !== '') {
       const n = parseInt(defVal, 10);
@@ -1420,98 +1561,176 @@ const App = {
     return null;
   },
 
-  deleteRecord(index) {
-    const record = this.records[index];
-    const pkDisplay = this.columns.filter(c => c.isPrimaryKey)
-      .map(c => c.code + '=' + record[c.code]).join(', ') || `第 ${index + 1} 条`;
-    this.confirm(
-      '确认删除',
-      `确定要删除记录（${pkDisplay}）吗？此操作不可恢复。`,
-      () => {
-        this.records.splice(index, 1);
-        if (this.editingIndex === index) this.cancelEdit();
-        else if (this.editingIndex > index) this.editingIndex--;
-        this.renderRecords();
-        this.toast('记录已删除');
+  /* ---- Keyboard: arrows navigate cells, Enter on last column → add row ---- */
+  handleGridKeydown(event, el, colIndex) {
+    const tr = el.closest('tr');
+    const allInputs = Array.from(tr.querySelectorAll('.grid-input:not([disabled]), .grid-select'));
+    const idx = allInputs.indexOf(el);
+    const tbody = document.getElementById('grid-tbody');
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    const rowIdx = allRows.indexOf(tr);
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      if (idx > 0) {
+        allInputs[idx - 1].focus();
+        allInputs[idx - 1].select();
       }
-    );
-  },
-
-  clearRecords() {
-    if (this.records.length === 0) return;
-    this.confirm(
-      '确认清空',
-      `确定要清空全部 ${this.records.length} 条记录吗？此操作不可恢复。`,
-      () => {
-        this.records = [];
-        this.editingIndex = -1;
-        this.cancelEdit();
-        this.renderRecords();
-        this.generated = { insert: '', update: '', delete: '' };
-        document.getElementById('script-output').style.display = 'none';
-        document.getElementById('script-actions').style.display = 'none';
-        this.toast('已清空全部记录');
-      }
-    );
-  },
-
-  /* ---- Render records table ---- */
-  renderRecords() {
-    const empty = document.getElementById('records-empty');
-    const wrap = document.getElementById('records-table-wrap');
-    document.getElementById('record-count-text').textContent = `共 ${this.records.length} 条`;
-    document.getElementById('record-table-count').textContent = `共 ${this.records.length} 条记录`;
-
-    if (this.records.length === 0) {
-      empty.style.display = 'block';
-      wrap.style.display = 'none';
       return;
     }
 
-    empty.style.display = 'none';
-    wrap.style.display = 'block';
-
-    // Visible columns: all non-identity columns, up to 8 max + actions
-    const visibleCols = this.columns.filter(c => !c.identity).slice(0, 8);
-    const hasMore = this.columns.filter(c => !c.identity).length > 8;
-    if (hasMore) visibleCols.push({ code: '__more', dataType: '', name: '更多...' });
-
-    // Table head
-    const thead = document.getElementById('records-thead');
-    thead.innerHTML = '<tr><th style="width:40px">#</th>' +
-      visibleCols.map(c => `<th>${c.code === '__more' ? '更多...' : c.code}</th>`).join('') +
-      '<th style="width:100px">操作</th></tr>';
-
-    // Table body
-    const tbody = document.getElementById('records-tbody');
-    tbody.innerHTML = '';
-    this.records.forEach((rec, i) => {
-      const tr = document.createElement('tr');
-      let cells = `<td><span class="badge badge-gray">${i + 1}</span></td>`;
-      for (const vc of visibleCols) {
-        if (vc.code === '__more') {
-          cells += `<td><span style="font-size:11px;color:var(--text-3)">...</span></td>`;
-        } else {
-          const val = rec[vc.code];
-          const display = val === '' || val === null || val === undefined
-            ? '<span style="color:var(--text-3)">NULL</span>'
-            : String(val).length > 30 ? String(val).substring(0, 30) + '...' : String(val);
-          cells += `<td>${display}</td>`;
-        }
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (idx >= 0 && idx < allInputs.length - 1) {
+        allInputs[idx + 1].focus();
+        allInputs[idx + 1].select();
       }
-      cells += `<td>
-        <button class="icon-btn" onclick="App.editRecord(${i})" title="编辑">✎</button>
-        <button class="icon-btn danger" onclick="App.deleteRecord(${i})" title="删除">✕</button>
-      </td>`;
-      tr.innerHTML = cells;
-      tbody.appendChild(tr);
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (rowIdx > 0) {
+        this._focusCellAt(allRows[rowIdx - 1], colIndex);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (rowIdx >= 0 && rowIdx < allRows.length - 1) {
+        this._focusCellAt(allRows[rowIdx + 1], colIndex);
+      }
+      return;
+    }
+
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      if (idx >= 0 && idx < allInputs.length - 1) {
+        allInputs[idx + 1].focus();
+        allInputs[idx + 1].select();
+      } else {
+        // Last column: validate current row before adding
+        const rowErrors = this._validateRow(tr);
+        if (rowErrors.length > 0) {
+          this.toast('当前行存在必填字段未填写，请修正后再新增行', 'error');
+          return;
+        }
+        const rIdx = parseInt(tr.dataset.rowIndex);
+        this.syncGridToRecords();
+        this.addGridRow(isNaN(rIdx) ? this.records.length - 1 : rIdx);
+      }
+    }
+  },
+
+  /* Focus the cell at the given column index in a target row */
+  _focusCellAt(row, colIndex) {
+    const inputs = Array.from(row.querySelectorAll('.grid-input:not([disabled]), .grid-select'));
+    const target = inputs.find(el => parseInt(el.dataset.colIndex) === colIndex);
+    if (target) {
+      target.focus();
+      target.select();
+    } else if (inputs.length > 0) {
+      // Fallback: focus the closest column
+      const ci = Math.min(colIndex, inputs.length - 1);
+      inputs[ci].focus();
+      inputs[ci].select();
+    }
+  },
+
+  /* ---- Validate a single grid cell ---- */
+  validateGridCell(el) {
+    const colCode = el.dataset.col;
+    const col = this.columns.find(c => c.code === colCode);
+    if (!col) return;
+    const result = Validation.validate(el.value, col);
+    this._markCellError(el, result);
+  },
+
+  /* Mark a single cell as valid/invalid */
+  _markCellError(el, result) {
+    if (!result.valid) {
+      el.classList.add('input-error');
+      el.title = result.msg;
+    } else {
+      el.classList.remove('input-error');
+      el.title = '';
+    }
+  },
+
+  /* Validate all grid cells; return array of error messages */
+  validateAllGridCells() {
+    const errors = [];
+    const tbody = document.getElementById('grid-tbody');
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach((tr, rowIdx) => {
+      const cells = tr.querySelectorAll('.grid-input:not([disabled]), .grid-select');
+      cells.forEach(el => {
+        const colCode = el.dataset.col;
+        const col = this.columns.find(c => c.code === colCode);
+        if (!col) return;
+        const result = Validation.validate(el.value, col);
+        this._markCellError(el, result);
+        if (!result.valid) {
+          errors.push(`第 ${rowIdx + 1} 行 [${colCode}]: ${result.msg}`);
+        }
+      });
     });
+    return errors;
+  },
+
+  /* Validate only the current row (used before Enter→add row) */
+  _validateRow(tr) {
+    const cells = tr.querySelectorAll('.grid-input:not([disabled]), .grid-select');
+    const errors = [];
+    cells.forEach(el => {
+      const colCode = el.dataset.col;
+      const col = this.columns.find(c => c.code === colCode);
+      if (!col) return;
+      const result = Validation.validate(el.value, col);
+      this._markCellError(el, result);
+      if (!result.valid) {
+        errors.push(`[${colCode}]: ${result.msg}`);
+      }
+    });
+    return errors;
+  },
+
+  _escapeAttr(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  },
+
+  _getIdColumn() {
+    if (!this.columns || this.columns.length === 0) return null;
+    for (const c of this.columns) { if (c.isPrimaryKey && c.identity) return c; }
+    for (const c of this.columns) { if (c.isPrimaryKey) return c; }
+    for (const c of this.columns) { if (/^id$/i.test(c.code)) return c; }
+    return this.columns[0];
   },
 
   /* ---- Generate scripts ---- */
   generateScripts() {
-    if (this.records.length === 0) {
-      this.toast('请先添加至少一条数据记录', 'error');
+    // 1) Validate all cells before generating
+    const errors = this.validateAllGridCells();
+    if (errors.length > 0) {
+      this.toast(`请修正 ${errors.length} 处校验错误后再生成脚本`, 'error');
+      // Scroll to first error row
+      const firstError = document.querySelector('#grid-tbody .input-error');
+      if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    // 2) Sync all grid cell values back to this.records
+    this.syncGridToRecords();
+
+    // 3) Filter out completely empty rows
+    const validRecords = this.records.filter(r => {
+      return Object.values(r).some(v => v !== '' && v !== null && v !== undefined);
+    });
+
+    if (validRecords.length === 0) {
+      this.toast('请先填写至少一行数据', 'error');
       return;
     }
 
@@ -1520,9 +1739,9 @@ const App = {
 
     try {
       this.generated = {
-        insert: SQLGenerator.genInsert(this.tableName, this.columns, this.records, dbType),
-        update: SQLGenerator.genUpdate(this.tableName, this.columns, this.records, dbType),
-        delete: SQLGenerator.genDelete(this.tableName, this.columns, this.records, dbType)
+        insert: SQLGenerator.genInsert(this.tableName, this.columns, validRecords, dbType),
+        update: SQLGenerator.genUpdate(this.tableName, this.columns, validRecords, dbType),
+        delete: SQLGenerator.genDelete(this.tableName, this.columns, validRecords, dbType)
       };
 
       this.renderScriptTabs();
@@ -1531,13 +1750,13 @@ const App = {
       document.getElementById('script-actions').style.display = 'flex';
 
       // Stats
-      document.getElementById('stat-insert').textContent = this.records.length;
-      document.getElementById('stat-update').textContent = this.records.length;
-      document.getElementById('stat-delete').textContent = this.records.length;
-      document.getElementById('stat-total').textContent = this.records.length * 3;
+      document.getElementById('stat-insert').textContent = validRecords.length;
+      document.getElementById('stat-update').textContent = validRecords.length;
+      document.getElementById('stat-delete').textContent = validRecords.length;
+      document.getElementById('stat-total').textContent = validRecords.length * 3;
 
       this.scrollTo('card-scripts');
-      this.toast(`已生成 ${this.records.length * 3} 条 SQL 语句`);
+      this.toast(`已生成 ${validRecords.length * 3} 条 SQL 语句`);
     } catch (e) {
       document.getElementById('gen-error').style.display = 'block';
       document.getElementById('gen-error').textContent = '生成失败: ' + e.message;
@@ -1546,6 +1765,7 @@ const App = {
 
   renderScriptTabs() {
     const tabs = document.getElementById('script-tabs');
+    const count = this.records.filter(r => Object.values(r).some(v => v !== '' && v !== null && v !== undefined)).length;
     const types = [
       { key: 'insert', label: 'INSERT 脚本', icon: '📥' },
       { key: 'update', label: 'UPDATE 脚本', icon: '📝' },
@@ -1553,7 +1773,7 @@ const App = {
     ];
     tabs.innerHTML = types.map(t =>
       `<button class="script-tab${t.key === this.currentScript ? ' active' : ''}" data-type="${t.key}" onclick="App.showScript('${t.key}')">
-        ${t.icon} ${t.label}<span class="tab-count">(${this.records.length})</span>
+        ${t.icon} ${t.label}<span class="tab-count">(${count})</span>
       </button>`
     ).join('');
   },

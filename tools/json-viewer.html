@@ -40,9 +40,10 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .view-btn.active{background:var(--primary);color:#fff;font-weight:600}
 
 /* Fullscreen button */
-.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .fs-btn svg{width:14px;height:14px}
+.fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
 /* Search */
 .search-box{position:relative;display:flex;align-items:center}
@@ -57,8 +58,6 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .split-layout{flex:1;display:flex;min-height:0;overflow:hidden}
 .editor-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border)}
 .preview-panel{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--surface)}
-.preview-panel.fullscreen{position:fixed;inset:0;z-index:9999;border-radius:0}
-.preview-panel.fullscreen .preview-wrap{padding:32px 48px}
 
 .panel-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#f8fafc;border-bottom:1px solid var(--border);flex-shrink:0;gap:8px}
 .panel-header .title{font-size:12px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
@@ -143,11 +142,10 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .block-header.match{background:#fef9c3}
 .block-leaf.match{background:#fef9c3}
 
-/* Fullscreen exit button (only visible in fullscreen) */
+/* Fullscreen exit button (visible only in fullscreen, shown via JS) */
 .fs-exit-btn{display:none;align-items:center;justify-content:center;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);font-size:11px;font-weight:500;gap:4px;transition:all .15s}
 .fs-exit-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .fs-exit-btn svg{width:12px;height:12px}
-.preview-panel.fullscreen .fs-exit-btn{display:inline-flex}
 
 /* Flash highlight for navigation */
 @keyframes nav-flash{0%{background:#fde68a}100%{background:transparent}}
@@ -225,9 +223,6 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
       <button class="view-btn active" data-view="tree" onclick="App.setView('tree')">树形</button>
       <button class="view-btn" data-view="block" onclick="App.setView('block')">模块</button>
     </div>
-    <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
-    </button>
     <button class="btn btn-primary btn-sm" onclick="App.exportJson()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       导出
@@ -278,6 +273,9 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
         <div class="stats" id="preview-stats"></div>
         <button class="btn btn-secondary btn-sm" id="expand-all-btn" onclick="App.expandAll(true)" style="font-size:11px;padding:3px 8px" title="全部展开">展开</button>
         <button class="btn btn-secondary btn-sm" id="collapse-all-btn" onclick="App.expandAll(false)" style="font-size:11px;padding:3px 8px" title="全部折叠">折叠</button>
+        <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+        </button>
         <button class="fs-exit-btn" onclick="App.toggleFullscreen()" title="退出全屏 (Esc)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
           退出全屏
@@ -325,6 +323,7 @@ const App = {
     this.previewPanel = document.querySelector('.preview-panel');
     this.previewStats = document.getElementById('preview-stats');
     this.fsBtn = document.getElementById('fs-btn');
+    this.fsExitBtn = document.querySelector('.fs-exit-btn');
     this.alert = document.getElementById('alert');
     this.treeView = document.getElementById('tree-view');
     this.blockView = document.getElementById('block-view');
@@ -346,16 +345,17 @@ const App = {
     this.treeView.addEventListener('click', (e) => this.onPreviewClick(e, 'tree'));
     this.blockView.addEventListener('click', (e) => this.onPreviewClick(e, 'block'));
 
-    // Ctrl/Cmd+S export, ESC exit fullscreen
+    // Ctrl/Cmd+S export (ESC exits natively via browser fullscreen)
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         this.exportJson();
       }
-      if (e.key === 'Escape' && this.isFullscreen) {
-        this.toggleFullscreen();
-      }
     });
+
+    // Fullscreen change listener
+    document.addEventListener('fullscreenchange', () => this._onFullscreenChange());
+    document.addEventListener('webkitfullscreenchange', () => this._onFullscreenChange());
   },
 
   // ── Parse & Render ──
@@ -1090,16 +1090,33 @@ const App = {
     dz.addEventListener('dragover', (e) => { e.preventDefault(); });
   },
 
-  // ── Fullscreen ──
+  // ── Fullscreen (browser-level) ──
   toggleFullscreen() {
-    this.isFullscreen = !this.isFullscreen;
-    this.previewPanel.classList.toggle('fullscreen', this.isFullscreen);
-    if (this.isFullscreen) {
-      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
-      this.fsBtn.title = '退出全屏 (Esc)';
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
     } else {
-      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
-      this.fsBtn.title = '全屏查看';
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }
+  },
+
+  _onFullscreenChange() {
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    this.isFullscreen = isFS;
+    if (isFS) {
+      this.fsBtn.style.display = 'none';
+      if (this.fsExitBtn) this.fsExitBtn.style.display = 'inline-flex';
+    } else {
+      this.fsBtn.style.display = 'inline-flex';
+      if (this.fsExitBtn) this.fsExitBtn.style.display = 'none';
     }
   },
 

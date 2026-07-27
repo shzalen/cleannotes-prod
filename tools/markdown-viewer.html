@@ -107,17 +107,15 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
 
 /* Fullscreen mode */
-.preview-panel.fullscreen{position:fixed;inset:0;z-index:9999;border-radius:0}
-.preview-panel.fullscreen .preview-wrap{padding:40px 64px}
-.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .fs-btn svg{width:14px;height:14px}
+.fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
 /* Fullscreen exit button (visible only in fullscreen) */
 .fs-exit-btn{display:none;align-items:center;justify-content:center;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);font-size:11px;font-weight:500;gap:4px;transition:all .15s}
 .fs-exit-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .fs-exit-btn svg{width:12px;height:12px}
-.preview-panel.fullscreen .fs-exit-btn{display:inline-flex}
 
 /* Navigation flash */
 @keyframes nav-flash{0%{background:#fde68a}100%{background:transparent}}
@@ -280,16 +278,17 @@ const App = {
     this.editor.addEventListener('click', () => this.onEditorClick());
     this.preview.addEventListener('click', (e) => this.onPreviewClick(e));
 
-    // Setup keyboard shortcut: Ctrl/Cmd+S to export, ESC to exit fullscreen
+    // Setup keyboard shortcut: Ctrl/Cmd+S to export (ESC exits natively via browser fullscreen)
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         this.exportContent();
       }
-      if (e.key === 'Escape' && this.isFullscreen) {
-        this.toggleFullscreen();
-      }
     });
+
+    // Fullscreen change listener
+    document.addEventListener('fullscreenchange', () => this._onFullscreenChange());
+    document.addEventListener('webkitfullscreenchange', () => this._onFullscreenChange());
   },
 
   // ── Rendering ──
@@ -597,13 +596,29 @@ const App = {
     });
   },
 
-  // ── Fullscreen toggle ──
+  // ── Fullscreen toggle (browser-level) ──
   toggleFullscreen() {
-    this.isFullscreen = !this.isFullscreen;
-    this.previewPanel.classList.toggle('fullscreen', this.isFullscreen);
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } else {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
+    }
+  },
 
-    // Swap icon: expand → collapse, collapse → expand
-    if (this.isFullscreen) {
+  _onFullscreenChange() {
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    this.isFullscreen = isFS;
+    this.fsBtn.classList.toggle('fullscreen-active', isFS);
+    if (isFS) {
       this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
       this.fsBtn.title = '退出全屏 (Esc)';
     } else {
