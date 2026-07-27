@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>JSON 可视化工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9; --surface:#fff; --border:#e2e8f0; --text:#1e293b; --text-2:#64748b; --text-3:#94a3b8;
+  --primary:#2563eb; --primary-hover:#1d4ed8; --primary-light:#eff6ff;
+  --success:#16a34a; --success-light:#f0fdf4;
+  --code-bg:#f6f8fa; --code-border:#e2e8f0;
+  --json-key:#0550ae; --json-string:#0a3069; --json-number:#0550ae;
+  --json-bool:#cf222e; --json-null:#6e7781; --json-link:#0969da;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Header */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
+header h1 .icon{font-size:20px}
+header p{font-size:13px;color:var(--text-2);margin-top:3px}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid var(--border)}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* View mode switcher */
+.view-group{display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden;background:#f8fafc}
+.view-btn{padding:6px 14px;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:var(--text-2);transition:all .15s}
+.view-btn:hover{background:#e8f0fe}
+.view-btn.active{background:var(--primary);color:#fff;font-weight:600}
+
+/* Fullscreen button */
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-btn svg{width:14px;height:14px}
+
+/* Search */
+.search-box{position:relative;display:flex;align-items:center}
+.search-box input{padding:5px 28px 5px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:180px;outline:none;transition:border-color .15s}
+.search-box input:focus{border-color:var(--primary)}
+.search-box .search-icon{position:absolute;right:6px;color:var(--text-3);pointer-events:none}
+.search-box .search-count{position:absolute;right:8px;font-size:11px;color:var(--primary);font-weight:600;cursor:default}
+.search-box .clear-btn{position:absolute;right:4px;cursor:pointer;color:var(--text-3);display:none;font-size:14px;line-height:1;padding:2px}
+.search-box .clear-btn:hover{color:var(--text)}
+
+/* Split layout */
+.split-layout{flex:1;display:flex;min-height:0;overflow:hidden}
+.editor-panel{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border)}
+.preview-panel{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--surface)}
+.preview-panel.fullscreen{position:fixed;inset:0;z-index:9999;border-radius:0}
+.preview-panel.fullscreen .preview-wrap{padding:32px 48px}
+
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:#f8fafc;border-bottom:1px solid var(--border);flex-shrink:0;gap:8px}
+.panel-header .title{font-size:12px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.panel-header .title .dot{width:7px;height:7px;border-radius:50%;background:var(--primary)}
+.preview-panel .panel-header .title .dot{background:var(--success)}
+.panel-header .stats{font-size:11px;color:var(--text-3);white-space:nowrap}
+.panel-header .actions{display:flex;align-items:center;gap:6px}
+
+/* Editor */
+.editor-wrap{flex:1;position:relative;min-height:0}
+.editor-area{width:100%;height:100%;border:none;outline:none;resize:none;padding:16px 20px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--surface);tab-size:2}
+.editor-area::placeholder{color:var(--text-3)}
+.drop-zone{position:absolute;inset:0;border:2px dashed transparent;border-radius:8px;transition:all .2s;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.drop-zone.dragover{border-color:var(--primary);background:rgba(37,99,235,.06);pointer-events:auto}
+.drop-zone.dragover .drop-hint{display:flex}
+.drop-hint{display:none;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--primary)}
+
+/* Preview */
+.preview-wrap{flex:1;overflow:auto;min-height:0}
+.preview-empty{text-align:center;color:var(--text-3);padding:60px 24px}
+.preview-empty .emoji{font-size:40px;margin-bottom:8px}
+.preview-empty .hint{font-size:13px}
+
+/* ── Tree View ── */
+.tree-view{padding:12px 16px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.8}
+.tree-row{display:flex;align-items:flex-start;gap:0}
+.tree-toggle{cursor:pointer;user-select:none;width:16px;flex-shrink:0;text-align:center;color:var(--text-3);transition:transform .15s;font-size:10px;padding-top:3px}
+.tree-toggle.open{transform:rotate(90deg)}
+.tree-toggle.leaf{visibility:hidden}
+.tree-key{color:var(--json-key);font-weight:500;margin-right:2px}
+.tree-colon{color:var(--text-3);margin-right:6px}
+.tree-value-str{color:var(--json-string)}
+.tree-value-num{color:var(--json-number)}
+.tree-value-bool{color:var(--json-bool);font-weight:500}
+.tree-value-null{color:var(--json-null);font-style:italic}
+.tree-bracket{color:var(--text-2);font-weight:600}
+.tree-comma{color:var(--text-3)}
+.tree-count{color:var(--text-3);font-size:11px;margin-left:4px}
+.tree-preview{color:var(--text-3);font-size:12px;font-style:italic;margin-left:4px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree-row:hover{background:#f0f4ff}
+.tree-row.match{background:#fef9c3;border-radius:3px}
+.tree-children{margin-left:16px}
+.tree-children.collapsed{display:none}
+.tree-search-highlight{background:#fde68a;border-radius:2px}
+
+/* ── Text View (syntax highlighted) ── */
+.text-view{padding:16px 20px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-all}
+.text-view .tok-key{color:var(--json-key)}
+.text-view .tok-string{color:var(--json-string)}
+.text-view .tok-number{color:var(--json-number)}
+.text-view .tok-bool{color:var(--json-bool);font-weight:500}
+.text-view .tok-null{color:var(--json-null);font-style:italic}
+.text-view .tok-punct{color:var(--text-2)}
+.text-view .tok-link{color:var(--json-link);text-decoration:underline;cursor:pointer}
+
+/* ── Block View (modular cards) ── */
+.block-view{padding:16px;display:flex;flex-direction:column;gap:6px}
+.block-node{border:1px solid var(--border);border-radius:8px;background:var(--surface);overflow:hidden;transition:border-color .15s}
+.block-node:hover{border-color:#cbd5e1}
+.block-header{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;background:#f8fafc;user-select:none;transition:background .15s}
+.block-header:hover{background:#eff6ff}
+.block-arrow{font-size:10px;color:var(--text-3);transition:transform .15s;width:12px;flex-shrink:0;text-align:center}
+.block-arrow.open{transform:rotate(90deg)}
+.block-arrow.leaf{visibility:hidden}
+.block-key{font-weight:600;color:var(--json-key);font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px}
+.block-root-key{font-weight:600;color:var(--text);font-size:13px}
+.block-type{font-size:10px;color:var(--text-3);background:#e2e8f0;padding:1px 6px;border-radius:4px;flex-shrink:0;font-weight:500}
+.block-count{font-size:11px;color:var(--text-3)}
+.block-body{padding:6px 14px 10px 26px;display:flex;flex-direction:column;gap:2px}
+.block-body.collapsed{display:none}
+.block-leaf{display:flex;align-items:baseline;gap:4px;padding:3px 8px;border-radius:4px;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;line-height:1.6;transition:background .1s}
+.block-leaf:hover{background:#f0f4ff}
+.block-leaf-key{color:var(--json-key);font-weight:500}
+.block-leaf-colon{color:var(--text-3)}
+.block-leaf-val-str{color:var(--json-string)}
+.block-leaf-val-num{color:var(--json-number)}
+.block-leaf-val-bool{color:var(--json-bool);font-weight:500}
+.block-leaf-val-null{color:var(--json-null);font-style:italic}
+.block-header.match{background:#fef9c3}
+.block-leaf.match{background:#fef9c3}
+
+/* Alert */
+.alert{padding:10px 14px;border-radius:7px;font-size:13px;margin:0 24px 12px;display:none}
+.alert.show{display:block}
+.alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.alert-success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.alert-info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+
+/* Resizer */
+.resizer{width:4px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;z-index:5}
+.resizer:hover,.resizer.dragging{background:var(--primary)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+
+/* Responsive */
+@media(max-width:768px){
+  .split-layout{flex-direction:column}
+  .editor-panel{border-right:none;border-bottom:1px solid var(--border);min-height:200px}
+  .preview-panel{min-height:200px}
+  .toolbar{padding:8px 12px}
+  .toolbar-left,.toolbar-right{flex-wrap:wrap}
+  .search-box input{width:120px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="icon">&#128295;</span> JSON 可视化工具</h1>
+  <p>粘贴或上传 JSON 数据，格式化预览、树形展开、语法高亮、一键导出</p>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <button class="btn btn-secondary btn-sm" onclick="App.uploadFile()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      上传文件
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="App.formatJson()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="7" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
+      格式化
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="App.minifyJson()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      压缩
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="App.copyJson()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      复制
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="App.clearAll()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      清空
+    </button>
+    <input type="file" id="file-input" accept=".json,.txt" style="display:none" onchange="App.handleFileSelect(event)">
+  </div>
+  <div class="toolbar-right">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="搜索键名 / 值..." oninput="App.search(this.value)">
+      <span class="clear-btn" id="search-clear" onclick="App.clearSearch()">&times;</span>
+      <span class="search-count" id="search-count" style="display:none"></span>
+    </div>
+    <div class="view-group">
+      <button class="view-btn active" data-view="tree" onclick="App.setView('tree')">树形</button>
+      <button class="view-btn" data-view="block" onclick="App.setView('block')">模块</button>
+    </div>
+    <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="App.exportJson()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      导出
+    </button>
+  </div>
+</div>
+
+<div class="alert" id="alert"></div>
+
+<!-- Split layout -->
+<div class="split-layout">
+  <!-- Editor -->
+  <div class="editor-panel" id="editor-panel">
+    <div class="panel-header">
+      <div class="title"><span class="dot"></span> JSON 源码</div>
+      <div class="stats" id="editor-stats">0 字</div>
+    </div>
+    <div class="editor-wrap">
+      <textarea class="editor-area" id="editor" placeholder='在此粘贴 JSON 内容...
+
+示例：
+{
+  "name": "CleanNotes",
+  "version": "1.3.0",
+  "features": ["备忘录", "任务管理", "周报"],
+  "config": {
+    "theme": "dark",
+    "autoSave": true
+  }
+}
+
+也可点击左上角「上传文件」加载 .json 文件' oninput="App.parse()"></textarea>
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-hint">&#128193; 松开以加载文件</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resizer -->
+  <div class="resizer" id="resizer"></div>
+
+  <!-- Preview -->
+  <div class="preview-panel">
+    <div class="panel-header">
+      <div class="title"><span class="dot"></span> <span id="preview-title">可视化预览</span></div>
+      <div class="actions">
+        <div class="stats" id="preview-stats"></div>
+        <button class="btn btn-secondary btn-sm" id="expand-all-btn" onclick="App.expandAll(true)" style="font-size:11px;padding:3px 8px" title="全部展开">展开</button>
+        <button class="btn btn-secondary btn-sm" id="collapse-all-btn" onclick="App.expandAll(false)" style="font-size:11px;padding:3px 8px" title="全部折叠">折叠</button>
+      </div>
+    </div>
+    <div class="preview-wrap" id="preview-wrap">
+      <div class="preview-empty" id="preview-empty">
+        <div class="emoji">&#128269;</div>
+        <div class="hint">在左侧输入 JSON 后，可视化结果将显示在此</div>
+      </div>
+      <div id="tree-view" class="tree-view" style="display:none"></div>
+      <div id="block-view" class="block-view" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const App = {
+  currentView: 'tree',
+  isFullscreen: false,
+  parsed: null,
+  searchText: '',
+  matchCount: 0,
+  editor: null,
+  editorStats: null,
+  previewWrap: null,
+  previewEmpty: null,
+  previewPanel: null,
+  previewStats: null,
+  fsBtn: null,
+  alert: null,
+  treeView: null,
+  blockView: null,
+
+  init() {
+    this.editor = document.getElementById('editor');
+    this.editorStats = document.getElementById('editor-stats');
+    this.previewWrap = document.getElementById('preview-wrap');
+    this.previewEmpty = document.getElementById('preview-empty');
+    this.previewPanel = document.querySelector('.preview-panel');
+    this.previewStats = document.getElementById('preview-stats');
+    this.fsBtn = document.getElementById('fs-btn');
+    this.alert = document.getElementById('alert');
+    this.treeView = document.getElementById('tree-view');
+    this.blockView = document.getElementById('block-view');
+
+    this.initResizer();
+    this.initDragDrop();
+
+    // Ctrl/Cmd+S export, ESC exit fullscreen
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        this.exportJson();
+      }
+      if (e.key === 'Escape' && this.isFullscreen) {
+        this.toggleFullscreen();
+      }
+    });
+  },
+
+  // ── Parse & Render ──
+  parse() {
+    const raw = this.editor.value.trim();
+    this.editorStats.textContent = raw.length + ' 字';
+
+    if (!raw) {
+      this.showEmpty();
+      return;
+    }
+
+    try {
+      this.parsed = JSON.parse(raw);
+      this.hideAlert();
+      this.render();
+    } catch (err) {
+      this.showAlert('JSON 解析错误: ' + err.message, 'error');
+      this.showEmpty();
+    }
+  },
+
+  render() {
+    if (this.parsed === null) {
+      this.showEmpty();
+      return;
+    }
+
+    this.previewEmpty.style.display = 'none';
+
+    if (this.currentView === 'tree') {
+      this.treeView.style.display = 'block';
+      this.blockView.style.display = 'none';
+      this.renderTree();
+    } else {
+      this.treeView.style.display = 'none';
+      this.blockView.style.display = 'flex';
+      this.renderBlock();
+    }
+
+    this.updateStats();
+  },
+
+  showEmpty() {
+    this.previewEmpty.style.display = 'block';
+    this.treeView.style.display = 'none';
+    this.blockView.style.display = 'none';
+    this.previewStats.textContent = '';
+    this.parsed = null;
+  },
+
+  updateStats() {
+    if (this.parsed === null) {
+      this.previewStats.textContent = '';
+      return;
+    }
+    const info = this.analyze(this.parsed);
+    this.previewStats.textContent = info;
+  },
+
+  analyze(obj) {
+    let keys = 0, arrs = 0, strs = 0, nums = 0, bools = 0, nulls = 0;
+    const walk = (v) => {
+      if (v === null) { nulls++; return; }
+      if (Array.isArray(v)) { arrs++; v.forEach(walk); return; }
+      if (typeof v === 'object') { Object.keys(v).forEach(k => { keys++; walk(v[k]); }); return; }
+      if (typeof v === 'string') strs++;
+      else if (typeof v === 'number') nums++;
+      else if (typeof v === 'boolean') bools++;
+    };
+    walk(obj);
+    const parts = [];
+    if (keys) parts.push(keys + ' 键');
+    if (arrs) parts.push(arrs + ' 数组');
+    if (strs) parts.push(strs + ' 字符串');
+    if (nums) parts.push(nums + ' 数字');
+    if (bools) parts.push(bools + ' 布尔');
+    if (nulls) parts.push(nulls + ' null');
+    return parts.join(' · ') || '空';
+  },
+
+  // ── Tree View ──
+  renderTree() {
+    this.treeView.innerHTML = '';
+    this.matchCount = 0;
+    const root = this.buildTreeNode(this.parsed, null, 0);
+    this.treeView.appendChild(root);
+    if (this.searchText) this.applySearch();
+  },
+
+  buildTreeNode(value, key, depth) {
+    const container = document.createElement('div');
+
+    const hasChildren = (value !== null && typeof value === 'object' && Object.keys(value).length > 0);
+    const isArray = Array.isArray(value);
+    const entries = hasChildren ? (isArray ? value.map((v, i) => [i, v]) : Object.entries(value)) : [];
+    const isEmpty = hasChildren && entries.length === 0;
+
+    // Row
+    const row = document.createElement('div');
+    row.className = 'tree-row';
+
+    // Toggle arrow
+    const toggle = document.createElement('span');
+    toggle.className = 'tree-toggle';
+    if (hasChildren && !isEmpty) {
+      toggle.classList.add('open');
+      toggle.textContent = '\u25B6';
+    } else {
+      toggle.classList.add('leaf');
+      toggle.innerHTML = '&bull;';
+    }
+
+    // Key
+    if (key !== null) {
+      const keyEl = document.createElement('span');
+      keyEl.className = 'tree-key';
+      keyEl.textContent = isArray && typeof key === 'number' ? '' : '"' + key + '"';
+      row.appendChild(keyEl);
+
+      const colon = document.createElement('span');
+      colon.className = 'tree-colon';
+      colon.textContent = ':';
+      row.appendChild(colon);
+    }
+
+    // Value / bracket
+    if (hasChildren) {
+      const openBracket = document.createElement('span');
+      openBracket.className = 'tree-bracket';
+      openBracket.textContent = isArray ? '[' : '{';
+      row.appendChild(openBracket);
+
+      if (entries.length > 0) {
+        const count = document.createElement('span');
+        count.className = 'tree-count';
+        count.textContent = entries.length + (isArray ? ' 项' : ' 键');
+        row.appendChild(count);
+
+        // Preview (collapsed state)
+        const preview = document.createElement('span');
+        preview.className = 'tree-preview';
+        preview.textContent = this.getPreview(value);
+        preview.style.display = 'none';
+        row.appendChild(preview);
+      } else {
+        const closeBracket = document.createElement('span');
+        closeBracket.className = 'tree-bracket';
+        closeBracket.textContent = isArray ? ']' : '}';
+        row.appendChild(closeBracket);
+        container.appendChild(row);
+        return container;
+      }
+
+      container.appendChild(row);
+
+      // Children
+      const children = document.createElement('div');
+      children.className = 'tree-children';
+      entries.forEach(([k, v]) => {
+        children.appendChild(this.buildTreeNode(v, isArray ? k : k, depth + 1));
+      });
+
+      const closeRow = document.createElement('div');
+      closeRow.className = 'tree-row';
+      const closeSpacer = document.createElement('span');
+      closeSpacer.className = 'tree-toggle';
+      closeSpacer.classList.add('leaf');
+      closeSpacer.innerHTML = '&nbsp;';
+      const closeBracket = document.createElement('span');
+      closeBracket.className = 'tree-bracket';
+      closeBracket.textContent = isArray ? ']' : '}';
+      closeRow.appendChild(closeSpacer);
+      closeRow.appendChild(closeBracket);
+      children.appendChild(closeRow);
+      container.appendChild(children);
+
+      // Toggle handler
+      toggle.addEventListener('click', () => {
+        const isopen = toggle.classList.toggle('open');
+        children.classList.toggle('collapsed', !isopen);
+        // Show/hide preview
+        const prev = row.querySelector('.tree-preview');
+        if (prev) prev.style.display = isopen ? 'none' : 'inline';
+      });
+
+    } else {
+      // Leaf value
+      const valEl = document.createElement('span');
+      const valStr = JSON.stringify(value);
+      if (value === null) {
+        valEl.className = 'tree-value-null';
+        valEl.textContent = 'null';
+      } else if (typeof value === 'string') {
+        valEl.className = 'tree-value-str';
+        valEl.textContent = '"' + value + '"';
+      } else if (typeof value === 'number') {
+        valEl.className = 'tree-value-num';
+        valEl.textContent = valStr;
+      } else if (typeof value === 'boolean') {
+        valEl.className = 'tree-value-bool';
+        valEl.textContent = valStr;
+      }
+      row.appendChild(valEl);
+      container.appendChild(row);
+    }
+
+    return container;
+  },
+
+  getPreview(value) {
+    try {
+      const str = JSON.stringify(value);
+      if (str.length <= 80) return str;
+      return str.substring(0, 77) + '...';
+    } catch(e) { return ''; }
+  },
+
+  expandAll(expand) {
+    if (this.currentView === 'tree') {
+      this.treeView.querySelectorAll('.tree-toggle').forEach(t => {
+        if (t.classList.contains('leaf')) return;
+        if (expand) {
+          t.classList.add('open');
+        } else {
+          t.classList.remove('open');
+        }
+      });
+      this.treeView.querySelectorAll('.tree-children').forEach(c => {
+        c.classList.toggle('collapsed', !expand);
+      });
+      this.treeView.querySelectorAll('.tree-row').forEach(row => {
+        const prev = row.querySelector('.tree-preview');
+        if (prev) prev.style.display = expand ? 'none' : 'inline';
+      });
+    } else if (this.currentView === 'block') {
+      this.blockView.querySelectorAll('.block-arrow').forEach(a => {
+        if (a.classList.contains('leaf')) return;
+        a.classList.toggle('open', expand);
+      });
+      this.blockView.querySelectorAll('.block-body').forEach(b => {
+        b.classList.toggle('collapsed', !expand);
+      });
+    }
+  },
+
+  // ── Block View (modular cards) ──
+  renderBlock() {
+    this.blockView.innerHTML = '';
+    this.matchCount = 0;
+    const root = this.buildBlockNode(this.parsed, null, 0);
+    this.blockView.appendChild(root);
+    if (this.searchText) this.applySearchBlock();
+  },
+
+  buildBlockNode(value, key, depth) {
+    const isArray = Array.isArray(value);
+    const isObject = value !== null && typeof value === 'object';
+
+    if (!isObject) {
+      // Top-level primitive (rare) — wrap in a leaf
+      const leaf = document.createElement('div');
+      leaf.className = 'block-leaf';
+      leaf.appendChild(this.createLeafValue(value));
+      return leaf;
+    }
+
+    const entries = isArray ? value.map((v, i) => [i, v]) : Object.entries(value);
+    const isEmpty = entries.length === 0;
+
+    const node = document.createElement('div');
+    node.className = 'block-node';
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'block-header';
+
+    const arrow = document.createElement('span');
+    arrow.className = 'block-arrow open';
+    arrow.textContent = '\u25B6';
+
+    const keyEl = document.createElement('span');
+    if (key !== null) {
+      keyEl.className = 'block-key';
+      keyEl.textContent = isArray && typeof key === 'number' ? '[' + key + ']' : key;
+    } else {
+      keyEl.className = 'block-root-key';
+      keyEl.textContent = isArray ? 'Root Array' : 'Root Object';
+    }
+
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'block-type';
+    typeBadge.textContent = isArray ? 'Array' : 'Object';
+
+    const countEl = document.createElement('span');
+    countEl.className = 'block-count';
+    countEl.textContent = entries.length + (isArray ? ' 项' : ' 键');
+
+    header.appendChild(arrow);
+    header.appendChild(keyEl);
+    header.appendChild(typeBadge);
+    header.appendChild(countEl);
+
+    if (isEmpty) {
+      arrow.classList.add('leaf');
+      arrow.textContent = '';
+      header.style.cursor = 'default';
+      node.appendChild(header);
+      return node;
+    }
+
+    node.appendChild(header);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'block-body';
+
+    entries.forEach(([k, v]) => {
+      if (v !== null && typeof v === 'object') {
+        body.appendChild(this.buildBlockNode(v, k, depth + 1));
+      } else {
+        body.appendChild(this.createLeafRow(v, k, isArray));
+      }
+    });
+
+    node.appendChild(body);
+
+    // Toggle handler — click header to expand/collapse
+    header.addEventListener('click', () => {
+      const isopen = arrow.classList.toggle('open');
+      body.classList.toggle('collapsed', !isopen);
+    });
+
+    return node;
+  },
+
+  createLeafRow(value, key, isArray) {
+    const leaf = document.createElement('div');
+    leaf.className = 'block-leaf';
+
+    const keyEl = document.createElement('span');
+    keyEl.className = 'block-leaf-key';
+    keyEl.textContent = isArray ? '[' + key + ']' : key;
+    leaf.appendChild(keyEl);
+
+    const colon = document.createElement('span');
+    colon.className = 'block-leaf-colon';
+    colon.textContent = ':';
+    leaf.appendChild(colon);
+
+    leaf.appendChild(this.createLeafValue(value));
+    return leaf;
+  },
+
+  createLeafValue(value) {
+    const el = document.createElement('span');
+    if (value === null) {
+      el.className = 'block-leaf-val-null';
+      el.textContent = 'null';
+    } else if (typeof value === 'string') {
+      el.className = 'block-leaf-val-str';
+      el.textContent = '"' + value + '"';
+    } else if (typeof value === 'number') {
+      el.className = 'block-leaf-val-num';
+      el.textContent = String(value);
+    } else if (typeof value === 'boolean') {
+      el.className = 'block-leaf-val-bool';
+      el.textContent = String(value);
+    }
+    return el;
+  },
+
+  // ── View mode ──
+  setView(view) {
+    this.currentView = view;
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+    document.getElementById('preview-title').textContent = view === 'tree' ? '树形预览' : '模块预览';
+    if (this.parsed !== null) this.render();
+  },
+
+  // ── Search ──
+  search(text) {
+    this.searchText = text.trim();
+    const clearBtn = document.getElementById('search-clear');
+    const countEl = document.getElementById('search-count');
+    clearBtn.style.display = this.searchText ? 'block' : 'none';
+
+    if (!this.searchText) {
+      countEl.style.display = 'none';
+      this.treeView.querySelectorAll('.tree-row.match').forEach(r => r.classList.remove('match'));
+      this.blockView.querySelectorAll('.match').forEach(r => r.classList.remove('match'));
+      this.matchCount = 0;
+      return;
+    }
+
+    if (this.currentView === 'tree') {
+      this.applySearch();
+    } else {
+      this.applySearchBlock();
+    }
+
+    countEl.textContent = this.matchCount + ' 匹配';
+    countEl.style.display = 'block';
+  },
+
+  applySearchBlock() {
+    this.matchCount = 0;
+    const query = this.searchText.toLowerCase();
+    this.blockView.querySelectorAll('.block-header, .block-leaf').forEach(el => {
+      const text = el.textContent.toLowerCase();
+      if (text.includes(query)) {
+        el.classList.add('match');
+        this.matchCount++;
+      } else {
+        el.classList.remove('match');
+      }
+    });
+  },
+
+  applySearch() {
+    this.matchCount = 0;
+    const query = this.searchText.toLowerCase();
+    this.treeView.querySelectorAll('.tree-row').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      if (text.includes(query)) {
+        row.classList.add('match');
+        this.matchCount++;
+      } else {
+        row.classList.remove('match');
+      }
+    });
+  },
+
+  clearSearch() {
+    document.getElementById('search-input').value = '';
+    this.search('');
+  },
+
+  // ── Format / Minify ──
+  formatJson() {
+    const raw = this.editor.value.trim();
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      this.editor.value = JSON.stringify(parsed, null, 2);
+      this.parse();
+      this.showAlert('已格式化', 'success');
+    } catch (err) {
+      this.showAlert('JSON 解析错误: ' + err.message, 'error');
+    }
+  },
+
+  minifyJson() {
+    const raw = this.editor.value.trim();
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      this.editor.value = JSON.stringify(parsed);
+      this.parse();
+      this.showAlert('已压缩', 'success');
+    } catch (err) {
+      this.showAlert('JSON 解析错误: ' + err.message, 'error');
+    }
+  },
+
+  // ── Copy ──
+  copyJson() {
+    const raw = this.editor.value.trim();
+    if (!raw) {
+      this.showAlert('没有内容可复制', 'error');
+      return;
+    }
+    navigator.clipboard.writeText(raw).then(() => {
+      this.showAlert('已复制到剪贴板', 'success');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = raw;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); this.showAlert('已复制到剪贴板', 'success'); }
+      catch(e) { this.showAlert('复制失败', 'error'); }
+      document.body.removeChild(ta);
+    });
+  },
+
+  // ── Export ──
+  exportJson() {
+    const raw = this.editor.value.trim();
+    if (!raw) {
+      this.showAlert('没有内容可导出', 'error');
+      return;
+    }
+    // Validate before export
+    try { JSON.parse(raw); } catch(e) {
+      this.showAlert('JSON 格式有误，无法导出', 'error');
+      return;
+    }
+    const blob = new Blob([raw], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  },
+
+  // ── File operations ──
+  uploadFile() {
+    document.getElementById('file-input').click();
+  },
+
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    this.readFile(file);
+    event.target.value = '';
+  },
+
+  readFile(file) {
+    if (file.size > 10 * 1024 * 1024) {
+      this.showAlert('文件过大（超过 10MB）', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.editor.value = e.target.result;
+      this.parse();
+    };
+    reader.onerror = () => this.showAlert('文件读取失败', 'error');
+    reader.readAsText(file, 'UTF-8');
+  },
+
+  initDragDrop() {
+    const dz = document.getElementById('drop-zone');
+    const editor = this.editor;
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      editor.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (e.dataTransfer.types.includes('Files')) dz.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      editor.addEventListener(evt, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (evt === 'dragleave' && e.relatedTarget && editor.contains(e.relatedTarget)) return;
+        dz.classList.remove('dragover');
+      });
+    });
+
+    editor.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file && /\.(json|txt)$/i.test(file.name)) {
+        this.readFile(file);
+      } else if (file) {
+        this.showAlert('请拖入 .json / .txt 文件', 'error');
+      }
+    });
+
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) this.readFile(file);
+    });
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); });
+  },
+
+  // ── Fullscreen ──
+  toggleFullscreen() {
+    this.isFullscreen = !this.isFullscreen;
+    this.previewPanel.classList.toggle('fullscreen', this.isFullscreen);
+    if (this.isFullscreen) {
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+      this.fsBtn.title = '退出全屏 (Esc)';
+    } else {
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+      this.fsBtn.title = '全屏查看';
+    }
+  },
+
+  // ── Clear ──
+  clearAll() {
+    this.editor.value = '';
+    this.clearSearch();
+    this.showEmpty();
+    this.editor.focus();
+    this.editorStats.textContent = '0 字';
+  },
+
+  // ── Alerts ──
+  showAlert(msg, type) {
+    this.alert.textContent = msg;
+    this.alert.className = 'alert show alert-' + (type || 'info');
+    if (type === 'success') setTimeout(() => this.hideAlert(), 2500);
+  },
+
+  hideAlert() {
+    this.alert.className = 'alert';
+  },
+
+  // ── Resizer ──
+  initResizer() {
+    const resizer = document.getElementById('resizer');
+    const editorPanel = document.getElementById('editor-panel');
+    let isDragging = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      resizer.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const container = resizer.parentElement;
+      const rect = container.getBoundingClientRect();
+      let newWidth = e.clientX - rect.left;
+      const min = rect.width * 0.2;
+      const max = rect.width * 0.8;
+      newWidth = Math.max(min, Math.min(max, newWidth));
+      editorPanel.style.flex = 'none';
+      editorPanel.style.width = newWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+  },
+};
+
+window.App = App;
+App.init();
+
+})();
+</script>
+</body>
+</html>
