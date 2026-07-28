@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>二维码生成工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--text-2:#64748b;--text-3:#94a3b8;
+  --primary:#2563eb;--primary-hover:#1d4ed8;--primary-light:#eff6ff;
+  --success:#16a34a;--success-light:#f0fdf4;
+  --code-bg:#f6f8fa;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
+header h1 .icon{font-size:20px}
+header p{font-size:13px;color:var(--text-2);margin-top:3px}
+
+.main{flex:1;display:flex;overflow:hidden}
+
+.config-panel{width:480px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.config-scroll{flex:1;overflow-y:auto;padding:20px}
+.config-section{margin-bottom:24px}
+.config-section h3{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--bg)}
+.config-section h3 .sec-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:700}
+
+.type-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.type-tab{padding:8px 4px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;text-align:center;transition:all .15s;background:var(--surface);color:var(--text-2)}
+.type-tab:hover{border-color:var(--primary);color:var(--primary)}
+.type-tab.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary);font-weight:600}
+.type-tab .tt-icon{font-size:18px;display:block;margin-bottom:2px}
+
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+.field .hint{font-size:11px;color:var(--text-3);margin-top:3px}
+input[type="text"],input[type="number"],input[type="url"],input[type="email"],input[type="tel"],textarea,select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;outline:none;transition:border-color .15s;background:var(--surface);color:var(--text);font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+textarea{resize:vertical;min-height:70px;line-height:1.5}
+input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px;background:var(--surface)}
+
+.color-field{display:flex;align-items:center;gap:8px}
+.color-field input[type="color"]{flex-shrink:0}
+.color-field input[type="text"]{flex:1;font-family:monospace;font-size:12px}
+
+.slider-field{display:flex;align-items:center;gap:10px}
+.slider-field input[type="range"]{flex:1;cursor:pointer;accent-color:var(--primary)}
+.slider-field .value{font-size:12px;color:var(--text-2);min-width:50px;text-align:right;font-family:monospace}
+
+.radio-group{display:flex;gap:8px;flex-wrap:wrap}
+.radio-opt{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-2);cursor:pointer;padding:5px 12px;border:1px solid var(--border);border-radius:7px;transition:all .15s}
+.radio-opt:hover{border-color:var(--primary)}
+.radio-opt.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary);font-weight:600}
+
+.dot-style-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dot-style-card{padding:10px 4px;border:2px solid var(--border);border-radius:7px;cursor:pointer;text-align:center;transition:all .15s}
+.dot-style-card:hover{border-color:var(--primary)}
+.dot-style-card.active{border-color:var(--primary);background:var(--primary-light)}
+.dot-style-card .ds-icon{width:28px;height:28px;margin:0 auto 4px}
+.dot-style-card .ds-label{font-size:11px;color:var(--text-2)}
+.dot-style-card.active .ds-label{color:var(--primary);font-weight:600}
+
+.logo-upload{display:flex;align-items:center;gap:10px}
+.logo-preview{width:48px;height:48px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;background:var(--bg)}
+.logo-preview img{width:100%;height:100%;object-fit:contain}
+.logo-preview .placeholder{font-size:20px;color:var(--text-3)}
+.logo-actions{display:flex;flex-direction:column;gap:4px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid var(--border)}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-danger{background:#fee2e2;color:#dc2626}
+.btn-danger:hover{background:#fecaca}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.preview-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.preview-header{display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.preview-header .title{font-size:13px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.preview-header .title .dot{width:7px;height:7px;border-radius:50%;background:var(--success)}
+.preview-header .info{font-size:11px;color:var(--text-3)}
+.preview-header .actions{display:flex;align-items:center;gap:6px}
+
+.preview-content{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:32px}
+.preview-wrapper{display:flex;flex-direction:column;align-items:center;gap:16px}
+.qr-canvas-wrap{background:var(--surface);border-radius:12px;padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center}
+#qrCanvas{display:block;border-radius:4px}
+.preview-meta{font-size:12px;color:var(--text-3);text-align:center}
+
+.preview-empty{text-align:center;color:var(--text-3)}
+.preview-empty .emoji{font-size:48px;margin-bottom:8px}
+.preview-empty .hint{font-size:13px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-btn svg{width:14px;height:14px}
+.fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+::-webkit-scrollbar-track{background:transparent}
+
+.preset-colors{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.preset-color{width:22px;height:22px;border-radius:5px;cursor:pointer;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--border);transition:all .15s}
+.preset-color:hover{transform:scale(1.15)}
+
+.checkbox-row{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);cursor:pointer}
+.checkbox-row input{width:15px;height:15px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="icon">📱</span> 二维码生成工具</h1>
+  <p>支持文本/网址/名片/WiFi/短信/邮箱，可自定义颜色、样式、Logo，导出 PNG/SVG</p>
+</header>
+
+<div class="main">
+  <!-- Left: Config -->
+  <div class="config-panel">
+    <div class="config-scroll">
+
+      <div class="config-section">
+        <h3><span class="sec-num">1</span> 内容类型</h3>
+        <div class="type-tabs" id="typeTabs">
+          <div class="type-tab active" data-type="url"><span class="tt-icon">🔗</span>网址</div>
+          <div class="type-tab" data-type="text"><span class="tt-icon">📝</span>文本</div>
+          <div class="type-tab" data-type="vcard"><span class="tt-icon">👤</span>名片</div>
+          <div class="type-tab" data-type="wifi"><span class="tt-icon">📶</span>WiFi</div>
+          <div class="type-tab" data-type="sms"><span class="tt-icon">💬</span>短信</div>
+          <div class="type-tab" data-type="email"><span class="tt-icon">📧</span>邮箱</div>
+          <div class="type-tab" data-type="phone"><span class="tt-icon">📞</span>电话</div>
+          <div class="type-tab" data-type="geo"><span class="tt-icon">📍</span>位置</div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3><span class="sec-num">2</span> 内容数据</h3>
+        <div id="contentFields"></div>
+      </div>
+
+      <div class="config-section">
+        <h3><span class="sec-num">3</span> 样式配置</h3>
+
+        <div class="field">
+          <label>前景色</label>
+          <div class="color-field">
+            <input type="color" id="fgColor" value="#000000">
+            <input type="text" id="fgColorText" value="#000000">
+          </div>
+          <div class="preset-colors" id="fgPresets"></div>
+        </div>
+
+        <div class="field">
+          <label>背景色</label>
+          <div class="color-field">
+            <input type="color" id="bgColor" value="#ffffff">
+            <input type="text" id="bgColorText" value="#ffffff">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>码点样式</label>
+          <div class="dot-style-grid" id="dotStyleGrid">
+            <div class="dot-style-card active" data-style="square">
+              <svg class="ds-icon" viewBox="0 0 28 28"><rect x="4" y="4" width="20" height="20" fill="#2563eb"/></svg>
+              <div class="ds-label">方形</div>
+            </div>
+            <div class="dot-style-card" data-style="rounded">
+              <svg class="ds-icon" viewBox="0 0 28 28"><rect x="4" y="4" width="20" height="20" rx="6" fill="#2563eb"/></svg>
+              <div class="ds-label">圆角</div>
+            </div>
+            <div class="dot-style-card" data-style="dots">
+              <svg class="ds-icon" viewBox="0 0 28 28"><circle cx="14" cy="14" r="10" fill="#2563eb"/></svg>
+              <div class="ds-label">圆点</div>
+            </div>
+            <div class="dot-style-card" data-style="classy">
+              <svg class="ds-icon" viewBox="0 0 28 28"><path d="M4 14a10 10 0 0 1 20 0v10H14a10 10 0 0 1-10-10z" fill="#2563eb"/></svg>
+              <div class="ds-label">水滴</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>定位角样式</label>
+          <div class="radio-group" id="cornerStyle">
+            <label class="radio-opt active" data-corner="square"><input type="radio" name="corner" value="square" checked> 方形</label>
+            <label class="radio-opt" data-corner="rounded"><input type="radio" name="corner" value="rounded"> 圆角</label>
+            <label class="radio-opt" data-corner="circle"><input type="radio" name="corner" value="circle"> 圆形</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3><span class="sec-num">4</span> 尺寸与容错</h3>
+
+        <div class="field">
+          <label>尺寸 (像素)</label>
+          <div class="slider-field">
+            <input type="range" id="sizeSlider" min="128" max="1024" value="320" step="16">
+            <span class="value" id="sizeValue">320px</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>边距 (模块数)</label>
+          <div class="slider-field">
+            <input type="range" id="marginSlider" min="0" max="8" value="2" step="1">
+            <span class="value" id="marginValue">2</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>容错级别</label>
+          <div class="radio-group" id="eccGroup">
+            <label class="radio-opt" data-ecc="L"><input type="radio" name="ecc" value="L"> L (7%)</label>
+            <label class="radio-opt active" data-ecc="M"><input type="radio" name="ecc" value="M" checked> M (15%)</label>
+            <label class="radio-opt" data-ecc="Q"><input type="radio" name="ecc" value="Q"> Q (25%)</label>
+            <label class="radio-opt" data-ecc="H"><input type="radio" name="ecc" value="H"> H (30%)</label>
+          </div>
+          <div class="hint">容错率越高，可遮挡面积越大（适合加 Logo）</div>
+        </div>
+      </div>
+
+      <div class="config-section">
+        <h3><span class="sec-num">5</span> Logo（可选）</h3>
+        <div class="logo-upload">
+          <div class="logo-preview" id="logoPreview" onclick="document.getElementById('logoInput').click()">
+            <span class="placeholder">+</span>
+          </div>
+          <div class="logo-actions">
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('logoInput').click()">上传 Logo</button>
+            <button class="btn btn-sm btn-danger" id="removeLogoBtn" onclick="removeLogo()" style="display:none">移除</button>
+            <input type="file" id="logoInput" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Logo 大小占比</label>
+          <div class="slider-field">
+            <input type="range" id="logoSizeSlider" min="10" max="35" value="20" step="1">
+            <span class="value" id="logoSizeValue">20%</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Right: Preview -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <div class="title"><span class="dot"></span> 预览</div>
+      <div class="info" id="previewInfo">--</div>
+      <div class="actions">
+        <button class="btn btn-sm btn-secondary" onclick="refreshQR()">刷新</button>
+        <button class="btn btn-sm btn-primary" onclick="downloadPNG()">下载 PNG</button>
+        <button class="btn btn-sm btn-secondary" onclick="downloadSVG()">下载 SVG</button>
+        <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="preview-content">
+      <div class="preview-wrapper" id="previewWrapper">
+        <div class="qr-canvas-wrap">
+          <canvas id="qrCanvas" width="320" height="320"></canvas>
+        </div>
+        <div class="preview-meta" id="previewMeta"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+// ═══════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════
+const state = {
+  type: 'url',
+  dotStyle: 'square',
+  cornerStyle: 'square',
+  fgColor: '#000000',
+  bgColor: '#ffffff',
+  size: 320,
+  margin: 2,
+  ecc: 'M',
+  logo: null,
+  logoSize: 20,
+};
+
+let lastQR = null;   // qrcode-generator instance
+let lastMatrix = null; // boolean[][]
+
+// ═══════════════════════════════════════════
+// Content templates
+// ═══════════════════════════════════════════
+const fieldTemplates = {
+  url: () => `
+    <div class="field">
+      <label>网址 URL</label>
+      <input type="url" id="ct_url" placeholder="https://example.com" value="https://example.com" oninput="autoGenerate()">
+    </div>`,
+  text: () => `
+    <div class="field">
+      <label>文本内容</label>
+      <textarea id="ct_text" placeholder="输入任意文本..." oninput="autoGenerate()">Hello World</textarea>
+    </div>`,
+  vcard: () => `
+    <div class="field"><label>姓名</label><input type="text" id="ct_name" placeholder="张三" oninput="autoGenerate()"></div>
+    <div class="field"><label>电话</label><input type="tel" id="ct_phone" placeholder="13800138000" oninput="autoGenerate()"></div>
+    <div class="field"><label>邮箱</label><input type="email" id="ct_email" placeholder="zhangsan@example.com" oninput="autoGenerate()"></div>
+    <div class="field"><label>公司 / 职位</label><input type="text" id="ct_org" placeholder="公司名 / 职位" oninput="autoGenerate()"></div>
+    <div class="field"><label>网址</label><input type="url" id="ct_url" placeholder="https://..." oninput="autoGenerate()"></div>
+    <div class="field"><label>地址</label><input type="text" id="ct_address" placeholder="详细地址" oninput="autoGenerate()"></div>`,
+  wifi: () => `
+    <div class="field"><label>WiFi 名称 (SSID)</label><input type="text" id="ct_ssid" placeholder="MyWiFi" oninput="autoGenerate()"></div>
+    <div class="field"><label>密码</label><input type="text" id="ct_password" placeholder="password" oninput="autoGenerate()"></div>
+    <div class="field"><label>加密方式</label><select id="ct_encryption" onchange="autoGenerate()"><option value="WPA">WPA/WPA2</option><option value="WEP">WEP</option><option value="nopass">无密码</option></select></div>
+    <div class="field"><label class="checkbox-row"><input type="checkbox" id="ct_hidden" onchange="autoGenerate()"> 隐藏网络</label></div>`,
+  sms: () => `
+    <div class="field"><label>手机号</label><input type="tel" id="ct_phone" placeholder="13800138000" oninput="autoGenerate()"></div>
+    <div class="field"><label>短信内容</label><textarea id="ct_message" placeholder="短信内容..." oninput="autoGenerate()"></textarea></div>`,
+  email: () => `
+    <div class="field"><label>收件人邮箱</label><input type="email" id="ct_email" placeholder="to@example.com" oninput="autoGenerate()"></div>
+    <div class="field"><label>主题</label><input type="text" id="ct_subject" placeholder="邮件主题" oninput="autoGenerate()"></div>
+    <div class="field"><label>正文</label><textarea id="ct_body" placeholder="邮件内容..." oninput="autoGenerate()"></textarea></div>`,
+  phone: () => `
+    <div class="field"><label>电话号码</label><input type="tel" id="ct_phone" placeholder="13800138000" oninput="autoGenerate()"></div>`,
+  geo: () => `
+    <div class="field"><label>纬度</label><input type="text" id="ct_lat" placeholder="39.9042" oninput="autoGenerate()"></div>
+    <div class="field"><label>经度</label><input type="text" id="ct_lng" placeholder="116.4074" oninput="autoGenerate()"></div>`,
+};
+
+function renderContentFields() {
+  document.getElementById('contentFields').innerHTML = fieldTemplates[state.type]();
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function buildContent() {
+  switch (state.type) {
+    case 'url':   return val('ct_url') || 'https://example.com';
+    case 'text':  return val('ct_text') || 'Hello World';
+    case 'vcard': {
+      const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+      if (val('ct_name'))    lines.push(`FN:${val('ct_name')}`);
+      if (val('ct_phone'))   lines.push(`TEL:${val('ct_phone')}`);
+      if (val('ct_email'))   lines.push(`EMAIL:${val('ct_email')}`);
+      if (val('ct_org'))     lines.push(`ORG:${val('ct_org')}`);
+      if (val('ct_url'))     lines.push(`URL:${val('ct_url')}`);
+      if (val('ct_address')) lines.push(`ADR:;;${val('ct_address')};;;;`);
+      lines.push('END:VCARD');
+      return lines.join('\n');
+    }
+    case 'wifi': {
+      const ssid = val('ct_ssid');
+      const pass = val('ct_password');
+      const enc = document.getElementById('ct_encryption')?.value || 'WPA';
+      const hidden = document.getElementById('ct_hidden')?.checked;
+      let s = `WIFI:T:${enc};S:${ssid};`;
+      if (enc !== 'nopass') s += `P:${pass};`;
+      if (hidden) s += 'H:true;';
+      s += ';';
+      return s;
+    }
+    case 'sms':   return `SMSTO:${val('ct_phone')}:${val('ct_message')}`;
+    case 'email': return `MAILTO:${val('ct_email')}?subject=${encodeURIComponent(val('ct_subject'))}&body=${encodeURIComponent(val('ct_body'))}`;
+    case 'phone': return `tel:${val('ct_phone')}`;
+    case 'geo':   return `geo:${val('ct_lat')},${val('ct_lng')}`;
+    default: return '';
+  }
+}
+
+// ═══════════════════════════════════════════
+// QR Code rendering (Canvas)
+// ═══════════════════════════════════════════
+
+function generateQR() {
+  const content = buildContent();
+  if (!content) { showEmptyPreview('请输入内容'); return; }
+
+  try {
+    const qr = qrcode(0, state.ecc);
+    qr.addData(content);
+    qr.make();
+    lastQR = qr;
+
+    const moduleCount = qr.getModuleCount();
+
+    // Build boolean matrix
+    const matrix = [];
+    for (let r = 0; r < moduleCount; r++) {
+      matrix[r] = [];
+      for (let c = 0; c < moduleCount; c++) {
+        matrix[r][c] = qr.isDark(r, c);
+      }
+    }
+    lastMatrix = matrix;
+
+    renderToCanvas(matrix, moduleCount);
+
+    document.getElementById('previewInfo').textContent =
+      `${moduleCount}×${moduleCount} 模块 · ${state.size}px`;
+    document.getElementById('previewMeta').textContent =
+      `类型: ${typeLabels[state.type]} · 容错: ${state.ecc} · ${content.length} 字符`;
+
+  } catch (e) {
+    console.error(e);
+    showEmptyPreview('内容过长，请减少内容或降低容错级别');
+  }
+}
+
+function renderToCanvas(matrix, moduleCount) {
+  const canvas = document.getElementById('qrCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // High-DPI: use 2x backing store for crisp output
+  const scale = 2;
+  const targetSize = state.size;
+  const margin = state.margin;
+  const totalModules = moduleCount + margin * 2;
+  const modulePx = targetSize / totalModules;
+
+  canvas.width = targetSize * scale;
+  canvas.height = targetSize * scale;
+  canvas.style.width = targetSize + 'px';
+  canvas.style.height = targetSize + 'px';
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  // Background
+  ctx.fillStyle = state.bgColor;
+  ctx.fillRect(0, 0, targetSize, targetSize);
+
+  // Helper: check if a module is part of a finder pattern
+  const inFinder = (r, c) => {
+    if (r < 7 && c < 7) return true;
+    if (r < 7 && c >= moduleCount - 7) return true;
+    if (r >= moduleCount - 7 && c < 7) return true;
+    return false;
+  };
+
+  // Draw data modules (skip finder pattern area — we draw those separately)
+  ctx.fillStyle = state.fgColor;
+  for (let r = 0; r < moduleCount; r++) {
+    for (let c = 0; c < moduleCount; c++) {
+      if (!matrix[r][c] || inFinder(r, c)) continue;
+      const x = (c + margin) * modulePx;
+      const y = (r + margin) * modulePx;
+      drawModule(ctx, x, y, modulePx, state.dotStyle);
+    }
+  }
+
+  // Draw three finder (position detection) patterns
+  const cornerOffset = margin * modulePx;
+  const finderSize = 7 * modulePx;
+  drawFinder(ctx, cornerOffset, cornerOffset, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+  drawFinder(ctx, (margin + moduleCount - 7) * modulePx, cornerOffset, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+  drawFinder(ctx, cornerOffset, (margin + moduleCount - 7) * modulePx, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+
+  // Logo
+  if (state.logo) {
+    drawLogo(ctx, targetSize);
+  }
+}
+
+function drawModule(ctx, x, y, size, style) {
+  switch (style) {
+    case 'square':
+      ctx.fillRect(x, y, size + 0.5, size + 0.5);
+      break;
+    case 'rounded':
+      roundRectPath(ctx, x, y, size + 0.5, size + 0.5, size * 0.3);
+      ctx.fill();
+      break;
+    case 'dots':
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size / 2 + 0.3, 0, 2 * Math.PI);
+      ctx.fill();
+      break;
+    case 'classy':
+      // Scaled circle — visually similar to teardrop at small sizes
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, size * 0.48, 0, 2 * Math.PI);
+      ctx.fill();
+      break;
+  }
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawFinder(ctx, ox, oy, totalSize, modulePx, style, fg, bg) {
+  // Clear area
+  ctx.fillStyle = bg;
+  ctx.fillRect(ox, oy, totalSize, totalSize);
+
+  if (style === 'circle') {
+    const cx = ox + totalSize / 2;
+    const cy = oy + totalSize / 2;
+    // Outer ring (radius 3.5 modules)
+    ctx.fillStyle = fg;
+    ctx.beginPath(); ctx.arc(cx, cy, modulePx * 3.5, 0, 2 * Math.PI); ctx.fill();
+    // Inner hole (radius 2.5 modules)
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(cx, cy, modulePx * 2.5, 0, 2 * Math.PI); ctx.fill();
+    // Center dot (radius 1.5 modules)
+    ctx.fillStyle = fg;
+    ctx.beginPath(); ctx.arc(cx, cy, modulePx * 1.5, 0, 2 * Math.PI); ctx.fill();
+  } else {
+    const r = style === 'rounded' ? modulePx * 1.5 : 0;
+    // Outer 7×7
+    ctx.fillStyle = fg;
+    roundRectPath(ctx, ox, oy, totalSize, totalSize, r); ctx.fill();
+    // Inner 5×5 (bg)
+    ctx.fillStyle = bg;
+    roundRectPath(ctx, ox + modulePx, oy + modulePx, totalSize - 2 * modulePx, totalSize - 2 * modulePx, r * 0.7); ctx.fill();
+    // Center 3×3 (fg)
+    ctx.fillStyle = fg;
+    roundRectPath(ctx, ox + 2 * modulePx, oy + 2 * modulePx, totalSize - 4 * modulePx, totalSize - 4 * modulePx, r * 0.5); ctx.fill();
+  }
+}
+
+function drawLogo(ctx, totalSize) {
+  const logoPx = totalSize * state.logoSize / 100;
+  const x = (totalSize - logoPx) / 2;
+  const y = (totalSize - logoPx) / 2;
+  const pad = logoPx * 0.08;
+
+  // White rounded background behind logo
+  ctx.fillStyle = state.bgColor;
+  roundRectPath(ctx, x - pad, y - pad, logoPx + pad * 2, logoPx + pad * 2, pad * 1.5);
+  ctx.fill();
+
+  ctx.drawImage(state.logo, x, y, logoPx, logoPx);
+}
+
+// ═══════════════════════════════════════════
+// SVG Export
+// ═══════════════════════════════════════════
+function downloadSVG() {
+  if (!lastMatrix) { showToast('请先生成二维码'); return; }
+  const mc = lastMatrix.length;
+  const modulePx = 10;
+  const marginPx = state.margin * modulePx;
+  const totalPx = mc * modulePx + marginPx * 2;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalPx}" height="${totalPx}" viewBox="0 0 ${totalPx} ${totalPx}">`;
+  svg += `<rect width="${totalPx}" height="${totalPx}" fill="${state.bgColor}"/>`;
+
+  const inFinder = (r, c) => {
+    if (r < 7 && c < 7) return true;
+    if (r < 7 && c >= mc - 7) return true;
+    if (r >= mc - 7 && c < 7) return true;
+    return false;
+  };
+
+  for (let r = 0; r < mc; r++) {
+    for (let c = 0; c < mc; c++) {
+      if (!lastMatrix[r][c] || inFinder(r, c)) continue;
+      const x = (c + state.margin) * modulePx;
+      const y = (r + state.margin) * modulePx;
+      if (state.dotStyle === 'dots') {
+        svg += `<circle cx="${x + modulePx/2}" cy="${y + modulePx/2}" r="${modulePx/2}" fill="${state.fgColor}"/>`;
+      } else if (state.dotStyle === 'rounded') {
+        svg += `<rect x="${x}" y="${y}" width="${modulePx}" height="${modulePx}" rx="${modulePx*0.3}" fill="${state.fgColor}"/>`;
+      } else if (state.dotStyle === 'classy') {
+        svg += `<circle cx="${x + modulePx/2}" cy="${y + modulePx/2}" r="${modulePx*0.48}" fill="${state.fgColor}"/>`;
+      } else {
+        svg += `<rect x="${x}" y="${y}" width="${modulePx}" height="${modulePx}" fill="${state.fgColor}"/>`;
+      }
+    }
+  }
+
+  // Finder patterns in SVG
+  const drawFinderSVG = (ox, oy) => {
+    const s = 7 * modulePx;
+    if (state.cornerStyle === 'circle') {
+      const cx = ox + s/2, cy = oy + s/2;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${modulePx*3.5}" fill="${state.fgColor}"/>`;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${modulePx*2.5}" fill="${state.bgColor}"/>`;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${modulePx*1.5}" fill="${state.fgColor}"/>`;
+    } else {
+      const r = state.cornerStyle === 'rounded' ? modulePx * 1.5 : 0;
+      svg += `<rect x="${ox}" y="${oy}" width="${s}" height="${s}" rx="${r}" fill="${state.fgColor}"/>`;
+      svg += `<rect x="${ox+modulePx}" y="${oy+modulePx}" width="${s-2*modulePx}" height="${s-2*modulePx}" rx="${r*0.7}" fill="${state.bgColor}"/>`;
+      svg += `<rect x="${ox+2*modulePx}" y="${oy+2*modulePx}" width="${s-4*modulePx}" height="${s-4*modulePx}" rx="${r*0.5}" fill="${state.fgColor}"/>`;
+    }
+  };
+  drawFinderSVG(marginPx, marginPx);
+  drawFinderSVG((state.margin + mc - 7) * modulePx, marginPx);
+  drawFinderSVG(marginPx, (state.margin + mc - 7) * modulePx);
+
+  svg += `</svg>`;
+
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `qrcode_${Date.now()}.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('SVG 已下载');
+}
+
+// ═══════════════════════════════════════════
+// Event wiring
+// ═══════════════════════════════════════════
+document.querySelectorAll('.type-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    state.type = tab.dataset.type;
+    renderContentFields();
+    generateQR();
+  });
+});
+
+document.querySelectorAll('.dot-style-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.dot-style-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    state.dotStyle = card.dataset.style;
+    generateQR();
+  });
+});
+
+document.querySelectorAll('#cornerStyle .radio-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#cornerStyle .radio-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    state.cornerStyle = opt.dataset.corner;
+    generateQR();
+  });
+});
+
+document.querySelectorAll('#eccGroup .radio-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#eccGroup .radio-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    state.ecc = opt.dataset.ecc;
+    generateQR();
+  });
+});
+
+function syncColor(pickerId, textId, key) {
+  const picker = document.getElementById(pickerId);
+  const text = document.getElementById(textId);
+  picker.addEventListener('input', () => {
+    text.value = picker.value;
+    state[key] = picker.value;
+    generateQR();
+  });
+  text.addEventListener('input', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(text.value)) {
+      picker.value = text.value;
+      state[key] = text.value;
+      generateQR();
+    }
+  });
+}
+syncColor('fgColor', 'fgColorText', 'fgColor');
+syncColor('bgColor', 'bgColorText', 'bgColor');
+
+document.getElementById('sizeSlider').addEventListener('input', e => {
+  state.size = parseInt(e.target.value);
+  document.getElementById('sizeValue').textContent = state.size + 'px';
+  generateQR();
+});
+
+document.getElementById('marginSlider').addEventListener('input', e => {
+  state.margin = parseInt(e.target.value);
+  document.getElementById('marginValue').textContent = state.margin;
+  generateQR();
+});
+
+document.getElementById('logoSizeSlider').addEventListener('input', e => {
+  state.logoSize = parseInt(e.target.value);
+  document.getElementById('logoSizeValue').textContent = state.logoSize + '%';
+  generateQR();
+});
+
+let genTimer = null;
+function autoGenerate() {
+  clearTimeout(genTimer);
+  genTimer = setTimeout(generateQR, 200);
+}
+
+// ═══════════════════════════════════════════
+// Logo
+// ═══════════════════════════════════════════
+function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('请上传图片文件'); return; }
+  if (file.size > 2 * 1024 * 1024) { showToast('Logo 不能超过 2MB'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      state.logo = img;
+      document.getElementById('logoPreview').innerHTML = `<img src="${e.target.result}" alt="logo">`;
+      document.getElementById('removeLogoBtn').style.display = '';
+      generateQR();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  state.logo = null;
+  document.getElementById('logoPreview').innerHTML = '<span class="placeholder">+</span>';
+  document.getElementById('removeLogoBtn').style.display = 'none';
+  document.getElementById('logoInput').value = '';
+  generateQR();
+}
+
+// ═══════════════════════════════════════════
+// Download / Utils
+// ═══════════════════════════════════════════
+function downloadPNG() {
+  const canvas = document.getElementById('qrCanvas');
+  if (!canvas || !canvas.width) { showToast('请先生成二维码'); return; }
+  const link = document.createElement('a');
+  link.download = `qrcode_${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('PNG 已下载');
+}
+
+function refreshQR() {
+  generateQR();
+  showToast('已刷新');
+}
+
+function toggleFullscreen() {
+  const main = document.querySelector('.main');
+  const btn = document.getElementById('fsBtn');
+  if (!document.fullscreenElement) {
+    main.requestFullscreen();
+    btn.classList.add('fullscreen-active');
+  } else {
+    document.exitFullscreen();
+    btn.classList.remove('fullscreen-active');
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('fsBtn').classList.toggle('fullscreen-active', !!document.fullscreenElement);
+});
+
+const typeLabels = { url:'网址', text:'文本', vcard:'名片', wifi:'WiFi', sms:'短信', email:'邮箱', phone:'电话', geo:'位置' };
+
+function showEmptyPreview(msg) {
+  document.getElementById('previewWrapper').innerHTML =
+    `<div class="preview-empty"><div class="emoji">📱</div><div class="hint">${msg}</div></div>`;
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// Preset foreground colors
+const presetColors = ['#000000', '#1e293b', '#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2'];
+const presetContainer = document.getElementById('fgPresets');
+presetColors.forEach(color => {
+  const div = document.createElement('div');
+  div.className = 'preset-color';
+  div.style.background = color;
+  div.title = color;
+  div.addEventListener('click', () => {
+    document.getElementById('fgColor').value = color;
+    document.getElementById('fgColorText').value = color;
+    state.fgColor = color;
+    generateQR();
+  });
+  presetContainer.appendChild(div);
+});
+
+// Init
+renderContentFields();
+generateQR();
+</script>
+</body>
+</html>

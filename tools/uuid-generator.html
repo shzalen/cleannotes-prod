@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>唯一 ID 生成工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--text-2:#64748b;--text-3:#94a3b8;
+  --primary:#2563eb;--primary-hover:#1d4ed8;--primary-light:#eff6ff;
+  --success:#16a34a;--success-light:#f0fdf4;
+  --code-bg:#f6f8fa;--code-border:#e2e8f0;
+  --warn:#f59e0b;--warn-light:#fffbeb;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Header */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
+header h1 .icon{font-size:20px}
+header p{font-size:13px;color:var(--text-2);margin-top:3px}
+
+/* Main layout */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:20px 24px;gap:16px}
+
+/* Config panel */
+.config-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;flex-shrink:0}
+.config-panel h2{font-size:14px;font-weight:600;color:#0f172a;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.config-row{display:flex;flex-direction:column;gap:6px}
+.config-row label{font-size:12px;font-weight:600;color:var(--text-2)}
+.config-row .hint{font-size:11px;color:var(--text-3)}
+
+/* Type selector */
+.type-selector{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.type-card{padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;background:var(--surface);text-align:left}
+.type-card:hover{border-color:var(--primary);background:var(--primary-light)}
+.type-card.active{border-color:var(--primary);background:var(--primary-light)}
+.type-card .tc-name{font-size:13px;font-weight:600;color:var(--text)}
+.type-card .tc-desc{font-size:11px;color:var(--text-3);margin-top:2px}
+.type-card.active .tc-name{color:var(--primary)}
+
+/* Inputs */
+input[type="text"],input[type="number"],select{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;outline:none;transition:border-color .15s;background:var(--surface);color:var(--text);width:100%}
+input[type="text"]:focus,input[type="number"]:focus,select:focus{border-color:var(--primary)}
+input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+
+/* Checkbox */
+.checkbox-row{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);cursor:pointer}
+.checkbox-row input{width:15px;height:15px;cursor:pointer}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:#f1f5f9;color:#475569;border:1px solid var(--border)}
+.btn-secondary:hover{background:#e2e8f0}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#15803d}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Actions bar */
+.actions-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.actions-bar .spacer{flex:1}
+
+/* Count control */
+.count-control{display:flex;align-items:center;gap:8px}
+.count-control input{width:70px;text-align:center}
+
+/* Results */
+.results-panel{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.results-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8fafc;border-bottom:1px solid var(--border);flex-shrink:0}
+.results-header .title{font-size:13px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.results-header .title .dot{width:7px;height:7px;border-radius:50%;background:var(--success)}
+.results-header .info{font-size:11px;color:var(--text-3)}
+.results-header .actions{display:flex;align-items:center;gap:6px}
+
+.results-list{flex:1;overflow:auto;padding:8px}
+.result-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;transition:all .15s;background:var(--surface)}
+.result-item:hover{border-color:var(--primary);background:var(--primary-light)}
+.result-item .idx{font-size:11px;color:var(--text-3);width:32px;flex-shrink:0;text-align:right;font-family:monospace}
+.result-item .id-text{flex:1;font-family:"Cascadia Code","Fira Code",Consolas,monospace;font-size:13px;color:var(--text);word-break:break-all;user-select:all}
+.result-item .copy-btn{flex-shrink:0;padding:4px 10px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s}
+.result-item .copy-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.result-item .copy-btn.copied{background:var(--success);color:#fff;border-color:var(--success)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text-3)}
+.empty-state .emoji{font-size:40px;margin-bottom:8px}
+.empty-state .hint{font-size:13px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* Fullscreen */
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.fs-btn svg{width:14px;height:14px}
+.fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
+:fullscreen .main{height:100vh}
+
+/* Format options */
+.format-options{display:flex;gap:12px;flex-wrap:wrap}
+.format-opt{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer}
+.format-opt input{cursor:pointer}
+
+/* Namespace input */
+.namespace-row{display:flex;gap:8px;align-items:flex-end}
+.namespace-row select{flex:1}
+.namespace-preset{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:var(--surface);cursor:pointer;color:var(--text-2);white-space:nowrap}
+.namespace-preset:hover{border-color:var(--primary);color:var(--primary)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="icon">🆔</span> 唯一 ID 生成工具</h1>
+  <p>支持 UUID v1/v4/v5、GUID、NanoID、ULID、ShortID、Snowflake、MongoDB ObjectId 等多种格式</p>
+</header>
+
+<div class="main">
+  <!-- Config Panel -->
+  <div class="config-panel">
+    <h2>⚙️ 生成配置</h2>
+
+    <!-- Type Selector -->
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-2);display:block;margin-bottom:8px">ID 类型</label>
+      <div class="type-selector" id="typeSelector">
+        <div class="type-card active" data-type="uuid-v4">
+          <div class="tc-name">UUID v4</div>
+          <div class="tc-desc">随机生成，最常用</div>
+        </div>
+        <div class="type-card" data-type="uuid-v1">
+          <div class="tc-name">UUID v1</div>
+          <div class="tc-desc">基于时间戳 + MAC</div>
+        </div>
+        <div class="type-card" data-type="uuid-v5">
+          <div class="tc-name">UUID v5</div>
+          <div class="tc-desc">命名空间 + 名称</div>
+        </div>
+        <div class="type-card" data-type="guid">
+          <div class="tc-name">GUID</div>
+          <div class="tc-desc">Microsoft 格式 {xxx}</div>
+        </div>
+        <div class="type-card" data-type="nanoid">
+          <div class="tc-name">NanoID</div>
+          <div class="tc-desc">紧凑、URL 安全</div>
+        </div>
+        <div class="type-card" data-type="ulid">
+          <div class="tc-name">ULID</div>
+          <div class="tc-desc">有序、26 位 Base32</div>
+        </div>
+        <div class="type-card" data-type="shortid">
+          <div class="tc-name">ShortID</div>
+          <div class="tc-desc">Base62 短 ID</div>
+        </div>
+        <div class="type-card" data-type="snowflake">
+          <div class="tc-name">Snowflake</div>
+          <div class="tc-desc">分布式雪花算法</div>
+        </div>
+        <div class="type-card" data-type="objectid">
+          <div class="tc-name">ObjectId</div>
+          <div class="tc-desc">MongoDB 24 位 Hex</div>
+        </div>
+        <div class="type-card" data-type="timestamp">
+          <div class="tc-name">时间戳 ID</div>
+          <div class="tc-desc">毫秒 + 随机后缀</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config Grid -->
+    <div class="config-grid" id="configGrid">
+      <!-- Count + Uppercase -->
+      <div class="config-row">
+        <label>生成数量</label>
+        <div class="count-control">
+          <button class="btn btn-sm btn-secondary" onclick="adjustCount(-1)">−</button>
+          <input type="number" id="count" value="1" min="1" max="10000">
+          <button class="btn btn-sm btn-secondary" onclick="adjustCount(1)">+</button>
+          <span style="font-size:11px;color:var(--text-3)">最大 10000</span>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <label>格式选项</label>
+        <div class="format-options" id="formatOptions">
+          <label class="format-opt"><input type="checkbox" id="optUppercase"> 大写</label>
+          <label class="format-opt"><input type="checkbox" id="optBraces"> 花括号</label>
+          <label class="format-opt"><input type="checkbox" id="optNoHyphens"> 去横线</label>
+        </div>
+      </div>
+
+      <!-- UUID v5 namespace -->
+      <div class="config-row" id="v5NamespaceRow" style="display:none">
+        <label>命名空间 (UUID v5)</label>
+        <div class="namespace-row">
+          <select id="v5Namespace">
+            <option value="6ba7b810-9dad-11d1-80b4-00c04fd430c8">DNS</option>
+            <option value="6ba7b811-9dad-11d1-80b4-00c04fd430c8">URL</option>
+            <option value="6ba7b812-9dad-11d1-80b4-00c04fd430c8">OID</option>
+            <option value="6ba7b814-9dad-11d1-80b4-00c04fd430c8">X.500 DN</option>
+            <option value="custom">自定义...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- UUID v5 name -->
+      <div class="config-row" id="v5NameRow" style="display:none">
+        <label>名称 (UUID v5)</label>
+        <input type="text" id="v5Name" placeholder="输入名称，如 example.com" value="example.com">
+      </div>
+
+      <!-- Custom namespace -->
+      <div class="config-row" id="v5CustomNsRow" style="display:none">
+        <label>自定义命名空间 UUID</label>
+        <input type="text" id="v5CustomNs" placeholder="如: 550e8400-e29b-41d4-a716-446655440000">
+      </div>
+
+      <!-- NanoID length -->
+      <div class="config-row" id="nanoidLenRow" style="display:none">
+        <label>NanoID 长度</label>
+        <input type="number" id="nanoidLen" value="21" min="1" max="100">
+        <div class="hint">默认 21 字符，URL 安全字母表</div>
+      </div>
+
+      <!-- Snowflake worker -->
+      <div class="config-row" id="snowflakeWorkerRow" style="display:none">
+        <label>Snowflake Worker ID</label>
+        <input type="number" id="snowflakeWorker" value="1" min="0" max="1023">
+        <div class="hint">0-1023，用于分布式节点标识</div>
+      </div>
+
+      <!-- Snowflake datacenter -->
+      <div class="config-row" id="snowflakeDcRow" style="display:none">
+        <label>Snowflake Datacenter ID</label>
+        <input type="number" id="snowflakeDc" value="1" min="0" max="31">
+        <div class="hint">0-31，数据中心标识</div>
+      </div>
+
+      <!-- Timestamp format -->
+      <div class="config-row" id="tsFormatRow" style="display:none">
+        <label>时间戳 ID 格式</label>
+        <select id="tsFormat">
+          <option value="ms-random">毫秒时间戳 + 随机后缀</option>
+          <option value="ms-seq">毫秒时间戳 + 序列号</option>
+          <option value="ymd-random">YYYYMMDDHHmmss + 随机</option>
+          <option value="base36">Base36 时间戳 + 随机</option>
+        </select>
+      </div>
+
+      <!-- Timestamp prefix -->
+      <div class="config-row" id="tsPrefixRow" style="display:none">
+        <label>前缀（可选）</label>
+        <input type="text" id="tsPrefix" placeholder="如: ORD, USER, TK" maxlength="10">
+        <div class="hint">生成带业务前缀的 ID</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-bar" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="generate()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        生成
+      </button>
+      <button class="btn btn-secondary" onclick="clearResults()">清空</button>
+      <div class="spacer"></div>
+      <label class="checkbox-row"><input type="checkbox" id="autoGenerate" checked> 修改配置自动生成</label>
+      <button class="btn btn-secondary btn-sm" onclick="copyAll()">复制全部</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportResults()">导出</button>
+    </div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="results-panel">
+    <div class="results-header">
+      <div class="title"><span class="dot"></span> 生成结果</div>
+      <div class="info" id="resultsInfo">0 条</div>
+      <div class="actions">
+        <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="results-list" id="resultsList">
+      <div class="empty-state">
+        <div class="emoji">🆔</div>
+        <div class="hint">选择 ID 类型，点击「生成」按钮开始</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// ID 生成算法
+// ═══════════════════════════════════════════
+
+// --- UUID v4 (random) ---
+function uuidv4() {
+  if (crypto && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  buf[6] = (buf[6] & 0x0f) | 0x40;
+  buf[8] = (buf[8] & 0x3f) | 0x80;
+  const hex = [...buf].map(b => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0,4).join('')}-${hex.slice(4,6).join('')}-${hex.slice(6,8).join('')}-${hex.slice(8,10).join('')}-${hex.slice(10,16).join('')}`;
+}
+
+// --- UUID v1 (timestamp + node) ---
+function uuidv1() {
+  const now = Date.now();
+  const epoch = now - Date.UTC(1582, 9, 15);
+  const ts = epoch * 10000; // 100-nanosecond intervals
+  const tsHex = ts.toString(16).padStart(15, '0');
+  const timeLow = tsHex.slice(7, 15);
+  const timeMid = tsHex.slice(3, 7);
+  const timeHi = (parseInt(tsHex.slice(0, 3), 16) & 0x0fff | 0x1000).toString(16);
+
+  // Clock sequence + variant
+  const csBuf = new Uint8Array(2);
+  crypto.getRandomValues(csBuf);
+  const clockSeq = ((csBuf[0] & 0x3f) | 0x80);
+  const clockSeqHex = clockSeq.toString(16).padStart(2, '0') + csBuf[1].toString(16).padStart(2, '0');
+
+  // Node (random, multicast bit set)
+  const nodeBuf = new Uint8Array(6);
+  crypto.getRandomValues(nodeBuf);
+  nodeBuf[0] = nodeBuf[0] | 0x01; // multicast bit
+  const nodeHex = [...nodeBuf].map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `${timeLow}-${timeMid}-${timeHi}-${clockSeqHex}-${nodeHex}`;
+}
+
+// --- UUID v5 (namespace + name, SHA-1) ---
+async function uuidv5(namespace, name) {
+  // Parse namespace UUID to bytes
+  const nsBytes = uuidToBytes(namespace);
+  // Concatenate namespace + name
+  const nameBytes = new TextEncoder().encode(name);
+  const data = new Uint8Array(nsBytes.length + nameBytes.length);
+  data.set(nsBytes, 0);
+  data.set(nameBytes, nsBytes.length);
+  // SHA-1 hash
+  const hashBuf = await crypto.subtle.digest('SHA-1', data);
+  const hash = new Uint8Array(hashBuf);
+  // Set version and variant
+  hash[6] = (hash[6] & 0x0f) | 0x50;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = [...hash].map(b => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0,4).join('')}-${hex.slice(4,6).join('')}-${hex.slice(6,8).join('')}-${hex.slice(8,10).join('')}-${hex.slice(10,16).join('')}`;
+}
+
+function uuidToBytes(uuid) {
+  const hex = uuid.replace(/[-{}]/g, '');
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+// --- GUID (Microsoft format with braces) ---
+function guid() {
+  return '{' + uuidv4() + '}';
+}
+
+// --- NanoID ---
+const NANO_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+function nanoid(length = 21) {
+  const buf = new Uint8Array(length);
+  crypto.getRandomValues(buf);
+  let id = '';
+  for (let i = 0; i < length; i++) {
+    id += NANO_ALPHABET[buf[i] & 63];
+  }
+  return id;
+}
+
+// --- ULID ---
+const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const ULID_ENCODE_TIME = 10;
+const ULID_ENCODE_RAND = 16;
+function ulid() {
+  const now = Date.now();
+  let timeChars = '';
+  let ts = now;
+  for (let i = 0; i < ULID_ENCODE_TIME; i++) {
+    timeChars = ULID_ALPHABET[ts & 0x1f] + timeChars;
+    ts = Math.floor(ts / 32);
+  }
+  const randBuf = new Uint8Array(ULID_ENCODE_RAND);
+  crypto.getRandomValues(randBuf);
+  let randChars = '';
+  for (let i = 0; i < ULID_ENCODE_RAND; i++) {
+    randChars += ULID_ALPHABET[randBuf[i] & 0x1f];
+  }
+  return timeChars + randChars;
+}
+
+// --- ShortID (Base62) ---
+const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+function shortid() {
+  const buf = new Uint8Array(8);
+  crypto.getRandomValues(buf);
+  // Use BigInt for proper base62 encoding
+  let num = 0n;
+  for (const b of buf) {
+    num = (num << 8n) | BigInt(b);
+  }
+  let str = '';
+  if (num === 0n) return '0';
+  while (num > 0n) {
+    str = BASE62[Number(num % 62n)] + str;
+    num = num / 62n;
+  }
+  return str;
+}
+
+// --- Snowflake ---
+let snowflakeSeq = 0;
+let snowflakeLastTs = -1;
+function snowflake(workerId = 1, datacenterId = 1) {
+  const epoch = 1288834974657; // Twitter epoch
+  const workerBits = 10;
+  const seqBits = 12;
+  const maxWorker = (1 << workerBits) - 1;
+  const maxSeq = (1 << seqBits) - 1;
+  const wid = (datacenterId << 5 | workerId) & maxWorker;
+
+  let ts = Date.now() - epoch;
+  if (ts === snowflakeLastTs) {
+    snowflakeSeq = (snowflakeSeq + 1) & maxSeq;
+    if (snowflakeSeq === 0) {
+      while (ts <= snowflakeLastTs) ts = Date.now() - epoch;
+    }
+  } else {
+    snowflakeSeq = 0;
+  }
+  snowflakeLastTs = ts;
+
+  return (BigInt(ts) << 22n | BigInt(wid) << 12n | BigInt(snowflakeSeq)).toString();
+}
+
+// --- MongoDB ObjectId ---
+function objectId() {
+  const ts = Math.floor(Date.now() / 1000);
+  const tsHex = ts.toString(16).padStart(8, '0');
+  const randBuf = new Uint8Array(5);
+  crypto.getRandomValues(randBuf);
+  const randHex = [...randBuf].map(b => b.toString(16).padStart(2, '0')).join('');
+  // Counter (3 bytes, pseudo-random start)
+  if (typeof objectId._counter === 'undefined') {
+    const cBuf = new Uint8Array(3);
+    crypto.getRandomValues(cBuf);
+    objectId._counter = (cBuf[0] << 16) | (cBuf[1] << 8) | cBuf[2];
+  }
+  objectId._counter = (objectId._counter + 1) & 0xffffff;
+  const counterHex = objectId._counter.toString(16).padStart(6, '0');
+  return tsHex + randHex + counterHex;
+}
+
+// --- Timestamp-based ID ---
+function timestampId(format, prefix) {
+  const now = new Date();
+  const ts = Date.now();
+  let id = '';
+  switch (format) {
+    case 'ms-random':
+      id = ts + randomSuffix(6);
+      break;
+    case 'ms-seq':
+      if (typeof timestampId._seq === 'undefined') timestampId._seq = 0;
+      timestampId._seq++;
+      id = ts + timestampId._seq.toString().padStart(6, '0');
+      break;
+    case 'ymd-random': {
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const h = String(now.getHours()).padStart(2, '0');
+      const mi = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      id = `${y}${m}${d}${h}${mi}${s}${randomSuffix(4)}`;
+      break;
+    }
+    case 'base36': {
+      const b36 = ts.toString(36).toUpperCase();
+      id = b36 + randomSuffix(4);
+      break;
+    }
+  }
+  return prefix ? prefix.toUpperCase() + id : id;
+}
+
+function randomSuffix(len) {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const buf = new Uint8Array(len);
+  crypto.getRandomValues(buf);
+  let s = '';
+  for (let i = 0; i < len; i++) s += chars[buf[i] % 36];
+  return s;
+}
+
+// ═══════════════════════════════════════════
+// Format helpers
+// ═══════════════════════════════════════════
+
+function formatUuid(uuid) {
+  let result = uuid;
+  const upper = document.getElementById('optUppercase').checked;
+  const braces = document.getElementById('optBraces').checked;
+  const noHyphens = document.getElementById('optNoHyphens').checked;
+
+  if (noHyphens) result = result.replace(/-/g, '');
+  if (upper) result = result.toUpperCase();
+  if (braces) result = '{' + result + '}';
+  return result;
+}
+
+// ═══════════════════════════════════════════
+// UI Logic
+// ═══════════════════════════════════════════
+
+let currentType = 'uuid-v4';
+let lastResults = [];
+
+const typeLabels = {
+  'uuid-v4': 'UUID v4',
+  'uuid-v1': 'UUID v1',
+  'uuid-v5': 'UUID v5',
+  'guid': 'GUID',
+  'nanoid': 'NanoID',
+  'ulid': 'ULID',
+  'shortid': 'ShortID',
+  'snowflake': 'Snowflake',
+  'objectid': 'ObjectId',
+  'timestamp': '时间戳 ID',
+};
+
+// Type selection
+document.querySelectorAll('.type-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    currentType = card.dataset.type;
+    updateConfigVisibility();
+    if (document.getElementById('autoGenerate').checked) generate();
+  });
+});
+
+function updateConfigVisibility() {
+  const show = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+  };
+
+  // UUID format options only for UUID types and GUID
+  const isUuidType = ['uuid-v4', 'uuid-v1', 'uuid-v5', 'guid'].includes(currentType);
+  document.getElementById('formatOptions').style.opacity = isUuidType ? '1' : '0.4';
+  document.getElementById('optUppercase').disabled = !isUuidType;
+  document.getElementById('optBraces').disabled = !isUuidType;
+  document.getElementById('optNoHyphens').disabled = !isUuidType;
+  if (!isUuidType) {
+    document.getElementById('optUppercase').checked = false;
+    document.getElementById('optBraces').checked = false;
+    document.getElementById('optNoHyphens').checked = false;
+  }
+  // GUID default braces
+  if (currentType === 'guid') {
+    document.getElementById('optBraces').checked = true;
+  }
+
+  show('v5NamespaceRow', currentType === 'uuid-v5');
+  show('v5NameRow', currentType === 'uuid-v5');
+  show('v5CustomNsRow', currentType === 'uuid-v5' && document.getElementById('v5Namespace').value === 'custom');
+  show('nanoidLenRow', currentType === 'nanoid');
+  show('snowflakeWorkerRow', currentType === 'snowflake');
+  show('snowflakeDcRow', currentType === 'snowflake');
+  show('tsFormatRow', currentType === 'timestamp');
+  show('tsPrefixRow', currentType === 'timestamp');
+}
+
+// Namespace select change
+document.getElementById('v5Namespace').addEventListener('change', () => {
+  updateConfigVisibility();
+  if (document.getElementById('autoGenerate').checked) generate();
+});
+
+// Auto-generate on config change
+['count', 'nanoidLen', 'snowflakeWorker', 'snowflakeDc', 'v5Name', 'v5CustomNs', 'tsPrefix'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => {
+    if (document.getElementById('autoGenerate').checked) {
+      clearTimeout(window._genTimer);
+      window._genTimer = setTimeout(generate, 300);
+    }
+  });
+});
+['optUppercase', 'optBraces', 'optNoHyphens', 'tsFormat'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => {
+    if (document.getElementById('autoGenerate').checked) generate();
+  });
+});
+
+function adjustCount(delta) {
+  const input = document.getElementById('count');
+  let val = parseInt(input.value) || 1;
+  val = Math.max(1, Math.min(10000, val + delta));
+  input.value = val;
+  if (document.getElementById('autoGenerate').checked) generate();
+}
+
+async function generate() {
+  const count = Math.max(1, Math.min(10000, parseInt(document.getElementById('count').value) || 1));
+  const results = [];
+
+  for (let i = 0; i < count; i++) {
+    let id;
+    switch (currentType) {
+      case 'uuid-v4':
+        id = formatUuid(uuidv4());
+        break;
+      case 'uuid-v1':
+        id = formatUuid(uuidv1());
+        break;
+      case 'uuid-v5':
+        let ns = document.getElementById('v5Namespace').value;
+        if (ns === 'custom') {
+          ns = document.getElementById('v5CustomNs').value.trim() || '00000000-0000-0000-0000-000000000000';
+        }
+        const name = document.getElementById('v5Name').value || 'default';
+        id = formatUuid(await uuidv5(ns, name));
+        break;
+      case 'guid':
+        id = formatUuid(uuidv4());
+        break;
+      case 'nanoid':
+        const len = Math.max(1, Math.min(100, parseInt(document.getElementById('nanoidLen').value) || 21));
+        id = nanoid(len);
+        break;
+      case 'ulid':
+        id = ulid();
+        break;
+      case 'shortid':
+        id = shortid();
+        break;
+      case 'snowflake':
+        const worker = Math.max(0, Math.min(1023, parseInt(document.getElementById('snowflakeWorker').value) || 1));
+        const dc = Math.max(0, Math.min(31, parseInt(document.getElementById('snowflakeDc').value) || 1));
+        id = snowflake(worker, dc);
+        break;
+      case 'objectid':
+        id = objectId();
+        break;
+      case 'timestamp':
+        const fmt = document.getElementById('tsFormat').value;
+        const prefix = document.getElementById('tsPrefix').value.trim();
+        id = timestampId(fmt, prefix);
+        break;
+    }
+    results.push(id);
+  }
+
+  lastResults = results;
+  renderResults(results);
+}
+
+function renderResults(results) {
+  const list = document.getElementById('resultsList');
+  const info = document.getElementById('resultsInfo');
+
+  if (results.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="emoji">🆔</div><div class="hint">选择 ID 类型，点击「生成」按钮开始</div></div>';
+    info.textContent = '0 条';
+    return;
+  }
+
+  info.textContent = results.length + ' 条 · ' + typeLabels[currentType];
+  list.innerHTML = results.map((id, i) => `
+    <div class="result-item">
+      <span class="idx">${i + 1}</span>
+      <span class="id-text">${escapeHtml(id)}</span>
+      <button class="copy-btn" onclick="copySingle('${escapeAttr(id)}', this)">复制</button>
+    </div>
+  `).join('');
+}
+
+function copySingle(id, btn) {
+  navigator.clipboard.writeText(id).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 1200);
+  });
+}
+
+function copyAll() {
+  if (lastResults.length === 0) {
+    showToast('没有可复制的内容');
+    return;
+  }
+  const text = lastResults.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('已复制 ' + lastResults.length + ' 条 ID');
+  });
+}
+
+function exportResults() {
+  if (lastResults.length === 0) {
+    showToast('没有可导出的内容');
+    return;
+  }
+  const blob = new Blob([lastResults.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ids_${currentType}_${Date.now()}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出 ' + lastResults.length + ' 条 ID');
+}
+
+function clearResults() {
+  lastResults = [];
+  renderResults([]);
+}
+
+function toggleFullscreen() {
+  const main = document.querySelector('.main');
+  const btn = document.getElementById('fsBtn');
+  if (!document.fullscreenElement) {
+    main.requestFullscreen();
+    btn.classList.add('fullscreen-active');
+  } else {
+    document.exitFullscreen();
+    btn.classList.remove('fullscreen-active');
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fsBtn');
+  btn.classList.toggle('fullscreen-active', !!document.fullscreenElement);
+});
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escapeAttr(s) {
+  return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// Init
+generate();
+</script>
+</body>
+</html>
