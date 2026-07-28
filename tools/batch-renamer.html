@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>批量重命名工具</title>
+<style>
+:root {
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface-hover: #f0f0f0;
+  --border: #e0e0e0;
+  --border-focus: #4a90d9;
+  --text: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --accent: #4a90d9;
+  --accent-hover: #3a7bd5;
+  --accent-light: #e8f0fe;
+  --success: #52c41a;
+  --success-bg: #f6ffed;
+  --warning: #faad14;
+  --warning-bg: #fffbe6;
+  --danger: #ff4d4f;
+  --danger-bg: #fff2f0;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header */
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.app-header .subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Main layout */
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* Left panel - config */
+.config-panel {
+  width: 340px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.config-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-section:last-child { border-bottom: none; }
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-title .icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+/* Input group */
+.input-group {
+  margin-bottom: 10px;
+}
+
+.input-group:last-child { margin-bottom: 0; }
+
+.input-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.input-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+}
+
+input[type="text"].pattern-input {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.number-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.number-input-row input {
+  flex: 1;
+}
+
+.number-input-row .step-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.number-input-row .step-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Rule tabs */
+.rule-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--border);
+}
+
+.rule-tab {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.rule-tab:hover {
+  color: var(--accent);
+}
+
+.rule-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.rule-content { display: none; }
+.rule-content.active { display: block; }
+
+/* Checkbox */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.checkbox-group label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+.btn-success:hover {
+  background: #45a818;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: #e04345;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.drop-zone:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  transform: scale(1.01);
+}
+
+.drop-zone .drop-icon {
+  font-size: 24px;
+  color: var(--text-muted);
+}
+
+.drop-zone .drop-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.drop-zone .drop-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.file-info {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.file-info .count {
+  font-weight: 600;
+}
+
+/* Pattern preview */
+.pattern-preview {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.pattern-preview .preview-label {
+  font-size: 11px;
+  color: var(--accent);
+  margin-bottom: 4px;
+  font-family: var(--font);
+}
+
+.pattern-preview .preview-example {
+  color: var(--text);
+  line-height: 1.8;
+}
+
+.pattern-preview .preview-example .var {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pattern-preview .preview-example .ext {
+  color: var(--success);
+}
+
+/* Right panel - preview */
+.preview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.preview-header {
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.preview-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.preview-stats .stat {
+  color: var(--text-muted);
+}
+
+.preview-stats .stat .value {
+  font-weight: 600;
+}
+
+.preview-stats .stat.success .value { color: var(--success); }
+.preview-stats .stat.warning .value { color: var(--warning); }
+.preview-stats .stat.danger .value { color: var(--danger); }
+
+.preview-toolbar {
+  padding: 8px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: var(--bg);
+}
+
+.search-input:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+/* File list */
+.file-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 20px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  transition: all 0.2s;
+}
+
+.file-item:hover {
+  border-color: var(--border-focus);
+}
+
+.file-item.conflict {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.file-item.skipped {
+  border-color: var(--warning);
+  background: var(--warning-bg);
+  opacity: 0.7;
+}
+
+.file-item.success {
+  border-color: var(--success);
+}
+
+.file-item .index {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 30px;
+  text-align: center;
+  font-family: var(--mono);
+}
+
+.file-item .arrow {
+  font-size: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.file-item .names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-item .old-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.file-item .new-name {
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--mono);
+  word-break: break-all;
+}
+
+.file-item .new-name .changed-part {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.file-item .new-name .ext-part {
+  color: var(--success);
+}
+
+.file-item .status-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.file-item .status-icon.ok { color: var(--success); }
+.file-item .status-icon.warn { color: var(--warning); }
+.file-item .status-icon.err { color: var(--danger); }
+
+.file-item .actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.file-item .actions button {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+
+.file-item .actions button:hover {
+  background: var(--surface-hover);
+  color: var(--danger);
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 8px;
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.empty-state .empty-text {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.empty-state .empty-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Export section */
+.export-section {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.export-section .btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Toast */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideIn 0.3s ease;
+  max-width: 300px;
+}
+
+.toast.success { border-color: var(--success); color: var(--success); }
+.toast.warning { border-color: var(--warning); color: var(--warning); }
+.toast.error { border-color: var(--danger); color: var(--danger); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Filter row */
+.filter-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.filter-row input {
+  flex: 1;
+}
+
+.filter-row select {
+  width: 80px;
+}
+
+/* Variable tag */
+.var-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.var-tag {
+  padding: 2px 8px;
+  background: var(--accent-light);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.var-tag:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
+.var-tag .var-desc {
+  font-family: var(--font);
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.var-tag:hover .var-desc { color: white; }
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mode-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  border: none;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:first-child { border-right: 1px solid var(--border); }
+
+.mode-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.mode-btn:hover:not(.active) {
+  background: var(--surface-hover);
+}
+
+/* Conflict banner */
+.conflict-banner {
+  padding: 10px 20px;
+  background: var(--danger-bg);
+  border-bottom: 1px solid var(--danger);
+  font-size: 13px;
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.conflict-banner .count { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- Header -->
+  <div class="app-header">
+    <h1>📦 批量重命名工具</h1>
+    <span class="subtitle">选择文件/目录 → 定义规则 → 预览 → 导出重命名脚本</span>
+  </div>
+
+  <!-- Main -->
+  <div class="app-main">
+    <!-- Left: Config Panel -->
+    <div class="config-panel">
+
+      <!-- Source Files -->
+      <div class="config-section">
+        <div class="section-title"><span class="icon">📂</span> 选择文件</div>
+
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="modeFileBtn" onclick="setSourceMode('files')">选择文件</button>
+          <button class="mode-btn" id="modeDirBtn" onclick="setSourceMode('directory')">选择目录</button>
+        </div>
+
+        <div id="fileDropZone" class="drop-zone" onclick="pickFiles()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="drop-icon">📄</div>
+          <div class="drop-text">点击选择文件 或 拖拽文件到此处</div>
+          <div class="drop-hint">支持任意文件类型</div>
+        </div>
+
+        <div id="dirDropZone" class="drop-zone" style="display:none" onclick="pickDirectory()">
+          <div class="drop-icon">📁</div>
+          <div class="drop-text">点击选择目录</div>
+          <div class="drop-hint">将列出目录内所有文件（不含子目录）</div>
+        </div>
+
+        <div id="fileInfoBox" class="file-info" style="display:none">
+          <span>已加载 <span class="count" id="fileCount">0</span> 个文件</span>
+          <button class="btn" style="padding:4px 10px;font-size:11px" onclick="clearFiles()">清除</button>
+        </div>
+
+        <!-- Filter -->
+        <div class="filter-row" style="margin-top:10px">
+          <input type="text" id="extFilter" placeholder="扩展名过滤（如 .jpg, .png）" oninput="applyFilter()">
+          <select id="filterMode" onchange="applyFilter()">
+            <option value="include">仅包含</option>
+            <option value="exclude">排除</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Rename Rules -->
+      <div class="config-section">
+        <div class="section-title"><span class="icon">✏️</span> 重命名规则</div>
+
+        <div class="rule-tabs">
+          <button class="rule-tab active" onclick="switchRule('pattern')">模板命名</button>
+          <button class="rule-tab" onclick="switchRule('replace')">查找替换</button>
+          <button class="rule-tab" onclick="switchRule('regex')">正则替换</button>
+          <button class="rule-tab" onclick="switchRule('add')">添加前缀/后缀</button>
+          <button class="rule-tab" onclick="switchRule('case')">大小写转换</button>
+          <button class="rule-tab" onclick="switchRule('number')">序号命名</button>
+        </div>
+
+        <!-- Pattern rule -->
+        <div id="rulePattern" class="rule-content active">
+          <div class="input-group">
+            <label class="input-label">命名模板</label>
+            <input type="text" class="pattern-input" id="patternTemplate" value="{name}" oninput="updatePreview()" placeholder="如：photo_{index}_{date}">
+            <div class="input-hint">使用变量构建新文件名，点击下方标签插入</div>
+          </div>
+          <div class="var-tags">
+            <span class="var-tag" onclick="insertVar('{name}')">{name}<span class="var-desc">原名</span></span>
+            <span class="var-tag" onclick="insertVar('{index}')">{index}<span class="var-desc">序号</span></span>
+            <span class="var-tag" onclick="insertVar('{date}')">{date}<span class="var-desc">日期</span></span>
+            <span class="var-tag" onclick="insertVar('{time}')">{time}<span class="var-desc">时间</span></span>
+            <span class="var-tag" onclick="insertVar('{parent}')">{parent}<span class="var-desc">父目录</span></span>
+            <span class="var-tag" onclick="insertVar('{ext}')">{ext}<span class="var-desc">扩展名</span></span>
+            <span class="var-tag" onclick="insertVar('{size}')">{size}<span class="var-desc">大小</span></span>
+            <span class="var-tag" onclick="insertVar('{i3}')">{i3}<span class="var-desc">3位序号</span></span>
+            <span class="var-tag" onclick="insertVar('{i5}')">{i5}<span class="var-desc">5位序号</span></span>
+          </div>
+
+          <div class="pattern-preview">
+            <div class="preview-label">示例预览</div>
+            <div class="preview-example" id="patternPreviewText">photo_<span class="var">001</span>_<span class="var">2026-07-28</span>.<span class="ext">jpg</span></div>
+          </div>
+        </div>
+
+        <!-- Replace rule -->
+        <div id="ruleReplace" class="rule-content">
+          <div class="input-group">
+            <label class="input-label">查找文本</label>
+            <input type="text" id="replaceFind" oninput="updatePreview()" placeholder="要替换的文本">
+          </div>
+          <div class="input-group">
+            <label class="input-label">替换为</label>
+            <input type="text" id="replaceWith" oninput="updatePreview()" placeholder="替换后的文本（留空则删除）">
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="replaceAll" checked onchange="updatePreview()">
+            <label for="replaceAll">替换所有匹配项</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="replaceCase" onchange="updatePreview()">
+            <label for="replaceCase">区分大小写</label>
+          </div>
+        </div>
+
+        <!-- Regex rule -->
+        <div id="ruleRegex" class="rule-content">
+          <div class="input-group">
+            <label class="input-label">正则表达式</label>
+            <input type="text" class="pattern-input" id="regexPattern" oninput="updatePreview()" placeholder="如 \d+ 或 ^(IMG)">
+            <div class="input-hint">支持 JavaScript 正则语法</div>
+          </div>
+          <div class="input-group">
+            <label class="input-label">替换为</label>
+            <input type="text" class="pattern-input" id="regexReplace" oninput="updatePreview()" placeholder="如 $1_new 或空字符串删除匹配">
+            <div class="input-hint">$1~$9 为捕获组引用</div>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="regexGlobal" checked onchange="updatePreview()">
+            <label for="regexGlobal">全局匹配 (g)</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="regexCase" onchange="updatePreview()">
+            <label for="regexCase">区分大小写 (不含 i)</label>
+          </div>
+        </div>
+
+        <!-- Add prefix/suffix rule -->
+        <div id="ruleAdd" class="rule-content">
+          <div class="input-group">
+            <label class="input-label">前缀（加在文件名前）</label>
+            <input type="text" id="addPrefix" oninput="updatePreview()" placeholder="如 project_">
+          </div>
+          <div class="input-group">
+            <label class="input-label">后缀（加在扩展名前）</label>
+            <input type="text" id="addSuffix" oninput="updatePreview()" placeholder="如 _final">
+          </div>
+          <div class="input-group">
+            <label class="input-label">插入位置（序号前缀）</label>
+            <div class="number-input-row">
+              <button class="step-btn" onclick="adjustNum('addIndex', -1)">−</button>
+              <input type="number" id="addIndex" value="1" min="1" oninput="updatePreview()">
+              <button class="step-btn" onclick="adjustNum('addIndex', 1)">+</button>
+              <select id="addIndexWidth" onchange="updatePreview()">
+                <option value="1">不补零</option>
+                <option value="2">2位</option>
+                <option value="3" selected>3位</option>
+                <option value="4">4位</option>
+                <option value="5">5位</option>
+              </select>
+            </div>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="addIndexAsPrefix" onchange="updatePreview()">
+            <label for="addIndexAsPrefix">序号作为前缀而非后缀</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="addIndexSep" checked onchange="updatePreview()">
+            <label for="addIndexSep">序号与名称间加分隔符 (_)</label>
+          </div>
+        </div>
+
+        <!-- Case conversion rule -->
+        <div id="ruleCase" class="rule-content">
+          <div class="input-group">
+            <label class="input-label">转换方式</label>
+            <select id="caseMode" onchange="updatePreview()">
+              <option value="lower">全部小写</option>
+              <option value="upper">全部大写</option>
+              <option value="capitalize">首字母大写</option>
+              <option value="camel">驼峰命名</option>
+              <option value="snake">蛇形命名 (snake_case)</option>
+              <option value="kebab">短横线命名 (kebab-case)</option>
+            </select>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="caseExt" checked onchange="updatePreview()">
+            <label for="caseExt">同时转换扩展名</label>
+          </div>
+        </div>
+
+        <!-- Number naming rule -->
+        <div id="ruleNumber" class="rule-content">
+          <div class="input-group">
+            <label class="input-label">命名模板</label>
+            <input type="text" class="pattern-input" id="numberTemplate" value="{i3}" oninput="updatePreview()" placeholder="如 IMG_{i3}">
+            <div class="input-hint">纯序号命名，可混合其他变量</div>
+          </div>
+          <div class="var-tags">
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{i2}')">{i2}<span class="var-desc">2位</span></span>
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{i3}')">{i3}<span class="var-desc">3位</span></span>
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{i4}')">{i4}<span class="var-desc">4位</span></span>
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{i5}')">{i5}<span class="var-desc">5位</span></span>
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{name}')">{name}<span class="var-desc">原名</span></span>
+            <span class="var-tag" onclick="insertVarTo('numberTemplate','{ext}')">{ext}<span class="var-desc">扩展名</span></span>
+          </div>
+          <div class="input-group" style="margin-top:10px">
+            <label class="input-label">起始序号</label>
+            <div class="number-input-row">
+              <button class="step-btn" onclick="adjustNum('numberStart', -1)">−</button>
+              <input type="number" id="numberStart" value="1" min="0" oninput="updatePreview()">
+              <button class="step-btn" onclick="adjustNum('numberStart', 1)">+</button>
+              <label class="input-label" style="margin:0 4px">步长</label>
+              <button class="step-btn" onclick="adjustNum('numberStep', -1)">−</button>
+              <input type="number" id="numberStep" value="1" min="1" oninput="updatePreview()">
+              <button class="step-btn" onclick="adjustNum('numberStep', 1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sort -->
+      <div class="config-section">
+        <div class="section-title"><span class="icon">🔢</span> 排序方式</div>
+        <div class="input-group">
+          <select id="sortBy" onchange="updatePreview()">
+            <option value="name-asc">文件名升序</option>
+            <option value="name-desc">文件名降序</option>
+            <option value="ext">扩展名分组</option>
+            <option value="size-asc">大小升序</option>
+            <option value="size-desc">大小降序</option>
+            <option value="date-asc">修改时间升序</option>
+            <option value="date-desc">修改时间降序</option>
+            <option value="original">原始顺序</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Export -->
+      <div class="config-section export-section" style="border-top:1px solid var(--border)">
+        <div class="btn-group" style="flex-direction:column;gap:8px">
+          <button class="btn btn-primary btn-block" onclick="generateScript('powershell')">🪟 生成 PowerShell 脚本</button>
+          <button class="btn btn-primary btn-block" onclick="generateScript('bash')">🐧 生成 Bash 脚本</button>
+          <button class="btn btn-primary btn-block" onclick="generateScript('python')">🐍 生成 Python 脚本</button>
+          <button class="btn btn-block" onclick="copyRenameCommands()">📋 复制重命名命令</button>
+          <button class="btn btn-block" onclick="exportList()">📥 导出对照表 (CSV)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Preview Panel -->
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h2>重命名预览</h2>
+        <div class="preview-stats">
+          <div class="stat success">变更 <span class="value" id="statChanged">0</span></div>
+          <div class="stat warning">跳过 <span class="value" id="statSkipped">0</span></div>
+          <div class="stat danger">冲突 <span class="value" id="statConflict">0</span></div>
+        </div>
+      </div>
+
+      <div class="preview-toolbar">
+        <input type="text" class="search-input" id="searchInput" placeholder="搜索文件名..." oninput="filterPreviewList()">
+        <button class="btn" onclick="toggleDiffMode()" id="diffModeBtn" title="仅显示有变更的项">仅变更</button>
+        <button class="btn" onclick="selectAll()">全选</button>
+        <button class="btn" onclick="deselectAll()">取消全选</button>
+      </div>
+
+      <div id="conflictBanner" class="conflict-banner" style="display:none">
+        ⚠️ 存在 <span class="count" id="conflictCount">0</span> 个命名冲突（目标文件名重复），请调整规则后重试
+      </div>
+
+      <div class="file-list-container" id="fileListContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📂</div>
+          <div class="empty-text">请先选择文件或目录</div>
+          <div class="empty-hint">在左侧面板选择文件，然后定义重命名规则</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let sourceFiles = [];         // { name, ext, size, lastModified, path }
+let filteredFiles = [];       // after extension filter
+let sortedFiles = [];         // after sort
+let previewItems = [];        // { oldName, newName, status, file }
+let sourceMode = 'files';    // 'files' | 'directory'
+let currentRule = 'pattern';
+let diffModeOnly = false;
+
+// ============================================================
+// Source Mode
+// ============================================================
+function setSourceMode(mode) {
+  sourceMode = mode;
+  document.getElementById('modeFileBtn').classList.toggle('active', mode === 'files');
+  document.getElementById('modeDirBtn').classList.toggle('active', mode === 'directory');
+  document.getElementById('fileDropZone').style.display = mode === 'files' ? '' : 'none';
+  document.getElementById('dirDropZone').style.display = mode === 'directory' ? '' : 'none';
+}
+
+// ============================================================
+// File Selection
+// ============================================================
+function pickFiles() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = true;
+  input.onchange = (e) => {
+    const files = Array.from(e.target.files);
+    loadFiles(files);
+  };
+  input.click();
+}
+
+async function pickDirectory() {
+  // Try modern directory picker first
+  if (window.showDirectoryPicker) {
+    try {
+      const dirHandle = await window.showDirectoryPicker();
+      const files = [];
+      for await (const entry of dirHandle.values()) {
+        if (entry.kind === 'file') {
+          const file = await entry.getFile();
+          files.push(file);
+        }
+      }
+      loadFiles(files, dirHandle.name);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      // Fall through to legacy method
+    }
+  }
+  // Legacy: use webkitdirectory
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.webkitdirectory = true;
+  input.onchange = (e) => {
+    const files = Array.from(e.target.files);
+    loadFiles(files);
+  };
+  input.click();
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files);
+  if (files.length) loadFiles(files);
+}
+
+function loadFiles(files, parentDirName) {
+  sourceFiles = files.map((f, i) => {
+    const dotIdx = f.name.lastIndexOf('.');
+    const baseName = dotIdx > 0 ? f.name.substring(0, dotIdx) : f.name;
+    const ext = dotIdx > 0 ? f.name.substring(dotIdx) : '';
+    // For directory mode, try to extract relative path for parent dir
+    const relativePath = f.webkitRelativePath || '';
+    const parentName = parentDirName || (relativePath ? relativePath.split('/')[0] : '');
+    return {
+      name: f.name,
+      baseName,
+      ext,
+      size: f.size,
+      lastModified: f.lastModified,
+      path: relativePath || f.name,
+      parentName,
+      _file: f,
+      _originalIndex: i
+    };
+  });
+
+  document.getElementById('fileInfoBox').style.display = '';
+  document.getElementById('fileCount').textContent = sourceFiles.length;
+  document.getElementById('emptyState').style.display = 'none';
+
+  applyFilter();
+  showToast(`已加载 ${sourceFiles.length} 个文件`, 'success');
+}
+
+function clearFiles() {
+  sourceFiles = [];
+  filteredFiles = [];
+  sortedFiles = [];
+  previewItems = [];
+  document.getElementById('fileInfoBox').style.display = 'none';
+  document.getElementById('emptyState').style.display = '';
+  renderPreview();
+}
+
+// ============================================================
+// Filter
+// ============================================================
+function applyFilter() {
+  const filterStr = document.getElementById('extFilter').value.trim();
+  const mode = document.getElementById('filterMode').value;
+
+  if (!filterStr) {
+    filteredFiles = [...sourceFiles];
+  } else {
+    // Parse extensions: ".jpg, .png" => ["jpg", "png"]
+    const exts = filterStr.split(/[,\s]+/).map(s => s.replace(/^\./, '').toLowerCase()).filter(Boolean);
+    if (mode === 'include') {
+      filteredFiles = sourceFiles.filter(f => exts.includes(f.ext.replace(/^\./, '').toLowerCase()));
+    } else {
+      filteredFiles = sourceFiles.filter(f => !exts.includes(f.ext.replace(/^\./, '').toLowerCase()));
+    }
+  }
+
+  applySort();
+}
+
+// ============================================================
+// Sort
+// ============================================================
+function applySort() {
+  const sortBy = document.getElementById('sortBy').value;
+
+  sortedFiles = [...filteredFiles];
+
+  switch (sortBy) {
+    case 'name-asc':
+      sortedFiles.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'name-desc':
+      sortedFiles.sort((a, b) => b.name.localeCompare(a.name));
+      break;
+    case 'ext':
+      sortedFiles.sort((a, b) => {
+        const extCmp = a.ext.localeCompare(b.ext);
+        return extCmp !== 0 ? extCmp : a.name.localeCompare(b.name);
+      });
+      break;
+    case 'size-asc':
+      sortedFiles.sort((a, b) => a.size - b.size);
+      break;
+    case 'size-desc':
+      sortedFiles.sort((a, b) => b.size - a.size);
+      break;
+    case 'date-asc':
+      sortedFiles.sort((a, b) => a.lastModified - b.lastModified);
+      break;
+    case 'date-desc':
+      sortedFiles.sort((a, b) => b.lastModified - a.lastModified);
+      break;
+    case 'original':
+      sortedFiles.sort((a, b) => a._originalIndex - b._originalIndex);
+      break;
+  }
+
+  updatePreview();
+}
+
+// ============================================================
+// Rule Switching
+// ============================================================
+function switchRule(rule) {
+  currentRule = rule;
+  document.querySelectorAll('.rule-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.rule-content').forEach(c => c.classList.remove('active'));
+
+  event.target.classList.add('active');
+  document.getElementById('rule' + capitalize(rule)).classList.add('active');
+
+  updatePreview();
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ============================================================
+// Variable Insertion
+// ============================================================
+function insertVar(varStr) {
+  const input = document.getElementById('patternTemplate');
+  const pos = input.selectionStart;
+  const val = input.value;
+  input.value = val.substring(0, pos) + varStr + val.substring(pos);
+  input.focus();
+  input.setSelectionRange(pos + varStr.length, pos + varStr.length);
+  updatePreview();
+}
+
+function insertVarTo(inputId, varStr) {
+  const input = document.getElementById(inputId);
+  const pos = input.selectionStart;
+  const val = input.value;
+  input.value = val.substring(0, pos) + varStr + val.substring(pos);
+  input.focus();
+  input.setSelectionRange(pos + varStr.length, pos + varStr.length);
+  updatePreview();
+}
+
+// ============================================================
+// Number Adjustment
+// ============================================================
+function adjustNum(id, delta) {
+  const input = document.getElementById(id);
+  const val = parseInt(input.value) || 0;
+  const min = parseInt(input.min) || 0;
+  input.value = Math.max(min, val + delta);
+  updatePreview();
+}
+
+// ============================================================
+// Rename Logic
+// ============================================================
+function computeNewName(file, index) {
+  const baseName = file.baseName;
+  const ext = file.ext;
+  const extNoDot = ext.replace(/^\./, '');
+
+  switch (currentRule) {
+    case 'pattern':
+      return applyPattern(file, index);
+    case 'replace':
+      return applyReplace(file, index);
+    case 'regex':
+      return applyRegex(file, index);
+    case 'add':
+      return applyAdd(file, index);
+    case 'case':
+      return applyCase(file, index);
+    case 'number':
+      return applyNumber(file, index);
+    default:
+      return file.name;
+  }
+}
+
+function applyPattern(file, index) {
+  const template = document.getElementById('patternTemplate').value;
+  const now = new Date(file.lastModified);
+
+  let result = template;
+  result = result.replace(/\{name\}/g, file.baseName);
+  result = result.replace(/\{i(\d)\}/g, (_, width) => {
+    const w = parseInt(width);
+    const start = parseInt(document.getElementById('numberStart')?.value || 1);
+    const step = parseInt(document.getElementById('numberStep')?.value || 1);
+    const num = start + index * step;
+    return String(num).padStart(w, '0');
+  });
+  result = result.replace(/\{index\}/g, String(index + 1).padStart(1, '0'));
+  result = result.replace(/\{date\}/g, formatDate(now));
+  result = result.replace(/\{time\}/g, formatTime(now));
+  result = result.replace(/\{parent\}/g, file.parentName || '');
+  result = result.replace(/\{ext\}/g, extNoDot);
+  result = result.replace(/\{size\}/g, formatSize(file.size));
+
+  // If template doesn't contain {ext} or explicit extension, append original ext
+  if (!template.includes('{ext}') && ext) {
+    result += ext;
+  }
+  return result;
+}
+
+function applyReplace(file, index) {
+  const find = document.getElementById('replaceFind').value;
+  const withStr = document.getElementById('replaceWith').value;
+  const all = document.getElementById('replaceAll').checked;
+  const caseSensitive = document.getElementById('replaceCase').checked;
+
+  if (!find) return file.name;
+
+  let newBase = file.baseName;
+  if (all) {
+    if (caseSensitive) {
+      newBase = newBase.split(find).join(withStr);
+    } else {
+      const regex = new RegExp(escapeRegex(find), 'gi');
+      newBase = newBase.replace(regex, withStr);
+    }
+  } else {
+    if (caseSensitive) {
+      newBase = newBase.replace(find, withStr);
+    } else {
+      const regex = new RegExp(escapeRegex(find), 'i');
+      newBase = newBase.replace(regex, withStr);
+    }
+  }
+
+  return newBase + file.ext;
+}
+
+function applyRegex(file, index) {
+  const pattern = document.getElementById('regexPattern').value;
+  const replaceStr = document.getElementById('regexReplace').value;
+  const global = document.getElementById('regexGlobal').checked;
+  const caseSensitive = document.getElementById('regexCase').checked;
+
+  if (!pattern) return file.name;
+
+  try {
+    const flags = global ? 'g' : '';
+    if (!caseSensitive) flags += 'i';
+    const regex = new RegExp(pattern, flags);
+    const newBase = file.baseName.replace(regex, replaceStr);
+    return newBase + file.ext;
+  } catch (e) {
+    return file.name; // invalid regex, skip
+  }
+}
+
+function applyAdd(file, index) {
+  const prefix = document.getElementById('addPrefix').value;
+  const suffix = document.getElementById('addSuffix').value;
+  const startIdx = parseInt(document.getElementById('addIndex').value) || 1;
+  const width = parseInt(document.getElementById('addIndexWidth').value) || 3;
+  const asPrefix = document.getElementById('addIndexAsPrefix').checked;
+  const sep = document.getElementById('addIndexSep').checked ? '_' : '';
+
+  const numStr = String(startIdx + index - 1).padStart(width, '0');
+  let newBase = file.baseName;
+
+  if (prefix) newBase = prefix + newBase;
+  if (suffix) newBase = newBase + suffix;
+
+  if (asPrefix) {
+    newBase = numStr + sep + newBase;
+  } else {
+    newBase = newBase + sep + numStr;
+  }
+
+  return newBase + file.ext;
+}
+
+function applyCase(file, index) {
+  const mode = document.getElementById('caseMode').value;
+  const changeExt = document.getElementById('caseExt').checked;
+
+  let newBase = file.baseName;
+  let newExt = changeExt ? file.ext : file.ext;
+
+  switch (mode) {
+    case 'lower':
+      newBase = newBase.toLowerCase();
+      if (changeExt) newExt = newExt.toLowerCase();
+      break;
+    case 'upper':
+      newBase = newBase.toUpperCase();
+      if (changeExt) newExt = newExt.toUpperCase();
+      break;
+    case 'capitalize':
+      newBase = newBase.replace(/(^|[\s_\-\.])(\w)/g, (_, sep, ch) => sep + ch.toUpperCase());
+      if (changeExt) newExt = newExt.toLowerCase();
+      break;
+    case 'camel':
+      newBase = newBase
+        .replace(/[\s_\-\.]+(\w)/g, (_, ch) => ch.toUpperCase())
+        .replace(/^(\w)/, (_, ch) => ch.toLowerCase());
+      if (changeExt) newExt = newExt.toLowerCase();
+      break;
+    case 'snake':
+      newBase = newBase
+        .replace(/[\s\-\.]+/g, '_')
+        .replace(/([A-Z])/g, '_$1')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
+        .toLowerCase();
+      if (changeExt) newExt = newExt.toLowerCase();
+      break;
+    case 'kebab':
+      newBase = newBase
+        .replace(/[\s_\.]+/g, '-')
+        .replace(/([A-Z])/g, '-$1')
+        .replace(/-+/g, '-')
+        .replace(/^_|$-/g, '')
+        .toLowerCase();
+      if (changeExt) newExt = newExt.toLowerCase();
+      break;
+  }
+
+  return newBase + newExt;
+}
+
+function applyNumber(file, index) {
+  const template = document.getElementById('numberTemplate').value;
+  const start = parseInt(document.getElementById('numberStart').value) || 1;
+  const step = parseInt(document.getElementById('numberStep').value) || 1;
+  const num = start + index * step;
+
+  let result = template;
+  result = result.replace(/\{i(\d)\}/g, (_, width) => String(num).padStart(parseInt(width), '0'));
+  result = result.replace(/\{index\}/g, String(num));
+  result = result.replace(/\{name\}/g, file.baseName);
+  result = result.replace(/\{ext\}/g, file.ext.replace(/^\./, ''));
+
+  if (!template.includes('{ext}') && file.ext) {
+    result += file.ext;
+  }
+  return result;
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function formatDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatTime(d) {
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${h}${m}${s}`;
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+}
+
+// ============================================================
+// Preview
+// ============================================================
+function updatePreview() {
+  previewItems = sortedFiles.map((file, index) => {
+    const newName = computeNewName(file, index);
+    const oldName = file.name;
+    const status = newName === oldName ? 'skipped' : 'normal';
+    return { oldName, newName, status, file, index };
+  });
+
+  // Check conflicts (duplicate new names)
+  const newNameMap = {};
+  previewItems.forEach(item => {
+    if (item.status === 'skipped') return;
+    if (!newNameMap[item.newName]) {
+      newNameMap[item.newName] = [];
+    }
+    newNameMap[item.newName].push(item);
+  });
+
+  let conflictCount = 0;
+  Object.entries(newNameMap).forEach(([name, items]) => {
+    if (items.length > 1) {
+      conflictCount += items.length;
+      items.forEach(item => item.status = 'conflict');
+    }
+  });
+
+  const changedCount = previewItems.filter(i => i.status === 'normal').length;
+  const skippedCount = previewItems.filter(i => i.status === 'skipped').length;
+
+  document.getElementById('statChanged').textContent = changedCount;
+  document.getElementById('statSkipped').textContent = skippedCount;
+  document.getElementById('statConflict').textContent = conflictCount;
+
+  const banner = document.getElementById('conflictBanner');
+  if (conflictCount > 0) {
+    banner.style.display = '';
+    document.getElementById('conflictCount').textContent = conflictCount;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Update pattern preview
+  updatePatternPreviewText();
+
+  renderPreview();
+}
+
+function updatePatternPreviewText() {
+  const el = document.getElementById('patternPreviewText');
+  if (!sortedFiles.length) {
+    el.innerHTML = '<span style="color:var(--text-muted)">请先添加文件查看预览</span>';
+    return;
+  }
+  const sample = sortedFiles[0];
+  const newName = computeNewName(sample, 0);
+  const dotIdx = newName.lastIndexOf('.');
+  const namePart = dotIdx > 0 ? newName.substring(0, dotIdx) : newName;
+  const extPart = dotIdx > 0 ? newName.substring(dotIdx) : '';
+
+  // Highlight changed parts
+  const oldBase = sample.baseName;
+  let nameHtml = '';
+  for (let i = 0; i < namePart.length; i++) {
+    if (i < oldBase.length && namePart[i] === oldBase[i]) {
+      nameHtml += namePart[i];
+    } else {
+      nameHtml += `<span class="var">${namePart[i]}</span>`;
+    }
+  }
+  // Append remaining chars as changed
+  if (namePart.length > oldBase.length) {
+    nameHtml += `<span class="var">${namePart.substring(oldBase.length)}</span>`;
+  }
+
+  let extHtml = extPart ? `<span class="ext">${extPart}</span>` : '';
+
+  el.innerHTML = nameHtml + extHtml;
+}
+
+function renderPreview() {
+  const container = document.getElementById('fileListContainer');
+
+  if (!previewItems.length) {
+    container.innerHTML = `<div class="empty-state" id="emptyState">
+      <div class="empty-icon">📂</div>
+      <div class="empty-text">请先选择文件或目录</div>
+      <div class="empty-hint">在左侧面板选择文件，然后定义重命名规则</div>
+    </div>`;
+    return;
+  }
+
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+  let items = previewItems;
+  if (diffModeOnly) {
+    items = items.filter(i => i.status !== 'skipped');
+  }
+  if (searchTerm) {
+    items = items.filter(i => i.oldName.toLowerCase().includes(searchTerm) || i.newName.toLowerCase().includes(searchTerm));
+  }
+
+  let html = '';
+  items.forEach((item, i) => {
+    const statusClass = item.status === 'conflict' ? 'conflict' : item.status === 'skipped' ? 'skipped' : 'success';
+    const statusIcon = item.status === 'conflict' ? '❌' : item.status === 'skipped' ? '⏭️' : '✅';
+    const iconClass = item.status === 'conflict' ? 'err' : item.status === 'skipped' ? 'warn' : 'ok';
+
+    // Highlight differences in new name
+    let newNameHtml = highlightDiff(item.oldName, item.newName);
+
+    html += `<div class="file-item ${statusClass}">
+      <div class="index">${String(i + 1).padStart(3, '0')}</div>
+      <div class="names">
+        <div class="old-name">${escHtml(item.oldName)}</div>
+        <div class="new-name">${newNameHtml}</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="status-icon ${iconClass}">${statusIcon}</div>
+      <div class="actions">
+        <button onclick="removeItem(${item.index})" title="排除此文件">✕</button>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function highlightDiff(oldName, newName) {
+  // Simple diff: find common prefix/suffix, highlight middle changed part
+  const oldBase = oldName.lastIndexOf('.') > 0 ? oldName.substring(0, oldName.lastIndexOf('.')) : oldName;
+  const newBase = newName.lastIndexOf('.') > 0 ? newName.substring(0, newName.lastIndexOf('.')) : newName;
+  const oldExt = oldName.lastIndexOf('.') > 0 ? oldName.substring(oldName.lastIndexOf('.')) : '';
+  const newExt = newName.lastIndexOf('.') > 0 ? newName.substring(newName.lastIndexOf('.')) : '';
+
+  if (oldName === newName) {
+    return `<span style="color:var(--text-muted)">${escHtml(newName)}</span>`;
+  }
+
+  let result = '';
+  // Highlight changed base name
+  if (newBase !== oldBase) {
+    result = `<span class="changed-part">${escHtml(newBase)}</span>`;
+  } else {
+    result = escHtml(newBase);
+  }
+
+  // Highlight changed extension
+  if (newExt !== oldExt) {
+    result += `<span class="ext-part">${escHtml(newExt)}</span>`;
+  } else if (newExt) {
+    result += escHtml(newExt);
+  }
+
+  return result;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function removeItem(index) {
+  sortedFiles = sortedFiles.filter((_, i) => i !== index);
+  updatePreview();
+}
+
+function filterPreviewList() {
+  renderPreview();
+}
+
+function toggleDiffMode() {
+  diffModeOnly = !diffModeOnly;
+  document.getElementById('diffModeBtn').classList.toggle('btn-primary', diffModeOnly);
+  renderPreview();
+}
+
+function selectAll() { /* placeholder for future bulk operations */ }
+function deselectAll() { /* placeholder */ }
+
+// ============================================================
+// Script Generation
+// ============================================================
+function generateScript(type) {
+  const validItems = previewItems.filter(i => i.status !== 'skipped' && i.status !== 'conflict');
+  if (!validItems.length) {
+    showToast('没有可重命名的文件', 'warning');
+    return;
+  }
+  if (previewItems.some(i => i.status === 'conflict')) {
+    showToast('存在命名冲突，请先解决后再生成脚本', 'error');
+    return;
+  }
+
+  let script = '';
+
+  switch (type) {
+    case 'powershell':
+      script = generatePowerShell(validItems);
+      break;
+    case 'bash':
+      script = generateBash(validItems);
+      break;
+    case 'python':
+      script = generatePython(validItems);
+      break;
+  }
+
+  downloadFile(script, `batch_rename_${type}.${type === 'python' ? 'py' : type === 'bash' ? 'sh' : 'ps1'}`, 'text/plain');
+  showToast(`已生成 ${type} 重命名脚本`, 'success');
+}
+
+function generatePowerShell(items) {
+  let lines = ['# 批量重命名脚本 - PowerShell', '# 生成时间: ' + new Date().toLocaleString(), '# 请在执行前确认文件路径正确', '', '# 备份原文件名列表', '$renames = @('];
+
+  items.forEach(item => {
+    lines.push(`  @{ Old = "${item.oldName}"; New = "${item.newName}" }`);
+  });
+
+  lines.push(')', '', '# 执行重命名');
+  lines.push('foreach ($r in $renames) {');
+  lines.push('  if (Test-Path $r.Old) {');
+  lines.push('    Rename-Item -Path $r.Old -NewName $r.New -WhatIf  # 移除 -WhatIf 以实际执行');
+  lines.push('    Write-Host "✓ $r.Old -> $r.New" -ForegroundColor Green');
+  lines.push('  } else {');
+  lines.push('    Write-Host "✗ 文件不存在: $r.Old" -ForegroundColor Red');
+  lines.push('  }');
+  lines.push('}');
+
+  return lines.join('\n');
+}
+
+function generateBash(items) {
+  let lines = ['#!/bin/bash', '# 批量重命名脚本 - Bash', '# 生成时间: ' + new Date().toLocaleString(), '# 请在执行前确认文件路径正确', '', '# 备份记录', 'echo "重命名记录:" > rename_log.txt', ''];
+
+  items.forEach(item => {
+    lines.push(`mv "${item.oldName}" "${item.newName}"  # 移除注释确认执行`);
+    lines.push(`echo "${item.oldName} -> ${item.newName}" >> rename_log.txt`);
+  });
+
+  lines.push('', 'echo "重命名完成，共 ${#} 个文件"');
+
+  return lines.join('\n');
+}
+
+function generatePython(items) {
+  let lines = [
+    '# -*- coding: utf-8 -*-',
+    '"""批量重命名脚本 - Python',
+    '生成时间: ' + new Date().toLocaleString(),
+    '请在执行前确认文件路径正确',
+    '"""',
+    '',
+    'import os',
+    'import sys',
+    '',
+    'renames = ['
+  ];
+
+  items.forEach(item => {
+    lines.push(`    ("${item.oldName}", "${item.newName}"),`);
+  });
+
+  lines.push(']');
+  lines.push('');
+  lines.push('def main():');
+  lines.push('    success = 0');
+  lines.push('    fail = 0');
+  lines.push('    for old, new in renames:');
+  lines.push('        if os.path.exists(old):');
+  lines.push('            os.rename(old, new)');
+  lines.push('            print(f"✓ {old} -> {new}")');
+  lines.push('            success += 1');
+  lines.push('        else:');
+  lines.push('            print(f"✗ 文件不存在: {old}")');
+  lines.push('            fail += 1');
+  lines.push('    print(f"完成: {success} 成功, {fail} 失败")');
+  lines.push('');
+  lines.push('if __name__ == "__main__":');
+  lines.push('    # 取消下行注释以实际执行');
+  lines.push('    # main()');
+  lines.push('    print("预览模式 - 取消 main() 调用注释以执行")');
+
+  return lines.join('\n');
+}
+
+function copyRenameCommands() {
+  const validItems = previewItems.filter(i => i.status !== 'skipped' && i.status !== 'conflict');
+  if (!validItems.length) {
+    showToast('没有可重命名的文件', 'warning');
+    return;
+  }
+
+  const commands = validItems.map(item =>
+    `ren "${item.oldName}" "${item.newName}"  // Windows CMD`
+  ).join('\n');
+
+  // Also generate bash version
+  const bashCommands = validItems.map(item =>
+    `mv "${item.oldName}" "${item.newName}"  # Bash`
+  ).join('\n');
+
+  const text = `# Windows CMD / PowerShell:\n${commands}\n\n# Bash / Linux:\n${bashCommands}`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('重命名命令已复制到剪贴板', 'success');
+  }).catch(() => {
+    showToast('复制失败，请手动复制', 'error');
+  });
+}
+
+function exportList() {
+  const items = previewItems.filter(i => i.status !== 'skipped');
+  if (!items.length) {
+    showToast('没有变更项可导出', 'warning');
+    return;
+  }
+
+  const header = '原文件名,新文件名,状态';
+  const rows = items.map(item =>
+    `"${item.oldName}","${item.newName}","${item.status === 'conflict' ? '冲突' : '正常'}"`
+  );
+
+  const csv = header + '\n' + rows.join('\n');
+  downloadFile(csv, 'rename_comparison.csv', 'text/csv');
+  showToast('对照表已导出为 CSV', 'success');
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(message, type) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icon = type === 'success' ? '✓' : type === 'warning' ? '⚠' : type === 'error' ? '✗' : 'ℹ';
+  toast.innerHTML = `${icon} ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// ============================================================
+// Keyboard shortcut
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd + S = export CSV
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    exportList();
+  }
+});
+
+// Init
+updatePreview();
+</script>
+</body>
+</html>
