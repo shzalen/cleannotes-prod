@@ -101,6 +101,34 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .markdown-body .task-list-item{list-style-type:none}
 .markdown-body .task-list-item input{margin:0 .5em .25em -1.4em;vertical-align:middle}
 
+/* PDF export: avoid page breaks cutting through text */
+.markdown-body.pdf-export h1,
+.markdown-body.pdf-export h2,
+.markdown-body.pdf-export h3,
+.markdown-body.pdf-export h4,
+.markdown-body.pdf-export h5,
+.markdown-body.pdf-export h6,
+.markdown-body.pdf-export p,
+.markdown-body.pdf-export li,
+.markdown-body.pdf-export blockquote,
+.markdown-body.pdf-export pre,
+.markdown-body.pdf-export table,
+.markdown-body.pdf-export img,
+.markdown-body.pdf-export hr{
+  page-break-inside:avoid;
+  break-inside:avoid;
+}
+.markdown-body.pdf-export h1,
+.markdown-body.pdf-export h2,
+.markdown-body.pdf-export h3{
+  page-break-after:avoid;
+  break-after:avoid;
+}
+.markdown-body.pdf-export tr{
+  page-break-inside:avoid;
+  break-inside:avoid;
+}
+
 /* Alert */
 .alert{padding:10px 14px;border-radius:7px;font-size:13px;margin:0 24px 12px;display:none}
 .alert.show{display:block}
@@ -676,19 +704,28 @@ const App = {
 
     // Clone the preview content into a temporary container for clean PDF export
     const tempContainer = document.createElement('div');
-    tempContainer.style.cssText = 'padding:40px;background:#fff;width:680px;';
+    // A4 content width ≈ 190 mm ≈ 718 px at 96 dpi, after 10 mm margins
+    tempContainer.style.cssText = 'padding:0;background:#fff;width:718px;font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;';
     const mdBody = document.createElement('div');
-    mdBody.className = 'markdown-body';
+    // pdf-export class adds page-break-inside:avoid to prevent CJK text truncation
+    mdBody.className = 'markdown-body pdf-export';
     mdBody.innerHTML = this.preview.innerHTML;
     tempContainer.appendChild(mdBody);
 
     const opt = {
       margin: [10, 10, 10, 10],
       filename: 'markdown-export.pdf',
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      image: { type: 'jpeg', quality: 0.96 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 718,
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] },
+      // avoid-all prevents page breaks inside text blocks; css respects explicit page-break
+      pagebreak: { mode: ['avoid-all', 'css'] },
     };
 
     this.showAlert('正在生成 PDF，请稍候...', 'info');

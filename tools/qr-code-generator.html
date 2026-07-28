@@ -27,6 +27,15 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .config-section h3{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:10px;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--bg)}
 .config-section h3 .sec-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:700}
 
+/* Template selector */
+.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tpl-card{padding:10px 6px;border:2px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;transition:all .15s;background:var(--surface)}
+.tpl-card:hover{border-color:var(--primary)}
+.tpl-card.active{border-color:var(--primary);background:var(--primary-light)}
+.tpl-card .tpl-icon{font-size:22px;display:block;margin-bottom:3px}
+.tpl-card .tpl-label{font-size:11px;color:var(--text-2);font-weight:500}
+.tpl-card.active .tpl-label{color:var(--primary);font-weight:600}
+
 .type-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .type-tab{padding:8px 4px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;text-align:center;transition:all .15s;background:var(--surface);color:var(--text-2)}
 .type-tab:hover{border-color:var(--primary);color:var(--primary)}
@@ -88,7 +97,9 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
 .preview-content{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:32px}
 .preview-wrapper{display:flex;flex-direction:column;align-items:center;gap:16px}
 .qr-canvas-wrap{background:var(--surface);border-radius:12px;padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center}
+.qr-canvas-wrap.has-template{background:transparent;padding:0;box-shadow:none;border-radius:0}
 #qrCanvas{display:block;border-radius:4px}
+.qr-canvas-wrap.has-template #qrCanvas{border-radius:12px}
 .preview-meta{font-size:12px;color:var(--text-3);text-align:center}
 
 .preview-empty{text-align:center;color:var(--text-3)}
@@ -120,7 +131,7 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
 
 <header>
   <h1><span class="icon">📱</span> 二维码生成工具</h1>
-  <p>支持文本/网址/名片/WiFi/短信/邮箱，可自定义颜色、样式、Logo，导出 PNG/SVG</p>
+  <p>支持套用模板（微信支付/支付宝/名片/促销/签到），自定义颜色、样式、Logo，导出 PNG/SVG</p>
 </header>
 
 <div class="main">
@@ -129,7 +140,38 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
     <div class="config-scroll">
 
       <div class="config-section">
-        <h3><span class="sec-num">1</span> 内容类型</h3>
+        <h3><span class="sec-num">1</span> 模板</h3>
+        <div class="tpl-grid" id="templateGrid">
+          <div class="tpl-card active" data-template="none">
+            <span class="tpl-icon">⬜</span>
+            <span class="tpl-label">默认</span>
+          </div>
+          <div class="tpl-card" data-template="wechat_pay">
+            <span class="tpl-icon">💚</span>
+            <span class="tpl-label">微信支付</span>
+          </div>
+          <div class="tpl-card" data-template="alipay">
+            <span class="tpl-icon">💙</span>
+            <span class="tpl-label">支付宝</span>
+          </div>
+          <div class="tpl-card" data-template="business_card">
+            <span class="tpl-icon">👤</span>
+            <span class="tpl-label">名片</span>
+          </div>
+          <div class="tpl-card" data-template="promo">
+            <span class="tpl-icon">🎉</span>
+            <span class="tpl-label">促销活动</span>
+          </div>
+          <div class="tpl-card" data-template="checkin">
+            <span class="tpl-icon">✅</span>
+            <span class="tpl-label">活动签到</span>
+          </div>
+        </div>
+        <div class="hint" id="templateHint" style="margin-top:6px;font-size:11px;color:var(--text-3)">纯二维码，无装饰</div>
+      </div>
+
+      <div class="config-section">
+        <h3><span class="sec-num">2</span> 内容类型</h3>
         <div class="type-tabs" id="typeTabs">
           <div class="type-tab active" data-type="url"><span class="tt-icon">🔗</span>网址</div>
           <div class="type-tab" data-type="text"><span class="tt-icon">📝</span>文本</div>
@@ -143,12 +185,12 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
       </div>
 
       <div class="config-section">
-        <h3><span class="sec-num">2</span> 内容数据</h3>
+        <h3><span class="sec-num">3</span> 内容数据</h3>
         <div id="contentFields"></div>
       </div>
 
       <div class="config-section">
-        <h3><span class="sec-num">3</span> 样式配置</h3>
+        <h3><span class="sec-num">4</span> 样式配置</h3>
 
         <div class="field">
           <label>前景色</label>
@@ -200,7 +242,7 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
       </div>
 
       <div class="config-section">
-        <h3><span class="sec-num">4</span> 尺寸与容错</h3>
+        <h3><span class="sec-num">5</span> 尺寸与容错</h3>
 
         <div class="field">
           <label>尺寸 (像素)</label>
@@ -231,7 +273,7 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
       </div>
 
       <div class="config-section">
-        <h3><span class="sec-num">5</span> Logo（可选）</h3>
+        <h3><span class="sec-num">6</span> Logo（可选）</h3>
         <div class="logo-upload">
           <div class="logo-preview" id="logoPreview" onclick="document.getElementById('logoInput').click()">
             <span class="placeholder">+</span>
@@ -270,7 +312,7 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
     </div>
     <div class="preview-content">
       <div class="preview-wrapper" id="previewWrapper">
-        <div class="qr-canvas-wrap">
+        <div class="qr-canvas-wrap" id="canvasWrap">
           <canvas id="qrCanvas" width="320" height="320"></canvas>
         </div>
         <div class="preview-meta" id="previewMeta"></div>
@@ -287,6 +329,7 @@ input[type="color"]{width:40px;height:32px;border:1px solid var(--border);border
 // State
 // ═══════════════════════════════════════════
 const state = {
+  template: 'none',
   type: 'url',
   dotStyle: 'square',
   cornerStyle: 'square',
@@ -299,11 +342,87 @@ const state = {
   logoSize: 20,
 };
 
-let lastQR = null;   // qrcode-generator instance
-let lastMatrix = null; // boolean[][]
+let lastQR = null;
+let lastMatrix = null;
 
 // ═══════════════════════════════════════════
-// Content templates
+// Template definitions
+// Each template defines visual decorations around the QR code:
+//   padding  — extra canvas space {top,right,bottom,left}
+//   cardBg   — card background color (null = transparent)
+//   title    — header text (null = no header)
+//   subtitle — footer text (null = no footer)
+//   titleColor / subtitleColor — text colors
+//   accent   — accent color for decorative elements
+// ═══════════════════════════════════════════
+const templates = {
+  none: {
+    name: '默认',
+    desc: '纯二维码，无装饰',
+    padding: { top: 0, right: 0, bottom: 0, left: 0 },
+    cardBg: null,
+    title: null,
+    subtitle: null,
+  },
+  wechat_pay: {
+    name: '微信支付',
+    desc: '微信支付收款码风格，绿色主题',
+    padding: { top: 70, right: 32, bottom: 52, left: 32 },
+    cardBg: '#ffffff',
+    accent: '#07c160',
+    title: '微信支付',
+    titleColor: '#07c160',
+    subtitle: '长按识别二维码',
+    subtitleColor: '#9e9e9e',
+  },
+  alipay: {
+    name: '支付宝',
+    desc: '支付宝收款码风格，蓝色主题',
+    padding: { top: 70, right: 32, bottom: 52, left: 32 },
+    cardBg: '#ffffff',
+    accent: '#1677ff',
+    title: '支付宝',
+    titleColor: '#1677ff',
+    subtitle: '扫一扫，向我付款',
+    subtitleColor: '#9e9e9e',
+  },
+  business_card: {
+    name: '名片',
+    desc: '电子名片卡风格，适合 vCard 内容',
+    padding: { top: 70, right: 32, bottom: 52, left: 32 },
+    cardBg: '#ffffff',
+    accent: '#1e293b',
+    title: '电子名片',
+    titleColor: '#1e293b',
+    subtitle: '扫描二维码，保存联系方式',
+    subtitleColor: '#9e9e9e',
+  },
+  promo: {
+    name: '促销活动',
+    desc: '促销活动扫码风格，红色主题',
+    padding: { top: 70, right: 32, bottom: 52, left: 32 },
+    cardBg: '#ffffff',
+    accent: '#dc2626',
+    title: '扫码领优惠',
+    titleColor: '#dc2626',
+    subtitle: '限时活动，不容错过',
+    subtitleColor: '#9e9e9e',
+  },
+  checkin: {
+    name: '活动签到',
+    desc: '活动签到码风格，蓝色主题',
+    padding: { top: 70, right: 32, bottom: 52, left: 32 },
+    cardBg: '#ffffff',
+    accent: '#2563eb',
+    title: '活动签到',
+    titleColor: '#2563eb',
+    subtitle: '请使用手机扫码完成签到',
+    subtitleColor: '#9e9e9e',
+  },
+};
+
+// ═══════════════════════════════════════════
+// Content field templates
 // ═══════════════════════════════════════════
 const fieldTemplates = {
   url: () => `
@@ -386,7 +505,7 @@ function buildContent() {
 }
 
 // ═══════════════════════════════════════════
-// QR Code rendering (Canvas)
+// QR Code rendering (Canvas) — with template support
 // ═══════════════════════════════════════════
 
 function generateQR() {
@@ -400,8 +519,6 @@ function generateQR() {
     lastQR = qr;
 
     const moduleCount = qr.getModuleCount();
-
-    // Build boolean matrix
     const matrix = [];
     for (let r = 0; r < moduleCount; r++) {
       matrix[r] = [];
@@ -413,10 +530,12 @@ function generateQR() {
 
     renderToCanvas(matrix, moduleCount);
 
+    const tpl = templates[state.template];
+    const tplLabel = state.template === 'none' ? '' : ` · 模板: ${tpl.name}`;
     document.getElementById('previewInfo').textContent =
       `${moduleCount}×${moduleCount} 模块 · ${state.size}px`;
     document.getElementById('previewMeta').textContent =
-      `类型: ${typeLabels[state.type]} · 容错: ${state.ecc} · ${content.length} 字符`;
+      `类型: ${typeLabels[state.type]} · 容错: ${state.ecc} · ${content.length} 字符${tplLabel}`;
 
   } catch (e) {
     console.error(e);
@@ -424,54 +543,106 @@ function generateQR() {
   }
 }
 
+function inFinder(r, c, mc) {
+  if (r < 7 && c < 7) return true;
+  if (r < 7 && c >= mc - 7) return true;
+  if (r >= mc - 7 && c < 7) return true;
+  return false;
+}
+
+/**
+ * Render QR code + template to canvas.
+ * Template adds padding around the QR area and draws card/title/subtitle.
+ */
 function renderToCanvas(matrix, moduleCount) {
   const canvas = document.getElementById('qrCanvas');
   const ctx = canvas.getContext('2d');
 
-  // High-DPI: use 2x backing store for crisp output
-  const scale = 2;
-  const targetSize = state.size;
+  const tpl = templates[state.template];
+  const pad = tpl.padding;
+  const scale = 2; // High-DPI backing store
+
+  const qrSize = state.size;
+  const canvasW = qrSize + pad.left + pad.right;
+  const canvasH = qrSize + pad.top + pad.bottom;
+
+  canvas.width = canvasW * scale;
+  canvas.height = canvasH * scale;
+  canvas.style.width = canvasW + 'px';
+  canvas.style.height = canvasH + 'px';
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+  // ── 1. Template card background ──
+  if (tpl.cardBg) {
+    // Drop shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.12)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = tpl.cardBg;
+    roundRectPath(ctx, 0, 0, canvasW, canvasH, 14);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+  }
+
+  // ── 2. QR code at (pad.left, pad.top) ──
+  ctx.save();
+  ctx.translate(pad.left, pad.top);
+  drawQRCode(ctx, matrix, moduleCount, qrSize);
+  ctx.restore();
+
+  // ── 3. Template foreground (title, subtitle, decorations) ──
+  if (tpl.title) {
+    const centerX = canvasW / 2;
+
+    // Title
+    ctx.fillStyle = tpl.titleColor;
+    ctx.font = 'bold 22px system-ui, -apple-system, "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tpl.title, centerX, 35);
+
+    // Subtitle
+    if (tpl.subtitle) {
+      ctx.fillStyle = tpl.subtitleColor;
+      ctx.font = '13px system-ui, -apple-system, "Segoe UI", sans-serif';
+      ctx.fillText(tpl.subtitle, centerX, pad.top + qrSize + 26);
+    }
+  }
+}
+
+/**
+ * Draw just the QR code, assuming origin (0,0) is the top-left of the QR area.
+ */
+function drawQRCode(ctx, matrix, moduleCount, targetSize) {
   const margin = state.margin;
   const totalModules = moduleCount + margin * 2;
   const modulePx = targetSize / totalModules;
 
-  canvas.width = targetSize * scale;
-  canvas.height = targetSize * scale;
-  canvas.style.width = targetSize + 'px';
-  canvas.style.height = targetSize + 'px';
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
-
-  // Background
+  // QR background
   ctx.fillStyle = state.bgColor;
   ctx.fillRect(0, 0, targetSize, targetSize);
 
-  // Helper: check if a module is part of a finder pattern
-  const inFinder = (r, c) => {
-    if (r < 7 && c < 7) return true;
-    if (r < 7 && c >= moduleCount - 7) return true;
-    if (r >= moduleCount - 7 && c < 7) return true;
-    return false;
-  };
-
-  // Draw data modules (skip finder pattern area — we draw those separately)
+  // Data modules (skip finder areas)
   ctx.fillStyle = state.fgColor;
   for (let r = 0; r < moduleCount; r++) {
     for (let c = 0; c < moduleCount; c++) {
-      if (!matrix[r][c] || inFinder(r, c)) continue;
+      if (!matrix[r][c] || inFinder(r, c, moduleCount)) continue;
       const x = (c + margin) * modulePx;
       const y = (r + margin) * modulePx;
       drawModule(ctx, x, y, modulePx, state.dotStyle);
     }
   }
 
-  // Draw three finder (position detection) patterns
-  const cornerOffset = margin * modulePx;
-  const finderSize = 7 * modulePx;
-  drawFinder(ctx, cornerOffset, cornerOffset, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
-  drawFinder(ctx, (margin + moduleCount - 7) * modulePx, cornerOffset, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
-  drawFinder(ctx, cornerOffset, (margin + moduleCount - 7) * modulePx, finderSize, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+  // Finder patterns
+  const co = margin * modulePx;
+  const fs = 7 * modulePx;
+  drawFinder(ctx, co, co, fs, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+  drawFinder(ctx, (margin + moduleCount - 7) * modulePx, co, fs, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
+  drawFinder(ctx, co, (margin + moduleCount - 7) * modulePx, fs, modulePx, state.cornerStyle, state.fgColor, state.bgColor);
 
-  // Logo
+  // Logo (centered on QR area)
   if (state.logo) {
     drawLogo(ctx, targetSize);
   }
@@ -492,7 +663,6 @@ function drawModule(ctx, x, y, size, style) {
       ctx.fill();
       break;
     case 'classy':
-      // Scaled circle — visually similar to teardrop at small sizes
       ctx.beginPath();
       ctx.arc(x + size / 2, y + size / 2, size * 0.48, 0, 2 * Math.PI);
       ctx.fill();
@@ -511,31 +681,24 @@ function roundRectPath(ctx, x, y, w, h, r) {
 }
 
 function drawFinder(ctx, ox, oy, totalSize, modulePx, style, fg, bg) {
-  // Clear area
   ctx.fillStyle = bg;
   ctx.fillRect(ox, oy, totalSize, totalSize);
 
   if (style === 'circle') {
     const cx = ox + totalSize / 2;
     const cy = oy + totalSize / 2;
-    // Outer ring (radius 3.5 modules)
     ctx.fillStyle = fg;
     ctx.beginPath(); ctx.arc(cx, cy, modulePx * 3.5, 0, 2 * Math.PI); ctx.fill();
-    // Inner hole (radius 2.5 modules)
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.arc(cx, cy, modulePx * 2.5, 0, 2 * Math.PI); ctx.fill();
-    // Center dot (radius 1.5 modules)
     ctx.fillStyle = fg;
     ctx.beginPath(); ctx.arc(cx, cy, modulePx * 1.5, 0, 2 * Math.PI); ctx.fill();
   } else {
     const r = style === 'rounded' ? modulePx * 1.5 : 0;
-    // Outer 7×7
     ctx.fillStyle = fg;
     roundRectPath(ctx, ox, oy, totalSize, totalSize, r); ctx.fill();
-    // Inner 5×5 (bg)
     ctx.fillStyle = bg;
     roundRectPath(ctx, ox + modulePx, oy + modulePx, totalSize - 2 * modulePx, totalSize - 2 * modulePx, r * 0.7); ctx.fill();
-    // Center 3×3 (fg)
     ctx.fillStyle = fg;
     roundRectPath(ctx, ox + 2 * modulePx, oy + 2 * modulePx, totalSize - 4 * modulePx, totalSize - 4 * modulePx, r * 0.5); ctx.fill();
   }
@@ -547,7 +710,6 @@ function drawLogo(ctx, totalSize) {
   const y = (totalSize - logoPx) / 2;
   const pad = logoPx * 0.08;
 
-  // White rounded background behind logo
   ctx.fillStyle = state.bgColor;
   roundRectPath(ctx, x - pad, y - pad, logoPx + pad * 2, logoPx + pad * 2, pad * 1.5);
   ctx.fill();
@@ -556,30 +718,38 @@ function drawLogo(ctx, totalSize) {
 }
 
 // ═══════════════════════════════════════════
-// SVG Export
+// SVG Export — with template support
 // ═══════════════════════════════════════════
 function downloadSVG() {
   if (!lastMatrix) { showToast('请先生成二维码'); return; }
+
+  const tpl = templates[state.template];
+  const pad = tpl.padding;
   const mc = lastMatrix.length;
   const modulePx = 10;
   const marginPx = state.margin * modulePx;
-  const totalPx = mc * modulePx + marginPx * 2;
+  const qrPx = mc * modulePx + marginPx * 2;
+  const totalW = qrPx + pad.left + pad.right;
+  const totalH = qrPx + pad.top + pad.bottom;
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalPx}" height="${totalPx}" viewBox="0 0 ${totalPx} ${totalPx}">`;
-  svg += `<rect width="${totalPx}" height="${totalPx}" fill="${state.bgColor}"/>`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`;
 
-  const inFinder = (r, c) => {
-    if (r < 7 && c < 7) return true;
-    if (r < 7 && c >= mc - 7) return true;
-    if (r >= mc - 7 && c < 7) return true;
-    return false;
-  };
+  // Template card background
+  if (tpl.cardBg) {
+    svg += `<rect x="0" y="0" width="${totalW}" height="${totalH}" rx="14" fill="${tpl.cardBg}"/>`;
+  }
 
+  // QR background at offset
+  const qrX = pad.left;
+  const qrY = pad.top;
+  svg += `<rect x="${qrX}" y="${qrY}" width="${qrPx}" height="${qrPx}" fill="${state.bgColor}"/>`;
+
+  // QR data modules
   for (let r = 0; r < mc; r++) {
     for (let c = 0; c < mc; c++) {
-      if (!lastMatrix[r][c] || inFinder(r, c)) continue;
-      const x = (c + state.margin) * modulePx;
-      const y = (r + state.margin) * modulePx;
+      if (!lastMatrix[r][c] || inFinder(r, c, mc)) continue;
+      const x = qrX + (c + state.margin) * modulePx;
+      const y = qrY + (r + state.margin) * modulePx;
       if (state.dotStyle === 'dots') {
         svg += `<circle cx="${x + modulePx/2}" cy="${y + modulePx/2}" r="${modulePx/2}" fill="${state.fgColor}"/>`;
       } else if (state.dotStyle === 'rounded') {
@@ -592,7 +762,7 @@ function downloadSVG() {
     }
   }
 
-  // Finder patterns in SVG
+  // Finder patterns
   const drawFinderSVG = (ox, oy) => {
     const s = 7 * modulePx;
     if (state.cornerStyle === 'circle') {
@@ -607,9 +777,18 @@ function downloadSVG() {
       svg += `<rect x="${ox+2*modulePx}" y="${oy+2*modulePx}" width="${s-4*modulePx}" height="${s-4*modulePx}" rx="${r*0.5}" fill="${state.fgColor}"/>`;
     }
   };
-  drawFinderSVG(marginPx, marginPx);
-  drawFinderSVG((state.margin + mc - 7) * modulePx, marginPx);
-  drawFinderSVG(marginPx, (state.margin + mc - 7) * modulePx);
+  drawFinderSVG(qrX + marginPx, qrY + marginPx);
+  drawFinderSVG(qrX + (state.margin + mc - 7) * modulePx, qrY + marginPx);
+  drawFinderSVG(qrX + marginPx, qrY + (state.margin + mc - 7) * modulePx);
+
+  // Template text elements
+  if (tpl.title) {
+    const centerX = totalW / 2;
+    svg += `<text x="${centerX}" y="42" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="bold" fill="${tpl.titleColor}">${escapeXml(tpl.title)}</text>`;
+    if (tpl.subtitle) {
+      svg += `<text x="${centerX}" y="${pad.top + qrPx + 30}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="${tpl.subtitleColor}">${escapeXml(tpl.subtitle)}</text>`;
+    }
+  }
 
   svg += `</svg>`;
 
@@ -617,15 +796,40 @@ function downloadSVG() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `qrcode_${Date.now()}.svg`;
+  a.download = `qrcode_${state.template}_${Date.now()}.svg`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('SVG 已下载');
 }
 
+function escapeXml(s) {
+  return s.replace(/[<>&'"]/g, ch => ({ '<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;' }[ch]));
+}
+
 // ═══════════════════════════════════════════
 // Event wiring
 // ═══════════════════════════════════════════
+
+// Template selector
+document.querySelectorAll('.tpl-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.tpl-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    state.template = card.dataset.template;
+    // Toggle canvas wrap styling
+    const wrap = document.getElementById('canvasWrap');
+    const hint = document.getElementById('templateHint');
+    const tpl = templates[state.template];
+    if (state.template === 'none') {
+      wrap.classList.remove('has-template');
+    } else {
+      wrap.classList.add('has-template');
+    }
+    hint.textContent = tpl.desc;
+    generateQR();
+  });
+});
+
 document.querySelectorAll('.type-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
@@ -743,7 +947,7 @@ function downloadPNG() {
   const canvas = document.getElementById('qrCanvas');
   if (!canvas || !canvas.width) { showToast('请先生成二维码'); return; }
   const link = document.createElement('a');
-  link.download = `qrcode_${Date.now()}.png`;
+  link.download = `qrcode_${state.template}_${Date.now()}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
   showToast('PNG 已下载');
