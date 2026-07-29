@@ -17,10 +17,11 @@
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* Header */
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header .header-left{flex:1;min-width:0}
 header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
 header h1 .icon{font-size:20px}
-header p{font-size:13px;color:var(--text-2);margin-top:3px}
+header p{font-size:12px;color:var(--text-2);margin-top:2px}
 
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
@@ -40,9 +41,9 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .view-btn.active{background:var(--primary);color:#fff;font-weight:600}
 
 /* Fullscreen button */
-.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0;margin-top:4px}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
-.fs-btn svg{width:14px;height:14px}
+.fs-btn svg{width:15px;height:15px}
 .fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
 /* Search */
@@ -184,8 +185,13 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 <body>
 
 <header>
-  <h1><span class="icon">&#128295;</span> JSON 可视化工具</h1>
-  <p>粘贴或上传 JSON 数据，格式化预览、树形展开、语法高亮、一键导出</p>
+  <div class="header-left">
+    <h1><span class="icon">&#128295;</span> JSON 可视化工具</h1>
+    <p>粘贴或上传 JSON 数据，格式化预览、树形展开、语法高亮、一键导出</p>
+  </div>
+  <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+  </button>
 </header>
 
 <!-- Toolbar -->
@@ -273,12 +279,6 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
         <div class="stats" id="preview-stats"></div>
         <button class="btn btn-secondary btn-sm" id="expand-all-btn" onclick="App.expandAll(true)" style="font-size:11px;padding:3px 8px" title="全部展开">展开</button>
         <button class="btn btn-secondary btn-sm" id="collapse-all-btn" onclick="App.expandAll(false)" style="font-size:11px;padding:3px 8px" title="全部折叠">折叠</button>
-        <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
-        </button>
-        <button class="fs-exit-btn" onclick="App.toggleFullscreen()" title="退出全屏 (Esc)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>
-        </button>
       </div>
     </div>
     <div class="preview-wrap" id="preview-wrap">
@@ -322,7 +322,6 @@ const App = {
     this.previewPanel = document.querySelector('.preview-panel');
     this.previewStats = document.getElementById('preview-stats');
     this.fsBtn = document.getElementById('fs-btn');
-    this.fsExitBtn = document.querySelector('.fs-exit-btn');
     this.alert = document.getElementById('alert');
     this.treeView = document.getElementById('tree-view');
     this.blockView = document.getElementById('block-view');
@@ -1152,11 +1151,11 @@ const App = {
     const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
     this.isFullscreen = isFS;
     if (isFS) {
-      this.fsBtn.style.display = 'none';
-      if (this.fsExitBtn) this.fsExitBtn.style.display = 'inline-flex';
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+      this.fsBtn.title = '退出全屏 (Esc)';
     } else {
-      this.fsBtn.style.display = 'inline-flex';
-      if (this.fsExitBtn) this.fsExitBtn.style.display = 'none';
+      this.fsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+      this.fsBtn.title = '全屏查看';
     }
   },
 

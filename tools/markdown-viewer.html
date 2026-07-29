@@ -16,10 +16,11 @@
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* Header */
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header .header-left{flex:1;min-width:0}
 header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
 header h1 .icon{font-size:20px}
-header p{font-size:13px;color:var(--text-2);margin-top:3px}
+header p{font-size:12px;color:var(--text-2);margin-top:2px}
 
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
@@ -135,9 +136,9 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 .alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
 
 /* Fullscreen mode */
-.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0;margin-top:4px}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
-.fs-btn svg{width:14px;height:14px}
+.fs-btn svg{width:15px;height:15px}
 .fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
 /* Fullscreen exit button (visible only in fullscreen) */
@@ -172,8 +173,13 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
 <body>
 
 <header>
-  <h1><span class="icon">&#128221;</span> Markdown 可视化工具</h1>
-  <p>粘贴或上传 Markdown 文件，实时预览渲染效果，支持导出 MD / HTML / PDF</p>
+  <div class="header-left">
+    <h1><span class="icon">&#128221;</span> Markdown 可视化工具</h1>
+    <p>粘贴或上传 Markdown 文件，实时预览渲染效果，支持导出 MD / HTML / PDF</p>
+  </div>
+  <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+  </button>
 </header>
 
 <!-- Toolbar -->
@@ -240,12 +246,7 @@ header p{font-size:13px;color:var(--text-2);margin-top:3px}
   <div class="preview-panel">
     <div class="panel-header">
       <div class="title"><span class="dot"></span> 渲染预览</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="word-count" id="render-info"></div>
-        <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏查看">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
-        </button>
-      </div>
+      <div class="word-count" id="render-info"></div>
     </div>
     <div class="preview-wrap" id="preview-wrap">
       <div class="preview-empty" id="preview-empty">

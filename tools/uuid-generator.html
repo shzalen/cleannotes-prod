@@ -16,10 +16,11 @@
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
 
 /* Header */
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;flex-shrink:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header .header-left{flex:1;min-width:0}
 header h1{font-size:18px;font-weight:600;color:#0f172a;display:flex;align-items:center;gap:8px}
 header h1 .icon{font-size:20px}
-header p{font-size:13px;color:var(--text-2);margin-top:3px}
+header p{font-size:12px;color:var(--text-2);margin-top:2px}
 
 /* Main layout */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:20px 24px;gap:16px}
@@ -97,9 +98,9 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 .toast.show{opacity:1}
 
 /* Fullscreen */
-.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-2);transition:all .15s;flex-shrink:0;margin-top:4px}
 .fs-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
-.fs-btn svg{width:14px;height:14px}
+.fs-btn svg{width:15px;height:15px}
 .fs-btn.fullscreen-active{background:var(--primary);color:#fff;border-color:var(--primary)}
 :fullscreen .main{height:100vh}
 
@@ -124,8 +125,13 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
 <body>
 
 <header>
-  <h1><span class="icon">🆔</span> 唯一 ID 生成工具</h1>
-  <p>支持 UUID v1/v4/v5、GUID、NanoID、ULID、ShortID、Snowflake、MongoDB ObjectId 等多种格式</p>
+  <div class="header-left">
+    <h1><span class="icon">🆔</span> 唯一 ID 生成工具</h1>
+    <p>支持 UUID v1/v4/v5、GUID、NanoID、ULID、ShortID、Snowflake、MongoDB ObjectId 等多种格式</p>
+  </div>
+  <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  </button>
 </header>
 
 <div class="main">
@@ -287,11 +293,6 @@ input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
     <div class="results-header">
       <div class="title"><span class="dot"></span> 生成结果</div>
       <div class="info" id="resultsInfo">0 条</div>
-      <div class="actions">
-        <button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-        </button>
-      </div>
     </div>
     <div class="results-list" id="resultsList">
       <div class="empty-state">
@@ -746,20 +747,26 @@ function clearResults() {
 }
 
 function toggleFullscreen() {
-  const main = document.querySelector('.main');
   const btn = document.getElementById('fsBtn');
   if (!document.fullscreenElement) {
-    main.requestFullscreen();
-    btn.classList.add('fullscreen-active');
+    document.documentElement.requestFullscreen();
   } else {
     document.exitFullscreen();
-    btn.classList.remove('fullscreen-active');
   }
 }
 
 document.addEventListener('fullscreenchange', () => {
   const btn = document.getElementById('fsBtn');
-  btn.classList.toggle('fullscreen-active', !!document.fullscreenElement);
+  if (!btn) return;
+  const isFS = !!document.fullscreenElement;
+  btn.classList.toggle('fullscreen-active', isFS);
+  if (isFS) {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+    btn.title = '退出全屏 (Esc)';
+  } else {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+    btn.title = '全屏';
+  }
 });
 
 function showToast(msg) {

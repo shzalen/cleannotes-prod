@@ -8,9 +8,14 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.6;font-size:14px}
 .container{max-width:1100px;margin:0 auto;padding:24px}
-header{background:#fff;border-bottom:1px solid #e2e8f0;padding:16px 24px;margin-bottom:24px}
-header h1{font-size:20px;font-weight:600;color:#0f172a}
-header p{font-size:13px;color:#64748b;margin-top:4px}
+header{background:#fff;border-bottom:1px solid #e2e8f0;padding:12px 24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+header .header-left{flex:1;min-width:0}
+header h1{font-size:18px;font-weight:600;color:#0f172a}
+header p{font-size:12px;color:#64748b;margin-top:2px}
+.fs-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:pointer;color:#64748b;transition:all .15s;flex-shrink:0;margin-top:4px}
+.fs-btn:hover{border-color:#2563eb;color:#2563eb;background:#eff6ff}
+.fs-btn svg{width:15px;height:15px}
+.fs-btn.fullscreen-active{background:#2563eb;color:#fff;border-color:#2563eb}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px;margin-bottom:16px}
 .card-title{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .card-title .step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#2563eb;color:#fff;border-radius:50%;font-size:12px;font-weight:600}
@@ -86,8 +91,13 @@ header p{font-size:13px;color:#64748b;margin-top:4px}
 </head>
 <body>
 <header>
-<h1>PDM 表重建脚本生成工具</h1>
-<p>上传新旧 PDM 文件，选择需要重建的表，自动生成 12 个 SQL Server 脚本（6 重建 + 6 还原）</p>
+  <div class="header-left">
+    <h1>PDM 表重建脚本生成工具</h1>
+    <p>上传新旧 PDM 文件，选择需要重建的表，自动生成 12 个 SQL Server 脚本（6 重建 + 6 还原）</p>
+  </div>
+  <button class="fs-btn" id="fs-btn" onclick="App.toggleFullscreen()" title="全屏">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+  </button>
 </header>
 <div class="container">
 
@@ -800,6 +810,33 @@ const App = {
     document.getElementById('cfg-date').value = dateStr;
     document.getElementById('file-old').addEventListener('change', e=>this.handleFile('old',e.target.files[0]));
     document.getElementById('file-new').addEventListener('change', e=>this.handleFile('new',e.target.files[0]));
+    // Fullscreen change listener
+    document.addEventListener('fullscreenchange', () => this._onFullscreenChange());
+    document.addEventListener('webkitfullscreenchange', () => this._onFullscreenChange());
+  },
+
+  /* ---- Fullscreen (browser-level) ---- */
+  toggleFullscreen(){
+    if(document.fullscreenElement || document.webkitFullscreenElement){
+      if(document.exitFullscreen){ document.exitFullscreen(); } else if(document.webkitExitFullscreen){ document.webkitExitFullscreen(); }
+    } else {
+      const el = document.documentElement;
+      if(el.requestFullscreen){ el.requestFullscreen(); } else if(el.webkitRequestFullscreen){ el.webkitRequestFullscreen(); }
+    }
+  },
+
+  _onFullscreenChange(){
+    const btn = document.getElementById('fs-btn');
+    if(!btn) return;
+    const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    btn.classList.toggle('fullscreen-active', isFS);
+    if(isFS){
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+      btn.title = '退出全屏 (Esc)';
+    } else {
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+      btn.title = '全屏';
+    }
   },
 
   showLoading(show){ document.getElementById('loading').classList.toggle('show',show); },

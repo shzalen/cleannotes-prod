@@ -54,9 +54,15 @@ body {
   border-bottom: 1px solid var(--border);
   padding: 12px 20px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
+}
+
+.app-header .header-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .app-header h1 {
@@ -66,8 +72,40 @@ body {
 }
 
 .app-header .subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Fullscreen button */
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.fs-btn:hover {
+  border-color: var(--border-focus);
+  color: var(--border-focus);
+  background: var(--accent-light);
+}
+.fs-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.fs-btn.fullscreen-active {
+  background: var(--border-focus);
+  color: #fff;
+  border-color: var(--border-focus);
 }
 
 /* Main layout */
@@ -754,8 +792,13 @@ input[type="text"].pattern-input {
 <div class="app-container">
   <!-- Header -->
   <div class="app-header">
-    <h1>📦 批量重命名工具</h1>
-    <span class="subtitle">选择文件/目录 → 定义规则 → 预览 → 导出重命名脚本</span>
+    <div class="header-left">
+      <h1>📦 批量重命名工具</h1>
+      <span class="subtitle">选择文件/目录 → 定义规则 → 预览 → 导出重命名脚本</span>
+    </div>
+    <button class="fs-btn" id="fs-btn" onclick="toggleFullscreen()" title="全屏">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+    </button>
   </div>
 
   <!-- Main -->
@@ -1851,6 +1894,32 @@ document.addEventListener('keydown', (e) => {
 
 // Init
 updatePreview();
+// ============================================================
+// Fullscreen (browser-level)
+// ============================================================
+function toggleFullscreen() {
+  const btn = document.getElementById('fs-btn');
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fs-btn');
+  if (!btn) return;
+  const isFS = !!document.fullscreenElement;
+  btn.classList.toggle('fullscreen-active', isFS);
+  if (isFS) {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>';
+    btn.title = '退出全屏 (Esc)';
+  } else {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>';
+    btn.title = '全屏';
+  }
+});
+
 </script>
 </body>
 </html>
